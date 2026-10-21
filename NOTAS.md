@@ -1,31 +1,28 @@
 # WhatsApp Tukán — Estado y pasos para continuar
+*Actualizado: 21 oct 2026, 12:30*
 
 ## Qué es
-Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de WhatsApp de Meta**, para el número de ventas de Tukán (+593 99 640 8397) y después QF Producciones en el mismo programa.
+Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de WhatsApp de Meta**, para el número de ventas de Tukán (+593 99 640 8397) y después QF Producciones (+593 98 683 3077) en el mismo programa.
 
-- Repositorio: https://github.com/qfcorp/tuwhatsapp (público, rama `main`, ya tiene todo el código)
-- Dirección donde va a funcionar: https://whatsapp.tukanec.com
-- Servidor: laptop/servidor **qfcorp** (el mismo de TuSalón), publicado con el túnel de Cloudflare
-- Tecnología: PHP + PostgreSQL + nginx (igual que TuSalón)
-- Pruebas: lógica 123 y pantallas 62, todas bien (Meta simulado)
+- Repositorio: https://github.com/qfcorp/tuwhatsapp (rama `main`)
+- Dirección: **https://whatsapp.tukanec.com** (ya funciona)
+- Servidor: **qfcorp** (usuario `qf`), túnel de Cloudflare `servidorqf` → `http://localhost:80`
+- Tecnología: PHP + PostgreSQL + nginx
+- Pruebas (Meta simulado): **lógica 173 y pantallas 77, todo bien**
 
 ## Qué hace el programa
-- **Bandeja** de conversaciones y **chat** con 2 botones: "Enviar desde el celular" (gratis, abre WhatsApp con el texto listo) y "Enviar por el sistema" (pagado, muestra el costo).
-- **Respuestas automáticas** con reglas (la primera que dice "no" gana):
-  1. Contactos **Personales**: nunca se les contesta (siempre activa).
-  2. **Solo clientes registrados**.
-  3. **Solo fuera de mi horario**.
-  4. **Solo si habla de negocio** (palabras clave).
-  5. **Una sola respuesta** (menú una vez, luego solo opciones; una opción puede pasar a una persona).
-  - Cada mensaje muestra por qué se contestó o no. Hay un **probador** de reglas.
-- **Tope de gasto mensual** (por defecto $12): si se pasa, no envía nada pagado. Avisa al 80 % y 100 % (panel y Telegram opcional).
-- **Pendientes**: lista para enviar gratis desde el celular, uno por uno.
-- **Contactos**: traer del celular (botón de agenda en Android/Chrome, o subir archivo .vcf/.csv de Android, iPhone o Google). Por defecto entran como Personales y no cambia los que ya existen.
+- **Bandeja** y **chat** con 2 botones: "Enviar desde el celular" (gratis) y "Enviar por el sistema" (pagado, muestra el costo).
+- **Respuestas automáticas** con reglas: Personales nunca · solo clientes · solo fuera de horario · solo si habla de negocio · una sola respuesta. Cada mensaje dice por qué se contestó o no. Hay **probador**.
+- **Tope de gasto mensual** ($12 por defecto) con avisos al 80 % y 100 %.
+- **Pendientes** para enviar gratis desde el celular.
+- **Contactos**: traer del celular (agenda Android o archivo .vcf/.csv).
 - **Plantillas** de Meta (para escribir pasadas 24 horas).
-- **API** para otros programas (TuSalón, Panel Central): agregar pendientes y registrar clientes.
+- **API** para otros programas (TuSalón, Panel Central).
+- **Botón "Conectar con WhatsApp Business (código QR)"**: el número sigue en la app del celular y además aparece aquí, con contactos e historial (hasta 6 meses).
+- Páginas públicas: `/privacidad.php` y `/eliminar-datos.php` (las pide Meta).
 - Varios números (Tukán y QF), cada uno con sus reglas, contactos y tope.
 
-## Costos de Meta (Ecuador, se pueden cambiar en Gasto)
+## Costos de Meta (Ecuador, editables en Gasto)
 | Tipo | Por mensaje |
 |---|---|
 | Respuesta (servicio) | $0,0113 |
@@ -33,82 +30,98 @@ Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de
 | Autenticación | $0,0113 |
 | Marketing | $0,074 |
 
-Recibir mensajes y enviar desde la app del celular es **gratis**. Con $12: unas 1.000 respuestas o 160 de marketing.
+Recibir mensajes y enviar desde la app del celular es **gratis**.
 
 ---
 
-## LO QUE FALTA (en orden)
+## Datos de Meta (no son secretos)
+| Dato | Valor |
+|---|---|
+| App | **Tukan Mensajes** — App ID `2592670637899782` — **Publicada** |
+| Portafolio | **Qfproducciones** (ID `474753276508128`) — negocio **verificado** |
+| Tech Provider | **Independiente** — paso 1 (verificación del negocio) **Aprobado** · paso 2 (revisión de la app) **pendiente** |
+| Configuración del botón QR | **ES Config** — ID `1865337081309109` (creada en Casos de uso → Conectar en WhatsApp → **Administrador de registro insertado**; token nunca vence) |
+| Configuración vieja (NO sirve) | `1118315074244612` (variación "General", sin WhatsApp) — se puede borrar |
+| Webhook | `https://whatsapp.tukanec.com/webhook.php` — verificado — campos: messages, smb_message_echoes, history, smb_app_state_sync, account_update |
+| Número Tukán | +593 99 640 8397 → cuenta "tukansoftware" (ID `2250026202491413`), tipo **App de WhatsApp Business**, calidad Alta |
+| Número QF | +593 98 683 3077 → cuenta "qfproducciones" (ID `3132653697006297`), tipo App de WhatsApp Business |
+| Número de prueba de Meta | +1 555 675 0567 — Phone Number ID `1391982964001238` — cuenta `2501989233621271` |
 
-### ✅ Hecho
-- Código terminado y subido a GitHub.
-- Repositorio cambiado a público.
-- 21 oct 2026: pruebas otra vez → lógica 123 bien, pantallas 62 bien.
-- 21 oct 2026: instalador probado en un servidor simulado (Ubuntu + nginx + PHP-FPM + PostgreSQL): RESULTADO correcto, crear usuario LISTO, entrar al panel muestra "Conectar número", verificación del webhook responde bien, y correrlo 2 veces no borra nada.
-- 21 oct 2026: el comando del Paso 1 ya no lleva tilde (se rompía al pegar desde el celular).
-- 21 oct 2026: **Pasos 1, 2 y 3 HECHOS.** Programa instalado en qfcorp, usuario creado, y ruta publicada en Cloudflare (túnel `servidorqf` → `whatsapp.tukanec.com` → `http://localhost:80`). https://whatsapp.tukanec.com ya muestra la pantalla de entrar.
-- 21 oct 2026: **Meta:** creada la app **"Tukan Mensajes"** (ID 2592670637899782) en el portafolio **Qfproducciones** (verificación del negocio YA completa), caso de uso WhatsApp. Meta no permite la palabra "WhatsApp" en el nombre de la app.
-- 21 oct 2026: la app quedó marcada como **Tech Provider** (no se puede revertir). Faltan: verificación de acceso, revisión de la app, publicar la app (sin publicar, Meta NO manda mensajes reales al webhook).
-- 21 oct 2026: al agregar +593 99 640 8397 Meta respondió *"no cumple los requisitos para registrarse o migrar"* (error 3441034): el número sigue activo en la app WhatsApp Business del celular. La lista solo ofrece "número nuevo" o "número virtual", no coexistencia.
-- 21 oct 2026: **Dimitry eligió el plan B** (coexistencia: el número sigue en la app del celular).
-- 21 oct 2026: **Programado y probado el botón "Conectar con WhatsApp Business (código QR)"** (Embedded Signup v5 de Meta): canje del código, suscripción del webhook, PIN solo si es número nuevo, y pide a Meta contactos + historial (1 vez, dentro de 24 h). El webhook ahora guarda `history` (sin contestar solo), `smb_app_state_sync` (contactos nuevos como Desconocido) y acepta `account_update`. Páginas públicas `privacidad.php` y `eliminar-datos.php`. Pruebas: lógica 162 y pantallas 77, todo bien. Subido a GitHub.
-- 21 oct 2026: **Meta configurado:** "Inicio de sesión con Facebook para empresas" con `https://whatsapp.tukanec.com/` (URI de redirección y dominio del SDK). Configuración **"Conectar WhatsApp QR"** ID **1118315074244612** (token de usuario del sistema que nunca vence, permisos de WhatsApp). App ID **2592670637899782**.
-- 21 oct 2026: Dimitry guardó App ID, Configuration ID y clave secreta en el servidor (LISTO). Webhook verificado y suscritos messages, history, smb_app_state_sync, smb_message_echoes y account_update (prueba de Meta llegó bien). Datos básicos de la app completos (dominio, privacidad, eliminación de datos, categoría). **App PUBLICADA** por Dimitry. Falta subir el ícono (icono_tukan_mensajes.png).
-- 21 oct 2026: primer intento del botón QR: Meta terminó pero no mandó el número ("Meta no devolvió el número…"). Arreglado: si falta la cuenta se saca del permiso del token (debug_token) y si falta el número se busca en la cuenta (prefiere el que sigue en la app del celular); nunca registra un número a ciegas. Pruebas: lógica 173, pantallas 77.
-- 21 oct 2026: segundo intento: Meta respondió FINISH pero SIN cuenta ni número (`messaging_account_ids: []`). Causa: la configuración 1118315074244612 era de variación "General" (no de WhatsApp). Se registró la app como **Independent Tech Provider** (paso 1 verificación del negocio: Aprobado; paso 2 revisión de la app: pendiente, pide 2 videos). Se creó la configuración correcta **"ES Config" ID 1865337081309109** desde Casos de uso → Conectar en WhatsApp → **Administrador de registro insertado** (token nunca vence, productos cloud_api + marketing_messages_lite). El programa usa extras v5 (coexistencia ON, verificado con "Check a launch config"). El programa ahora también lee `messaging_account_ids`.
-- **SIGUE:** en el servidor `bash /var/www/tuwhatsapp/deploy/clave_meta.sh 2592670637899782 1865337081309109` (Enter en la clave para dejarla), actualizar con la línea del Paso 1, y volver a tocar el botón QR.
-- **ANTERIOR (ya hecho):** actualizar el programa (línea del Paso 1) y `bash /var/www/tuwhatsapp/deploy/clave_meta.sh 2592670637899782 1118315074244612` (pegar la Clave secreta de la app).
-- **SIGUE (Meta):** webhook (URL + token de verificación del panel) y campos; política de privacidad en Configuración → Básica; probar el botón QR con el número de Tukán; publicar la app; verificación de acceso y revisión de la app (para clientes de otros negocios).
+En el servidor (`/var/www/tuwhatsapp/config/.env`) ya están: META_APP_ID, META_ES_CONFIG_ID=1865337081309109 y la clave secreta. ✅
 
-### ✅ Paso 1. Instalar en el servidor qfcorp (por SSH)
-Pegar esta línea completa (como usuario qf, NO como root; pedirá la contraseña de sudo):
+---
+
+## ✅ Hecho (21 oct 2026)
+1. Programa instalado en qfcorp, usuario creado, publicado en Cloudflare.
+2. App de Meta creada, publicada, con dominio, privacidad, eliminación de datos y categoría.
+3. Webhook verificado y suscrito (la prueba de Meta llegó bien).
+4. Registrado como **Tech Provider independiente**.
+5. Botón QR programado, probado y funcionando: abre la ventana correcta de Meta ("Conecta tu cuenta fácilmente con Qfproducciones").
+6. **Número de prueba de Meta conectado** en el programa ("Prueba Meta") con token temporal de 24 h.
+
+## ⚠️ Por qué todavía no está el número de Tukán
+Meta responde **"Este número no cumple los requisitos para registrarse o migrar" (#3441034)** y **no ofrece** la opción de coexistencia (QR) para el +593 99 640 8397. Se probó de 3 formas (botón QR, Meta for Developers y crear cuenta de mensajes en el portafolio): Meta no deja usar ese número en la API por ahora.
+
+Causa más probable: el número tiene **poco tiempo/actividad** en WhatsApp Business. Meta pide **mínimo 7 días** de uso real (ideal 1–2 meses), app actualizada (2.24.17 o más) y que no se borre ni reinstale.
+
+**Decisión de Dimitry: opción B** → seguir usando el número de Tukán normal en el celular (es eSIM pagada, no se cambia) y **reintentar el botón QR en 1–2 semanas**.
+
+---
+
+## ⬜ LO QUE FALTA (en orden)
+
+### 1. Probar con el número de prueba (hoy)
+- En Meta → Paso 1. Pruébalo → "Envía un mensaje" → **Para** → agregar el celular personal y poner el código que llega.
+- Desde el celular personal escribir a **+1 555 675 0567** "Hola, quiero precios" → debe aparecer en la **Bandeja**.
+- Si no aparece, ver lo que llegó al servidor (PuTTY de **qfcorp**, no el del VPS):
+  ```
+  sudo -u postgres psql -d tuwhatsapp -c "SELECT id, recibido, left(cuerpo,150), error FROM webhook_log ORDER BY id DESC LIMIT 5"
+  ```
+- El token de prueba **vence en 24 h**: es solo para ver que todo funciona.
+
+### 2. Mientras tanto (con el número de Tukán)
+- Usarlo normal con clientes en **WhatsApp Business**, actualizar la app, **no borrar ni reinstalar**.
+
+### 3. Reintentar el QR (en 1–2 semanas)
+1. https://whatsapp.tukanec.com → **Conectar número** → **Conectar con WhatsApp Business**.
+2. Ventana de Meta: Continuar → Qfproducciones → número 0996408397 → debe ofrecer **conectar la app WhatsApp Business** → escanear el QR con el celular → aceptar compartir historial → **Finalizar**.
+3. El programa guarda todo solo y pide contactos e historial (Meta lo permite **1 vez y dentro de 24 h**).
+- Opcional: probar antes con el número de **QF (098 683 3077)**, que puede tener más historial.
+
+### 4. Pendientes en Meta
+- Subir el **ícono** de la app (`icono_tukan_mensajes.png`, 1024×1024): Configuración de la app → Básica → Ícono de la app → Guardar cambios.
+- **Método de pago** en WhatsApp Manager (tarjeta virtual con límite de $15) cuando el número real esté conectado.
+- **Revisión de la app** (para vender a otros negocios): 2 videos — uno enviando un mensaje desde el programa y recibiéndolo en WhatsApp, y otro creando una plantilla.
+- Borrar la configuración vieja `1118315074244612` (opcional).
+
+### 5. Configurar el programa (cuando esté el número real)
+1. **Contactos → Traer contactos del celular** (familia y amigos como **Personales**).
+2. **Automático**: horario, palabras clave, menú; probar; encender **Contestar automáticamente**.
+3. **Gasto**: tope $12, aviso al 80 %.
+
+### 6. Después
+- Conectar el número de **QF Producciones** (ícono del celular arriba → **Conectar otro número** → botón QR).
+- Conectar TuSalón / Panel Tukán Central a la API (`/api.php`, token `TUWA_API_TOKEN` en `.env`).
+- Ofrecer WhatsApp como **módulo extra** en los programas Tukán (ya somos Tech Provider).
+
+---
+
+## Comandos útiles (PuTTY de **qfcorp**, usuario qf)
+Actualizar el programa (no borra nada):
 ```
 curl -fsSL https://raw.githubusercontent.com/qfcorp/tuwhatsapp/main/deploy/instalar.sh -o /tmp/instalar_tuwhatsapp.sh && bash /tmp/instalar_tuwhatsapp.sh
 ```
-Al final, el cuadro RESULTADO debe decir: Tablas 9 · Extensiones 4 · Página de entrar 200 · Webhook 403 · Clave secreta de Meta: FALTA (normal).
-
-### ✅ Paso 2. Crear el usuario del programa (por SSH)
+Cambiar datos de Meta (Enter deja lo guardado):
+```
+bash /var/www/tuwhatsapp/deploy/clave_meta.sh 2592670637899782 1865337081309109
+```
+Crear o cambiar usuario del panel:
 ```
 php /var/www/tuwhatsapp/bin/crear_usuario.php
 ```
-Pide correo, nombre y contraseña (mínimo 8). Debe decir `LISTO`.
 
-### ✅ Paso 3. Publicarlo en Cloudflare (navegador)
-1. https://dash.cloudflare.com → menú **Networking → Tunnels** → túnel de **qfcorp** → pestaña **Routes** → **Add route** → **Published application**.
-   (En el panel viejo https://one.dash.cloudflare.com es: **Networks → Tunnels** → túnel → **Public Hostname** → **Add a public hostname**.)
-2. Subdomain `whatsapp` · Domain `tukanec.com` · Service URL `http://localhost:80` → **Add route** (o **Save hostname**).
-3. Abrir https://whatsapp.tukanec.com y entrar con el usuario del Paso 2. Debe salir **Conectar número**.
-
-### ⬜ Paso 4. Meta (una sola vez)
-1. https://developers.facebook.com/apps → **Crear app** → caso de uso **Conectarte con clientes a través de WhatsApp** → portafolio de Tukán/QF → **Crear app**.
-2. **WhatsApp → Configuración de la API** → **Agregar número de teléfono** → número de Tukán → verificar con código.
-   - ⚠️ **IMPORTANTE**: si Meta ofrece **conectar el número de la app WhatsApp Business** (coexistencia, con código QR), elegir esa opción. Así se sigue usando el celular y el botón "gratis" sale del mismo número.
-   - Si NO aparece esa opción, registrarlo en la API **lo saca de la app del celular**. En ese caso conviene usar un **chip nuevo** solo para la API. Decidirlo ANTES de seguir.
-3. Copiar el **Identificador del número de teléfono** (Phone number ID) y el **Identificador de la cuenta de WhatsApp Business** (WABA ID).
-4. Token permanente: https://business.facebook.com/settings/system-users → **Agregar** (Administrador) → **Asignar activos** → la app con **Control total** → **Generar token** → vencimiento **Nunca** → permisos `whatsapp_business_messaging` y `whatsapp_business_management` → copiar el token.
-5. Clave secreta: en la app → **Configuración de la app → Básica → Clave secreta de la app → Mostrar** → copiarla. En el servidor:
-   ```
-   bash /var/www/tuwhatsapp/deploy/clave_meta.sh
-   ```
-   (pide la clave; opcional el token de Telegram y el chat_id para avisos de gasto)
-6. En https://whatsapp.tukanec.com → **Conectar número**: pegar los dos identificadores y el token → **Guardar y probar** → debe decir "Conectado con Meta".
-7. Webhook: en la app de Meta → **WhatsApp → Configuración → Webhook → Editar** → pegar la **URL** y el **Token de verificación** que muestra el programa en la pantalla del número (botón Copiar) → **Verificar y guardar** → en **Campos del webhook** suscribirse a `messages` (y `smb_message_echoes` si hay coexistencia).
-8. Pago: https://business.facebook.com → **WhatsApp Manager → Configuración de pago** → agregar tarjeta (mejor una virtual con límite de $15).
-9. Escribir al número de Tukán desde otro celular: debe aparecer en la **Bandeja**.
-
-### ⬜ Paso 5. Configurar el programa
-1. **Contactos → Traer contactos del celular**: traer familia y amigos como **Personales**.
-2. **Automático**: revisar horario, palabras clave y menú; probar con el **probador**; encender **Contestar automáticamente** y **Guardar reglas**.
-3. **Gasto**: confirmar tope $12 y aviso al 80 %.
-
-### ⬜ Después
-- Agregar el número de **QF Producciones**: repetir el Paso 4 con ese número y en el programa → ícono del celular arriba → **Conectar otro número**.
-- Conectar TuSalón / Panel Tukán Central a la API (`/api.php`, token `TUWA_API_TOKEN` en `/var/www/tuwhatsapp/config/.env`).
-
----
-
-## Datos útiles
-- Actualizar el programa más adelante: la misma línea del Paso 1 (no borra nada).
-- Respaldo automático diario 3:40 am en `/var/backups/tuwhatsapp` (14 días).
-- Configuración (no está en GitHub): `/var/www/tuwhatsapp/config/.env`.
-- Archivos principales: `src/Reglas.php` (reglas), `src/Mensajeria.php` (envíos con tope), `src/Gasto.php`, `src/Webhook.php`, `src/LectorContactos.php`, `deploy/instalar.sh`.
+## Datos técnicos
+- Respaldo diario 3:40 am en `/var/backups/tuwhatsapp` (14 días).
+- Archivos principales: `src/Registro.php` (botón QR), `src/Webhook.php`, `src/Reglas.php`, `src/Mensajeria.php`, `src/Gasto.php`, `deploy/instalar.sh`, `deploy/clave_meta.sh`.
 - Pruebas: `PGPORT=5432 PGUSER=postgres bash tests/correr.sh` → debe terminar en `TODO BIEN`.
+- Cuidado: hay dos ventanas de PuTTY; la del programa es **qf@qfcorp** (no `root@vps-...`).
