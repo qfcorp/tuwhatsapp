@@ -47,9 +47,10 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 ```
 
 ### Paso 2. Publicarlo en internet (Cloudflare)
-1. Entra a https://one.dash.cloudflare.com
-2. **Networks → Tunnels** → toca el túnel de qfcorp → **Public Hostname** → **Add a public hostname**.
-3. Subdomain: `whatsapp` · Domain: `tukanec.com` · Type: `HTTP` · URL: `localhost:80` → **Save**.
+1. Entra a https://dash.cloudflare.com
+2. **Networking → Tunnels** → toca el túnel de qfcorp → **Routes** → **Add route** → **Published application**.
+   (Panel viejo one.dash.cloudflare.com: **Networks → Tunnels** → túnel → **Public Hostname** → **Add a public hostname**.)
+3. Subdomain: `whatsapp` · Domain: `tukanec.com` · Service URL: `http://localhost:80` → **Add route**.
 4. Abre https://whatsapp.tukanec.com y entra con tu usuario.
 
 ### Paso 3. Meta (una sola vez)
