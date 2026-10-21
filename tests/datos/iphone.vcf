@@ -1,0 +1,16 @@
+BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//iPhone OS 18.0//EN
+N:Gómez;Pedro;;;
+FN:Pedro Gómez
+ORG:Salón Bella\, Quito;
+item1.TEL;type=pref:+593 99 888 7766
+item1.X-ABLabel:_$!<Mobile>!$_
+TEL;type=CELL;type=VOICE:+1 (305) 555-1234
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+N:;;;;
+ORG:Ferretería El Clavo;
+TEL;type=WORK:0991112233
+END:VCARD

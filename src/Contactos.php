@@ -60,26 +60,49 @@ final class Contactos
     }
 
     /**
-     * Pega una lista: una línea por contacto, "número, nombre" (el nombre es opcional).
-     * @return array{nuevos:int, cambiados:int, malos:list<string>}
+     * Guarda una lista pegada (una línea por contacto: "número, nombre") o leída de un archivo del celular.
+     * $soloNuevos: los números que ya existen no se tocan (así un Cliente no pasa a Personal por error).
+     * Los teléfonos fijos y números raros se cuentan en "malos" (no tienen WhatsApp).
+     * @param list<array{0:string,1:string}>|string $filas
+     * @return array{nuevos:int, cambiados:int, iguales:int, malos:list<string>, total:int}
      */
-    public static function importar(PDO $db, int $lineaId, string $texto, string $tipo): array
+    public static function importar(PDO $db, int $lineaId, array|string $filas, string $tipo, bool $soloNuevos = false): array
     {
-        $r = ['nuevos' => 0, 'cambiados' => 0, 'malos' => []];
-        foreach (preg_split('/\r?\n/', $texto) ?: [] as $fila) {
-            $fila = trim($fila);
-            if ($fila === '') {
-                continue;
+        if (!in_array($tipo, self::TIPOS, true)) {
+            throw new RuntimeException('Tipo de contacto no válido.');
+        }
+        if (is_string($filas)) {
+            $filas = LectorContactos::texto($filas);
+        }
+        if (count($filas) > 20000) {
+            throw new RuntimeException('Son demasiados contactos de una vez (máximo 20.000).');
+        }
+        $r = ['nuevos' => 0, 'cambiados' => 0, 'iguales' => 0, 'malos' => [], 'total' => count($filas)];
+        $vistos = [];
+        $db->beginTransaction();
+        try {
+            foreach ($filas as [$numero, $nombre]) {
+                $tel = Telefono::normalizar($numero);
+                if ($tel === null) {
+                    $r['malos'][] = trim($numero . ($nombre !== '' ? ' ' . $nombre : ''));
+                    continue;
+                }
+                if (isset($vistos[$tel])) {
+                    continue;   // el mismo número dos veces en la lista
+                }
+                $vistos[$tel] = true;
+                $existe = self::porTelefono($db, $lineaId, $tel);
+                if ($existe && $soloNuevos) {
+                    $r['iguales']++;
+                    continue;
+                }
+                self::guardar($db, $lineaId, $tel, mb_substr($nombre, 0, 100), $tipo);
+                $existe ? $r['cambiados']++ : $r['nuevos']++;
             }
-            $partes = preg_split('/[,;\t]/', $fila, 2);
-            $tel = Telefono::normalizar($partes[0]);
-            if ($tel === null) {
-                $r['malos'][] = $fila;
-                continue;
-            }
-            $existia = self::porTelefono($db, $lineaId, $tel) !== null;
-            self::guardar($db, $lineaId, $tel, trim((string) ($partes[1] ?? '')), $tipo);
-            $existia ? $r['cambiados']++ : $r['nuevos']++;
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
         }
         return $r;
     }

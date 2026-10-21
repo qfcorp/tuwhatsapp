@@ -26,6 +26,62 @@ use TuWhatsApp\Telefono;
         <button class="boton">Guardar</button>
     </form>
 </details>
+<section class="tarjeta importar" id="importar">
+    <h2>Traer contactos del celular</h2>
+    <p class="suave">Así no tienes que escribir uno por uno. Lo normal es traer a la familia y amigos como <b>Personales</b>, para que el sistema nunca les conteste solo.</p>
+    <form method="post" enctype="multipart/form-data" class="formulario" id="form-importar">
+        <?= csrf_campo() ?><input type="hidden" name="accion" value="importar">
+        <input type="hidden" name="contenido" id="imp-contenido"><input type="hidden" name="nombre_archivo" id="imp-nombre">
+        <textarea name="lista" id="imp-lista" hidden></textarea>
+        <label>Guardarlos como
+            <select name="tipo" id="imp-tipo">
+                <option value="personal">Personales (familia y amigos)</option>
+                <option value="cliente">Clientes</option>
+                <option value="desconocido">Desconocidos</option>
+            </select>
+        </label>
+        <label class="check"><input type="checkbox" name="solo_nuevos" value="1" checked> No cambiar los que ya están en el programa (recomendado)</label>
+
+        <button type="button" class="boton boton-grande boton-gratis" id="btn-agenda" hidden>Elegir de la agenda del celular</button>
+        <p class="suave pequeno" id="txt-agenda" hidden>Se abre tu agenda: marca los contactos que quieras (o "Seleccionar todo") y toca Listo.</p>
+
+        <label class="subir">
+            <span class="boton boton-grande">Subir archivo de contactos (.vcf o .csv)</span>
+            <input type="file" name="archivo" id="imp-archivo" accept=".vcf,.csv,.txt,text/vcard,text/x-vcard,text/csv,text/plain">
+        </label>
+        <noscript><button class="boton">Guardar</button></noscript>
+        <p class="suave pequeno" id="imp-estado" role="status"></p>
+    </form>
+
+    <details class="plegable ayuda-exportar">
+        <summary>¿Cómo saco el archivo de contactos de mi celular?</summary>
+        <h3>Android (Samsung, Xiaomi, Motorola…)</h3>
+        <ol>
+            <li>Abre la app <b>Contactos</b>.</li>
+            <li>Toca los <b>tres puntos</b> o el <b>menú ☰</b> → <b>Gestionar contactos</b> (o <b>Ajustes</b>).</li>
+            <li>Toca <b>Importar o exportar contactos</b> → <b>Exportar</b>.</li>
+            <li>Elige guardar en <b>Almacenamiento interno</b> → <b>Exportar</b>. Se crea un archivo terminado en <b>.vcf</b> en la carpeta Descargas.</li>
+            <li>Vuelve aquí, toca <b>Subir archivo de contactos</b> y elige ese archivo .vcf.</li>
+        </ol>
+        <p class="suave pequeno">En Android con Chrome también puedes usar el botón verde <b>Elegir de la agenda del celular</b>, sin archivo.</p>
+        <h3>iPhone</h3>
+        <ol>
+            <li>Abre la app <b>Contactos</b>.</li>
+            <li>Arriba a la izquierda toca <b>Listas</b>.</li>
+            <li>Mantén presionado <b>Todos los contactos</b> → <b>Exportar</b> → <b>Guardar en Archivos</b>.</li>
+            <li>Vuelve aquí, toca <b>Subir archivo de contactos</b> → <b>Explorar</b> → elige el archivo .vcf.</li>
+        </ol>
+        <h3>Si tus contactos están en Google (desde la computadora)</h3>
+        <ol>
+            <li>Entra a <b>contacts.google.com</b> con tu cuenta de Gmail.</li>
+            <li>En el menú de la izquierda toca <b>Exportar</b> (o los tres puntos → Exportar).</li>
+            <li>Elige <b>Contactos</b> (todos) y el formato <b>vCard</b> o <b>CSV de Google</b> → <b>Exportar</b>.</li>
+            <li>Sube aquí el archivo que se descargó.</li>
+        </ol>
+        <p class="suave pequeno">Los teléfonos fijos y números incompletos se saltan solos (no tienen WhatsApp). Si un contacto tiene varios celulares, se guardan todos.</p>
+    </details>
+</section>
+
 <details class="tarjeta plegable">
     <summary>Pegar una lista de números</summary>
     <form method="post" class="formulario">
@@ -34,6 +90,7 @@ use TuWhatsApp\Telefono;
             <textarea name="lista" rows="6" required placeholder="0991234567, Tía Rosa&#10;0987654321, Juan&#10;0998877665"></textarea>
         </label>
         <label>Todos son<select name="tipo"><option value="personal">Personales (familia y amigos)</option><option value="cliente">Clientes</option></select></label>
+        <label class="check"><input type="checkbox" name="solo_nuevos" value="1" checked> No cambiar los que ya están</label>
         <button class="boton">Guardar la lista</button>
     </form>
 </details>

@@ -76,7 +76,7 @@ server {
     server_name $DOMINIO;
     root $APP/public;
     index index.php;
-    client_max_body_size 2M;
+    client_max_body_size 32M;
 
     location / {
         try_files \$uri /index.php\$is_args\$args;

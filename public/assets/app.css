@@ -225,3 +225,13 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--n
     .botones-envio { grid-template-columns: 1fr; }
     .horario .dia { grid-template-columns: 1fr 84px auto 84px; }
 }
+
+/* Importar contactos */
+.importar h3 { font-size: .95rem; margin: 14px 0 4px; }
+.importar ol { margin: 0 0 8px; padding-left: 22px; }
+.importar li { margin-bottom: 3px; }
+.formulario .subir, .subir { display: block; margin: 0 0 8px; }
+.subir input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.subir:focus-within .boton { outline: 3px solid var(--naranja); outline-offset: 2px; }
+#btn-agenda { margin-bottom: 8px; }
+.ayuda-exportar { margin-top: 6px; border-top: 1px solid var(--linea); padding-top: 10px; }

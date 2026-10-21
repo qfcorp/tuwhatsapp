@@ -344,6 +344,27 @@ igual(Contactos::bandeja($db, $lid, 'personal')[0]['tipo'] ?? null, 'personal', 
 ok(count(Contactos::bandeja($db, $lid, 'sin_leer')) > 0, 'filtro sin leer');
 igual(count(Contactos::bandeja($db, $lid, 'todos', '99222')), 1, 'buscar por número');
 
+echo "== Contactos desde archivos del celular\n";
+use TuWhatsApp\LectorContactos;
+$dir = __DIR__ . '/datos/';
+$a = LectorContactos::leer(file_get_contents($dir . 'android.vcf'), 'Contactos.vcf');
+igual($a, [['099 123 4567', 'María Pérez Mamá'], ['02 234 5678', 'María Pérez Mamá'], ['+593987654321', 'Papá'], ['0987654321', 'Papá']], 'Android .vcf (tildes, varios números, foto, sin número)');
+$i = LectorContactos::leer(file_get_contents($dir . 'iphone.vcf'), 'Todos.vcf');
+igual($i, [['+593 99 888 7766', 'Pedro Gómez'], ['+1 (305) 555-1234', 'Pedro Gómez'], ['0991112233', 'Ferretería El Clavo']], 'iPhone .vcf (item1, sin nombre usa la empresa)');
+$g = LectorContactos::leer(file_get_contents($dir . 'google.csv'), 'contacts.csv');
+igual($g, [['099 555 1111', 'Tía Rosa'], ['099 555 2222', 'Tía Rosa'], ['02 600 7000', 'Tía Rosa'], ['+593 96 000 1111', 'Juan, el primo']], 'CSV de Google (::: y comas)');
+igual(LectorContactos::leer("0991234567, Ana\n\n0987654321"), [['0991234567', 'Ana'], ['0987654321', '']], 'texto pegado');
+igual(LectorContactos::leer(mb_convert_encoding("BEGIN:VCARD\nFN:José\nTEL:0991230000\nEND:VCARD\n", 'Windows-1252', 'UTF-8'), 'x.vcf'), [['0991230000', 'José']], 'archivo en otra codificación');
+$r = Contactos::importar($db, $lid, $a, 'personal', true);
+igual([$r['nuevos'], $r['cambiados'], $r['iguales'], count($r['malos'])], [2, 0, 0, 1], 'importa Android: 2 celulares, el fijo se salta, Papá una sola vez');
+Contactos::guardar($db, $lid, '0998887766', 'Pedro cliente', 'cliente');
+$r = Contactos::importar($db, $lid, $i, 'personal', true);
+igual([$r['nuevos'], $r['iguales']], [2, 1], 'con "no cambiar": Pedro sigue');
+igual(Contactos::porTelefono($db, $lid, '593998887766')['tipo'], 'cliente', 'Pedro sigue siendo cliente');
+$r = Contactos::importar($db, $lid, $i, 'personal', false);
+igual(Contactos::porTelefono($db, $lid, '593998887766')['tipo'], 'personal', 'sin "no cambiar" sí lo cambia');
+igual(Contactos::porTelefono($db, $lid, '593991234567')['nombre'], 'María Pérez Mamá', 'nombre con tildes');
+
 echo "== Número desconocido en el webhook\n";
 $antes = (int) $db->query('SELECT count(*) FROM mensajes')->fetchColumn();
 $wh->procesar(str_replace('"100"', '"999"', entrante('593991111111', 'precio', 'wamid.X9', $martes20->getTimestamp())));

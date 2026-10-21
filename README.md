@@ -16,6 +16,7 @@ Dirección: **whatsapp.tukanec.com** (servidor qfcorp, por el túnel de Cloudfla
   5. **Una sola respuesta**: el menú una vez; después solo las opciones elegidas; una opción puede "pasar a una persona" (deja de contestar solo).
   Cada mensaje que llega muestra **por qué** se contestó o no. Hay un **probador** de reglas que no envía nada.
 - **Tope de gasto mensual** (por defecto $12): antes de cada envío pagado se suma lo gastado del mes; si se pasa, **no se envía** y se ofrece mandarlo gratis desde el celular. Aviso al 80 % (o el % que elijas) y al 100 %, arriba en el panel y por Telegram (opcional).
+- **Traer contactos del celular** (Contactos): botón **Elegir de la agenda del celular** (Android con Chrome) o **Subir archivo de contactos** (.vcf de Android o iPhone, .vcf o CSV de Google). La pantalla explica cómo exportarlos en cada celular. Los fijos se saltan solos y, por defecto, no se cambian los contactos que ya estaban.
 - **Pendientes**: lista de mensajes para mandar gratis desde el celular, uno por uno. Si el número está también en la app del celular (coexistencia), al enviarlo desde el celular se marca solo.
 - **Gratis automático**: si el cliente llegó desde un anuncio "Enviar WhatsApp", 72 horas sin cobro; las plantillas de utilidad con la ventana abierta tampoco se cobran.
 - **API** para otros programas (TuSalón, Panel Tukán Central): agregar pendientes y registrar clientes.
@@ -69,7 +70,7 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 10. Escribe al número de Tukán desde otro celular: el mensaje debe aparecer en la Bandeja.
 
 ### Paso 4. Reglas
-En **Automático**: revisa horario, palabras clave y el menú, prueba con el **probador**, enciende **Contestar automáticamente** y guarda. En **Contactos → Pegar una lista** pon a tu familia y amigos como **Personales**.
+En **Automático**: revisa horario, palabras clave y el menú, prueba con el **probador**, enciende **Contestar automáticamente** y guarda. En **Contactos → Traer contactos del celular** trae a tu familia y amigos como **Personales**.
 
 ---
 
@@ -97,7 +98,7 @@ Cada día a las 3:40 en `/var/backups/tuwhatsapp` (14 días). Restaurar: `sudo -
 ```
 PGPORT=5432 PGUSER=postgres bash tests/correr.sh
 ```
-Meta y Telegram simulados (`tests/meta_simulado.php`). Lógica 113 y pantallas 57, deben terminar en `TODO BIEN`.
+Meta y Telegram simulados (`tests/meta_simulado.php`). Lógica 123 y pantallas 62, deben terminar en `TODO BIEN`.
 
 ## Archivos
 - `public/index.php` panel · `public/webhook.php` lo que avisa Meta · `public/api.php` API

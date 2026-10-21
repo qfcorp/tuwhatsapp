@@ -223,9 +223,33 @@ try {
                 Contactos::guardar(db(), $lid, (string) ($_POST['telefono'] ?? ''), (string) ($_POST['nombre'] ?? ''), (string) ($_POST['tipo'] ?? 'cliente'));
                 aviso('Contacto guardado.');
             } elseif ($accion === 'importar') {
-                $r = Contactos::importar(db(), $lid, (string) ($_POST['lista'] ?? ''), (string) ($_POST['tipo'] ?? 'cliente'));
-                aviso("Listo: {$r['nuevos']} nuevos y {$r['cambiados']} actualizados." . ($r['malos'] ? ' No se entendieron: ' . implode(' · ', array_slice($r['malos'], 0, 10)) : ''),
-                    $r['malos'] ? 'info' : 'ok');
+                $tipo = (string) ($_POST['tipo'] ?? 'personal');
+                $soloNuevos = !empty($_POST['solo_nuevos']);
+                $archivo = $_FILES['archivo'] ?? null;
+                if (is_array($archivo) && ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                    if ($archivo['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($archivo['tmp_name'])) {
+                        throw new RuntimeException('No se pudo subir el archivo (puede ser muy grande). Intenta otra vez.');
+                    }
+                    if ($archivo['size'] > 30 * 1024 * 1024) {
+                        throw new RuntimeException('El archivo es muy grande (máximo 30 MB).');
+                    }
+                    $filas = \TuWhatsApp\LectorContactos::leer((string) file_get_contents($archivo['tmp_name']), (string) $archivo['name']);
+                } elseif (trim((string) ($_POST['contenido'] ?? '')) !== '') {   // el archivo leído en el celular (sin fotos)
+                    $filas = \TuWhatsApp\LectorContactos::leer((string) $_POST['contenido'], (string) ($_POST['nombre_archivo'] ?? ''));
+                } else {
+                    $filas = \TuWhatsApp\LectorContactos::texto((string) ($_POST['lista'] ?? ''));
+                }
+                if (!$filas) {
+                    throw new RuntimeException('No se encontró ningún contacto con número. Revisa que el archivo sea de contactos (.vcf o .csv).');
+                }
+                $r = Contactos::importar(db(), $lid, $filas, $tipo, $soloNuevos);
+                $msg = "Listo: {$r['nuevos']} nuevos como " . tipo_contacto($tipo) . ($r['cambiados'] ? ", {$r['cambiados']} actualizados" : '')
+                     . ($r['iguales'] ? ", {$r['iguales']} ya estaban y no se tocaron" : '') . '.';
+                if ($r['malos']) {
+                    $msg .= ' ' . count($r['malos']) . ' no son celulares (fijos o incompletos), se saltaron'
+                          . (count($r['malos']) <= 10 ? ': ' . implode(' · ', $r['malos']) : '') . '.';
+                }
+                aviso($msg, $r['nuevos'] + $r['cambiados'] > 0 ? 'ok' : 'info');
             } elseif ($accion === 'tipo') {
                 Contactos::cambiarTipo(db(), $lid, (int) ($_POST['id'] ?? 0), (string) ($_POST['tipo'] ?? ''));
                 aviso('Cambiado.');
