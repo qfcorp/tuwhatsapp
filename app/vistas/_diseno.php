@@ -82,6 +82,6 @@ if ($u && $linea) {
     <?php endforeach; ?>
 </nav>
 <?php endif; ?>
-<script src="/assets/app.js?v=4" defer></script>
+<script src="/assets/app.js?v=5" defer></script>
 </body>
 </html>

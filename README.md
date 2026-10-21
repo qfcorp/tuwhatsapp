@@ -56,13 +56,13 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 
 ### Paso 3. Meta (una sola vez) — ya hecho en la app "Tukan Mensajes"
 App de Meta: **Tukan Mensajes** (App ID `2592670637899782`), portafolio **Qfproducciones** (negocio verificado), marcada como **Tech Provider**.
-Configuración del botón QR ("Inicio de sesión con Facebook para empresas" → Configuraciones): **Conectar WhatsApp QR**, ID `1118315074244612`
+Configuración del botón QR ("Inicio de sesión con Facebook para empresas" → Configuraciones): **ES Config** (creada desde Casos de uso → Conectar en WhatsApp → Administrador de registro insertado; la de "Inicio de sesión → Configuraciones" con variación General NO sirve), ID `1865337081309109`
 (token de usuario del sistema que **nunca vence**, permisos `whatsapp_business_messaging` y `whatsapp_business_management`).
 En "Inicio de sesión con Facebook para empresas → Configurar" están `https://whatsapp.tukanec.com/` como URI de redirección y como dominio permitido del SDK de JavaScript.
 
 1. **Guardar los datos de Meta en el servidor** (pega la línea; te pedirá pegar la **Clave secreta de la app**, que está en Meta → **Configuración de la app → Básica → Clave secreta de la app → Mostrar**):
    ```
-   bash /var/www/tuwhatsapp/deploy/clave_meta.sh 2592670637899782 1118315074244612
+   bash /var/www/tuwhatsapp/deploy/clave_meta.sh 2592670637899782 1865337081309109
    ```
 2. **Webhook**: en Meta → **Casos de uso → Conectar en WhatsApp → Configuración** → **URL de devolución de llamada** y **Token de verificación**: pega los que muestra el panel en **Conectar número** (botón Copiar) → **Verificar y guardar**. Luego en **Campos del webhook** suscríbete a `messages`, `smb_message_echoes`, `history`, `smb_app_state_sync` y `account_update`.
 3. **Política de privacidad** (la pide Meta para publicar): `https://whatsapp.tukanec.com/privacidad.php` · **Eliminación de datos**: `https://whatsapp.tukanec.com/eliminar-datos.php`. Van en Meta → **Configuración de la app → Básica**.

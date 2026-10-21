@@ -141,8 +141,11 @@
             f.append('csrf', btnQr.dataset.csrf);
             f.append('code', codigo);
             f.append('evento', datosMeta ? datosMeta.event : '');
-            f.append('waba_id', datosMeta && datosMeta.data ? (datosMeta.data.waba_id || '') : '');
-            f.append('phone_number_id', datosMeta && datosMeta.data ? (datosMeta.data.phone_number_id || '') : '');
+            var dm = (datosMeta && datosMeta.data) || {};
+            var lista = function (x) { return Array.isArray(x) && x.length ? String(x[0]) : ''; };
+            // v4/v5 de Meta: waba_id o messaging_account_ids (la cuenta convertida) — el servidor completa lo que falte
+            f.append('waba_id', dm.waba_id || lista(dm.messaging_account_ids) || lista(dm.waba_ids) || '');
+            f.append('phone_number_id', dm.phone_number_id || '');
             f.append('nombre', ($('#qr-nombre') || {}).value || '');
             fetch('/?r=conectar_qr', { method: 'POST', body: f, credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
