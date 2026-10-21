@@ -201,6 +201,12 @@ get "/?r=lineas"
 L1=$(grep -o 'r=linea&amp;id=[0-9]*' "$P" | head -1 | grep -o '[0-9]*$')
 post "/?r=cambiar_linea" --data-urlencode "linea_id=$L1"
 
+echo "== Páginas públicas para Meta"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/privacidad.php")
+ok '[ "$CODIGO" = 200 ] && tiene "Política de privacidad" && tiene "info@tukansoftware.com" && tiene "Protección de Datos"' "política de privacidad sin entrar"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/eliminar-datos.php")
+ok '[ "$CODIGO" = 200 ] && tiene "Cómo eliminar tus datos" && tiene "15 días"' "eliminar datos sin entrar"
+
 echo "== Seguridad"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" -L -d "accion=tipo&tipo=personal" "$W/?r=chat&c=$C")
 ok 'tiene "Intenta de nuevo" && ! tiene "Ahora es: Personal"' "POST sin csrf se rechaza"

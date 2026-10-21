@@ -241,3 +241,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--n
 .insignia { display: inline-block; vertical-align: middle; font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--naranja-claro); color: var(--naranja-oscuro); }
 .pasos-cortos { padding-left: 20px; margin: 8px 0 14px; }
 .pasos-cortos li { margin-bottom: 6px; }
+
+/* Páginas públicas (privacidad, eliminar datos) */
+.documento { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; line-height: 1.6; }
+.documento h1 { margin-top: 8px; }
+.documento h2 { margin-top: 28px; font-size: 1.1rem; }
+.documento li { margin-bottom: 6px; }

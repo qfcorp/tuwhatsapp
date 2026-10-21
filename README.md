@@ -19,6 +19,7 @@ Dirección: **whatsapp.tukanec.com** (servidor qfcorp, por el túnel de Cloudfla
 - **Traer contactos del celular** (Contactos): botón **Elegir de la agenda del celular** (Android con Chrome) o **Subir archivo de contactos** (.vcf de Android o iPhone, .vcf o CSV de Google). La pantalla explica cómo exportarlos en cada celular. Los fijos se saltan solos y, por defecto, no se cambian los contactos que ya estaban.
 - **Pendientes**: lista de mensajes para mandar gratis desde el celular, uno por uno. Si el número está también en la app del celular (coexistencia), al enviarlo desde el celular se marca solo.
 - **Gratis automático**: si el cliente llegó desde un anuncio "Enviar WhatsApp", 72 horas sin cobro; las plantillas de utilidad con la ventana abierta tampoco se cobran.
+- **Conectar con WhatsApp Business (código QR)**: el número sigue en la app del celular y además aparece aquí, con contactos e historial (hasta 6 meses).
 - **API** para otros programas (TuSalón, Panel Tukán Central): agregar pendientes y registrar clientes.
 
 ## Costos (Ecuador, editables en Gasto → Precios de Meta)
@@ -53,22 +54,28 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 3. Subdomain: `whatsapp` · Domain: `tukanec.com` · Service URL: `http://localhost:80` → **Add route**.
 4. Abre https://whatsapp.tukanec.com y entra con tu usuario.
 
-### Paso 3. Meta (una sola vez)
-1. Entra a https://developers.facebook.com/apps → **Crear app**.
-2. Caso de uso: **Conectarte con clientes a través de WhatsApp** → elige el portafolio comercial de Tukán/QF → **Crear app**.
-3. En el menú de la app: **WhatsApp → Configuración de la API**. Toca **Agregar número de teléfono**, escribe el número de Tukán y verifícalo con el código.
-   - Si Meta ofrece **conectar el número que ya usas en la app WhatsApp Business** (coexistencia, se escanea un código QR desde el celular), elige esa opción: así sigues usando el celular y el botón "gratis" sale del mismo número.
-   - Si no la ofrece, registrar el número en la API lo **saca de la app del celular**. En ese caso conviene usar un **chip nuevo** solo para la API.
-4. En la misma pantalla copia el **Identificador del número de teléfono** y el **Identificador de la cuenta de WhatsApp Business**.
-5. Token permanente: https://business.facebook.com/settings/system-users → **Agregar** (rol Administrador) → **Asignar activos** → la app con **Control total** → **Generar token** → elige la app, vencimiento **Nunca**, permisos `whatsapp_business_messaging` y `whatsapp_business_management` → copia el token.
-6. Clave secreta: en la app, **Configuración de la app → Básica → Clave secreta de la app → Mostrar** → cópiala. En el servidor pega:
+### Paso 3. Meta (una sola vez) — ya hecho en la app "Tukan Mensajes"
+App de Meta: **Tukan Mensajes** (App ID `2592670637899782`), portafolio **Qfproducciones** (negocio verificado), marcada como **Tech Provider**.
+Configuración del botón QR ("Inicio de sesión con Facebook para empresas" → Configuraciones): **Conectar WhatsApp QR**, ID `1118315074244612`
+(token de usuario del sistema que **nunca vence**, permisos `whatsapp_business_messaging` y `whatsapp_business_management`).
+En "Inicio de sesión con Facebook para empresas → Configurar" están `https://whatsapp.tukanec.com/` como URI de redirección y como dominio permitido del SDK de JavaScript.
+
+1. **Guardar los datos de Meta en el servidor** (pega la línea; te pedirá pegar la **Clave secreta de la app**, que está en Meta → **Configuración de la app → Básica → Clave secreta de la app → Mostrar**):
    ```
-   bash /var/www/tuwhatsapp/deploy/clave_meta.sh
+   bash /var/www/tuwhatsapp/deploy/clave_meta.sh 2592670637899782 1118315074244612
    ```
-7. En el panel (https://whatsapp.tukanec.com) → **Conectar número**: pega los dos identificadores y el token → **Guardar y probar**. Debe decir "Conectado con Meta".
-8. Webhook: en la app de Meta, **WhatsApp → Configuración → Webhook → Editar**. Pega la **URL** y el **Token de verificación** que muestra el panel en la pantalla del número (tienen botón Copiar) → **Verificar y guardar**. Luego en **Campos del webhook** toca **Suscribirse** en `messages` (y en `smb_message_echoes` si usas coexistencia).
-9. Método de pago: https://business.facebook.com → **WhatsApp Manager → Configuración de pago** → agrega la tarjeta (de preferencia una tarjeta virtual con límite de $15).
-10. Escribe al número de Tukán desde otro celular: el mensaje debe aparecer en la Bandeja.
+2. **Webhook**: en Meta → **Casos de uso → Conectar en WhatsApp → Configuración** → **URL de devolución de llamada** y **Token de verificación**: pega los que muestra el panel en **Conectar número** (botón Copiar) → **Verificar y guardar**. Luego en **Campos del webhook** suscríbete a `messages`, `smb_message_echoes`, `history`, `smb_app_state_sync` y `account_update`.
+3. **Política de privacidad** (la pide Meta para publicar): `https://whatsapp.tukanec.com/privacidad.php` · **Eliminación de datos**: `https://whatsapp.tukanec.com/eliminar-datos.php`. Van en Meta → **Configuración de la app → Básica**.
+4. **Conectar el número**: en el panel → **Conectar número** → botón **Conectar con WhatsApp Business** → entra con tu Facebook, elige **Qfproducciones**, escribe el número, escanea el **código QR** desde WhatsApp Business en el celular y acepta compartir el historial → **Finalizar**. El programa guarda todo solo y pide a Meta los contactos y el historial (hasta 6 meses).
+   - Con esto el número **sigue funcionando en la app del celular** (coexistencia) y lo que mandas desde el celular aparece en el chat, gratis.
+   - Meta deja traer contactos e historial **una sola vez y dentro de 24 horas**. Deja la app abierta en el celular mientras llegan.
+   - Si el número NO está en la app del celular (chip nuevo), el mismo botón lo registra con un PIN de 6 números que el panel te muestra una vez.
+5. **Método de pago**: https://business.facebook.com → **WhatsApp Manager → Configuración de pago** → agrega la tarjeta (de preferencia una virtual con límite de $15).
+6. Escribe al número desde otro celular: el mensaje debe aparecer en la Bandeja.
+
+**Conectar a mano** (sigue disponible, abajo en Conectar número): Phone number ID, WABA ID y token permanente de un usuario del sistema.
+
+**Mientras Meta no publique la app**: solo llegan webhooks de prueba; los mensajes reales llegan cuando la app está **Publicada**. Para clientes de otros negocios (Tech Provider) Meta pide además la **verificación de acceso** y la **revisión de la app**.
 
 ### Paso 4. Reglas
 En **Automático**: revisa horario, palabras clave y el menú, prueba con el **probador**, enciende **Contestar automáticamente** y guarda. En **Contactos → Traer contactos del celular** trae a tu familia y amigos como **Personales**.
@@ -87,7 +94,7 @@ POST https://whatsapp.tukanec.com/api.php?accion=contacto
 `linea` es opcional (por defecto el primer número). Respuestas: 200 `{"ok":true,...}`, 401 token malo, 422 dato malo.
 
 ## Agregar QF Producciones después
-Haz otra vez el Paso 3 con el número de QF (puede ser la misma app de Meta) y en el panel → ícono del celular arriba → **Conectar otro número**. Arriba aparece un selector para cambiar de número.
+En el panel → ícono del celular arriba → **Conectar otro número** → botón **Conectar con WhatsApp Business** con el número de QF (la misma app de Meta). Arriba aparece un selector para cambiar de número.
 
 ## Actualizar
 La misma línea del Paso 1 (no borra nada).
@@ -99,9 +106,11 @@ Cada día a las 3:40 en `/var/backups/tuwhatsapp` (14 días). Restaurar: `sudo -
 ```
 PGPORT=5432 PGUSER=postgres bash tests/correr.sh
 ```
-Meta y Telegram simulados (`tests/meta_simulado.php`). Lógica 123 y pantallas 62, deben terminar en `TODO BIEN`.
+Meta y Telegram simulados (`tests/meta_simulado.php`). Lógica 162 y pantallas 77, deben terminar en `TODO BIEN`.
 
 ## Archivos
 - `public/index.php` panel · `public/webhook.php` lo que avisa Meta · `public/api.php` API
+- `src/Registro.php` botón QR (Embedded Signup: código → token, webhook, PIN, contactos e historial)
+- `public/privacidad.php` y `public/eliminar-datos.php` páginas públicas para Meta
 - `src/Reglas.php` decisión de responder · `src/Mensajeria.php` envíos con tope · `src/Gasto.php` precios y gasto · `src/Webhook.php` mensajes, estados y ecos · `src/Meta.php` conexión con Meta
 - `db/schema.sql` base (se puede correr muchas veces) · `deploy/instalar.sh` instalador
