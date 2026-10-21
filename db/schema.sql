@@ -224,4 +224,20 @@ CREATE TABLE IF NOT EXISTS campania_envios (
 );
 CREATE INDEX IF NOT EXISTS campania_envios_pendientes ON campania_envios (campania_id) WHERE estado = 'pendiente';
 
+
+-- ---------------------------------------------------------------------
+-- Varios agentes: a quién está asignada cada conversación y respuestas rápidas
+-- ---------------------------------------------------------------------
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS asignado_a integer REFERENCES usuarios(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS contactos_asignado ON contactos (linea_id, asignado_a);
+
+CREATE TABLE IF NOT EXISTS respuestas_rapidas (
+    id       serial PRIMARY KEY,
+    linea_id integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    atajo    text NOT NULL,
+    texto    text NOT NULL,
+    creado   timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (linea_id, atajo)
+);
+
 COMMIT;

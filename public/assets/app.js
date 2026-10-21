@@ -251,6 +251,19 @@
         verDatos();
     }
 
+
+    // Respuesta rápida: pega el texto en el mensaje
+    var rapida = $('#rapida');
+    if (rapida && texto) {
+        rapida.addEventListener('change', function () {
+            if (!rapida.value) { return; }
+            texto.value = texto.value.trim() ? texto.value.replace(/\s*$/, '\n') + rapida.value : rapida.value;
+            texto.dispatchEvent(new Event('input'));
+            rapida.value = '';
+            texto.focus();
+        });
+    }
+
     // Botones "Copiar"
     $$('.btn-copiar').forEach(function (b) {
         b.addEventListener('click', function () {

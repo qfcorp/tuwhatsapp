@@ -78,6 +78,8 @@ if (isset($_GET['p_texto'])) {
     <button class="boton boton-grande boton-fijo">Guardar reglas</button>
 </form>
 
+<p class="suave"><a href="<?= e(url('respuestas')) ?>">Respuestas rápidas del equipo</a> (textos para pegar en el chat).</p>
+
 <h2 class="separador" id="probar">Probar las reglas</h2>
 <form method="get" action="/#probar" class="tarjeta formulario">
     <input type="hidden" name="r" value="reglas">

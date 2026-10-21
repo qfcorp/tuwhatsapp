@@ -138,6 +138,28 @@ final class Contactos
         return $st->fetchAll(PDO::FETCH_KEY_PAIR);
     }
 
+    /**
+     * Asigna la conversación a una persona de la misma empresa (null = nadie).
+     * $empresaId evita asignar a alguien de otra cuenta.
+     */
+    public static function asignar(PDO $db, int $lineaId, int $id, ?int $usuarioId, int $empresaId): void
+    {
+        if ($usuarioId !== null) {
+            $st = $db->prepare('SELECT 1 FROM usuarios WHERE id = ? AND activo AND (empresa_id = ? OR super)');
+            $st->execute([$usuarioId, $empresaId]);
+            if (!$st->fetchColumn()) {
+                throw new RuntimeException('Esa persona no es de tu equipo.');
+            }
+        }
+        $db->prepare('UPDATE contactos SET asignado_a = ? WHERE id = ? AND linea_id = ?')->execute([$usuarioId, $id, $lineaId]);
+    }
+
+    /** Si nadie atiende la conversación, la toma quien escribe desde el panel. */
+    public static function tomarSiLibre(PDO $db, int $id, int $usuarioId): void
+    {
+        $db->prepare('UPDATE contactos SET asignado_a = ? WHERE id = ? AND asignado_a IS NULL')->execute([$usuarioId, $id]);
+    }
+
     public static function nombre(array $c): string
     {
         $n = trim((string) ($c['nombre'] ?? ''));
@@ -148,7 +170,7 @@ final class Contactos
     }
 
     /** Conversaciones para la bandeja: el último mensaje de cada contacto, lo más nuevo arriba. */
-    public static function bandeja(PDO $db, int $lineaId, string $filtro = 'todos', string $buscar = '', int $limite = 100): array
+    public static function bandeja(PDO $db, int $lineaId, string $filtro = 'todos', string $buscar = '', int $limite = 100, ?int $usuarioId = null): array
     {
         $donde = 'c.linea_id = :l';
         $p = ['l' => $lineaId];
@@ -159,6 +181,13 @@ final class Contactos
         if ($filtro === 'sin_leer') {
             $donde .= ' AND EXISTS (SELECT 1 FROM mensajes x WHERE x.contacto_id = c.id AND NOT x.leido)';
         }
+        if ($filtro === 'mios') {
+            $donde .= ' AND c.asignado_a = :yo';
+            $p['yo'] = (int) $usuarioId;
+        }
+        if ($filtro === 'sin_asignar') {
+            $donde .= " AND c.asignado_a IS NULL AND c.tipo <> 'personal'";
+        }
         if ($buscar !== '') {
             $donde .= ' AND (c.nombre ILIKE :b OR c.nombre_whatsapp ILIKE :b OR c.telefono LIKE :bt)';
             $p['b'] = '%' . $buscar . '%';
@@ -168,8 +197,10 @@ final class Contactos
             }
         }
         $st = $db->prepare("SELECT c.*, m.texto AS ultimo_texto, m.direccion AS ultima_direccion, m.creado AS ultimo_en,
-                                   (SELECT count(*) FROM mensajes x WHERE x.contacto_id = c.id AND NOT x.leido) AS sin_leer
+                                   (SELECT count(*) FROM mensajes x WHERE x.contacto_id = c.id AND NOT x.leido) AS sin_leer,
+                                   u.nombre AS asignado_nombre
                             FROM contactos c
+                            LEFT JOIN usuarios u ON u.id = c.asignado_a
                             JOIN LATERAL (SELECT texto, direccion, creado FROM mensajes WHERE contacto_id = c.id ORDER BY creado DESC, id DESC LIMIT 1) m ON true
                             WHERE $donde ORDER BY m.creado DESC LIMIT " . max(1, min(500, $limite)));
         $st->execute($p);

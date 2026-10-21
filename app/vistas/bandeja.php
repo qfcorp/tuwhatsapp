@@ -1,11 +1,11 @@
 <?php
 /** @var array $linea @var string $filtro @var string $buscar @var list<array> $conversaciones */
 use TuWhatsApp\Contactos;
-$filtros = ['todos' => 'Todos', 'sin_leer' => 'Sin leer', 'cliente' => 'Clientes', 'desconocido' => 'Desconocidos', 'personal' => 'Personales'];
+$filtros = ['todos' => 'Todos', 'sin_leer' => 'Sin leer', 'mios' => 'Míos', 'sin_asignar' => 'Sin asignar', 'cliente' => 'Clientes', 'desconocido' => 'Desconocidos', 'personal' => 'Personales'];
 ?>
 <div class="cabeza">
     <h1>Bandeja</h1>
-    <span class="estado-auto <?= $linea['auto_activo'] ? 'si' : 'no' ?>"><a href="<?= e(url('reglas')) ?>">Automático: <?= $linea['auto_activo'] ? 'encendido' : 'apagado' ?></a></span>
+    <span class="estado-auto <?= $linea['auto_activo'] ? 'si' : 'no' ?>"><?php if (es_admin()): ?><a href="<?= e(url('reglas')) ?>">Automático: <?= $linea['auto_activo'] ? 'encendido' : 'apagado' ?></a><?php else: ?><a>Automático: <?= $linea['auto_activo'] ? 'encendido' : 'apagado' ?></a><?php endif; ?></span>
 </div>
 <form class="buscar" method="get">
     <input type="hidden" name="r" value="bandeja"><input type="hidden" name="f" value="<?= e($filtro) ?>">
@@ -28,7 +28,7 @@ $filtros = ['todos' => 'Todos', 'sin_leer' => 'Sin leer', 'cliente' => 'Clientes
         <a href="<?= e(url('chat', ['c' => $c['id']])) ?>" class="<?= $c['sin_leer'] > 0 ? 'nuevo' : '' ?>">
             <span class="avatar tipo-<?= e($c['tipo']) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr(Contactos::nombre($c), 0, 1))) ?></span>
             <span class="conv-centro">
-                <span class="conv-nombre"><?= e(Contactos::nombre($c)) ?> <small class="chip chip-<?= e($c['tipo']) ?>"><?= e(tipo_contacto($c['tipo'])) ?></small></span>
+                <span class="conv-nombre"><?= e(Contactos::nombre($c)) ?> <small class="chip chip-<?= e($c['tipo']) ?>"><?= e(tipo_contacto($c['tipo'])) ?></small><?php if (!empty($c['asignado_nombre'])): ?> <small class="chip chip-asignado"><?= e(explode(' ', (string) $c['asignado_nombre'])[0]) ?></small><?php endif; ?></span>
                 <span class="conv-ultimo"><?= $c['ultima_direccion'] === 'sale' ? '<span class="tu">Tú:</span> ' : '' ?><?= e(mb_strimwidth((string) $c['ultimo_texto'], 0, 80, '…')) ?></span>
             </span>
             <span class="conv-lado">

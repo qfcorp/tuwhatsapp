@@ -97,6 +97,11 @@ En **Automático**: revisa horario, palabras clave y el menú, prueba con el **p
 - Se envía poco a poco desde `bin/campanias.php` (cron de cada minuto que pone el instalador). Si llega al tope del mes, la campaña se **pausa sola**; subes el tope y la reanudas.
 - Muestra enviados, leídos, quién respondió, fallidos (con el motivo) y costo.
 
+## Varios agentes
+- En cada chat: **Atiende** (elegir a la persona del equipo) o **Atender yo**. Al responder desde el panel, una conversación sin dueño pasa a quien respondió.
+- Bandeja: filtros **Míos** y **Sin asignar**; cada conversación muestra quién la atiende.
+- **Respuestas rápidas** (Automático → Respuestas rápidas, o "Editar" en el chat): textos guardados que se pegan con un toque. Los agentes las usan; los administradores las crean.
+
 ## API para otros programas
 Cabecera `Authorization: Bearer <token>`: el token de cada cliente (Mi cuenta → Crear token) o, para Tukán, `TUWA_API_TOKEN` de `/var/www/tuwhatsapp/config/.env`. Cuerpo JSON.
 ```

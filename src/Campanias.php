@@ -119,7 +119,7 @@ final class Campanias
                 $prep['solo_acepta'] ? 't' : 'f', $prep['por_minuto'], $usuarioId]);
             $id = (int) $st->fetchColumn();
             $f = self::filtro((int) $linea['id'], $prep['filtro_tipo'], $prep['filtro_etiqueta'], $prep['solo_acepta']);
-            $st = $db->prepare('INSERT INTO campania_envios (campania_id, contacto_id) SELECT :campania, c.id FROM contactos c WHERE ' . $f['sql']);
+            $st = $db->prepare('INSERT INTO campania_envios (campania_id, contacto_id) SELECT :campania, c.id FROM contactos c WHERE ' . $f['sql'] . ' ORDER BY c.id');
             $st->execute($f['params'] + ['campania' => $id]);
             $db->commit();
         } catch (\Throwable $e) {

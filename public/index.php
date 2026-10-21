@@ -13,7 +13,7 @@ use TuWhatsApp\Pendientes;
 use TuWhatsApp\Registro;
 
 $rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr', 'plantillas',
-          'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan', 'campanias'];
+          'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan', 'campanias', 'respuestas'];
 $ruta = (string) ($_GET['r'] ?? 'bandeja');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
@@ -26,7 +26,7 @@ $post = $_SERVER['REQUEST_METHOD'] === 'POST';
 
 // Permisos: lo de Tukán solo para su personal; la configuración solo para administradores de la cuenta
 $soloSuper = ['clientes', 'cliente', 'ver_cuenta'];
-$soloAdmin = ['reglas', 'lineas', 'linea', 'conectar_qr', 'campanias'];
+$soloAdmin = ['reglas', 'lineas', 'linea', 'conectar_qr', 'campanias', 'respuestas'];
 if (usuario()) {
     if (in_array($ruta, $soloSuper, true) && !es_super()) {
         http_response_code(403);
@@ -92,7 +92,7 @@ function vista(string $nombre, string $titulo, array $datos = []): never
 
 // Páginas que necesitan un número conectado
 $linea = usuario() ? linea_actual() : null;
-if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas', 'campanias'], true)) {
+if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas', 'campanias', 'respuestas'], true)) {
     if (!es_admin()) {
         aviso('El administrador de tu cuenta todavía no conecta el número de WhatsApp.', 'info');
         redirigir('cuenta');
@@ -161,7 +161,7 @@ try {
             'linea' => $linea,
             'filtro' => $filtro,
             'buscar' => $buscar,
-            'conversaciones' => Contactos::bandeja(db(), $lid, $filtro, $buscar),
+            'conversaciones' => Contactos::bandeja(db(), $lid, $filtro, $buscar, 100, (int) usuario()['id']),
         ]);
 
     case 'nuevo_chat':
@@ -183,6 +183,11 @@ try {
             if ($accion === 'tipo') {
                 Contactos::cambiarTipo(db(), $lid, $cid, (string) ($_POST['tipo'] ?? ''));
                 aviso('Ahora es: ' . tipo_contacto((string) $_POST['tipo']) . '.');
+            } elseif ($accion === 'asignar') {
+                $quien = (string) ($_POST['usuario_id'] ?? '');
+                $uid = $quien === 'yo' ? (int) usuario()['id'] : ($quien === '' ? null : (int) $quien);
+                Contactos::asignar(db(), $lid, $cid, $uid, (int) empresa_actual()['id']);
+                aviso($uid === null ? 'La conversación quedó sin asignar.' : ($uid === (int) usuario()['id'] ? 'Ahora atiendes tú esta conversación.' : 'Conversación asignada.'));
             } elseif ($accion === 'marketing') {
                 \TuWhatsApp\Campanias::marcarMarketing(db(), $lid, $cid, (string) ($_POST['marketing'] ?? ''));
                 aviso('Guardado.');
@@ -198,6 +203,7 @@ try {
             } elseif ($accion === 'enviar') {
                 $r = (new Mensajeria(db()))->texto($linea, $c, (string) ($_POST['texto'] ?? ''), 'panel', (int) usuario()['id']);
                 if ($r['ok']) {
+                    Contactos::tomarSiLibre(db(), $cid, (int) usuario()['id']);
                     aviso('Enviado' . ($r['costo'] > 0 ? ' (' . dinero($r['costo'], true) . ')' : ' (gratis)') . '.');
                 } else {
                     $_SESSION['borrador'][$cid] = (string) ($_POST['texto'] ?? '');
@@ -216,6 +222,8 @@ try {
         unset($_SESSION['borrador'][$cid]);
         vista('chat', Contactos::nombre($c), [
             'linea' => $linea, 'c' => $c, 'mensajes' => $st->fetchAll(), 'borrador' => $borrador,
+            'equipo' => array_values(array_filter(\TuWhatsApp\Empresas::usuarios(db(), (int) empresa_actual()['id']), fn ($x) => $x['activo'])),
+            'respuestas' => \TuWhatsApp\Respuestas::lista(db(), $lid),
             'ventana' => Gasto::ventanaAbierta($c, new DateTimeImmutable()),
             'precio' => Gasto::estimar(db(), 'servicio', $c, new DateTimeImmutable()),
         ]);
@@ -417,6 +425,20 @@ try {
                 'clientes' => \TuWhatsApp\Campanias::contar(db(), $lid, 'cliente', '', false),
             ],
         ]);
+
+    case 'respuestas':
+        if ($post) {
+            $accion = (string) ($_POST['accion'] ?? '');
+            if ($accion === 'borrar') {
+                \TuWhatsApp\Respuestas::borrar(db(), $lid, (int) ($_POST['id'] ?? 0));
+                aviso('Respuesta borrada.');
+            } else {
+                \TuWhatsApp\Respuestas::guardar(db(), $lid, (string) ($_POST['atajo'] ?? ''), (string) ($_POST['texto'] ?? ''), isset($_POST['id']) ? (int) $_POST['id'] : null);
+                aviso('Respuesta guardada.');
+            }
+            redirigir('respuestas');
+        }
+        vista('respuestas', 'Respuestas rápidas', ['linea' => $linea, 'respuestas' => \TuWhatsApp\Respuestas::lista(db(), $lid)]);
 
     case 'pendientes':
         if ($post) {

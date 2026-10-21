@@ -1,5 +1,5 @@
 <?php
-/** @var array $linea @var array $c @var list<array> $mensajes @var string $borrador @var bool $ventana @var float $precio */
+/** @var list<array> $equipo @var list<array> $respuestas @var array $linea @var array $c @var list<array> $mensajes @var string $borrador @var bool $ventana @var float $precio */
 use TuWhatsApp\Contactos;
 use TuWhatsApp\Telefono;
 $origenes = ['cliente' => '', 'panel' => 'Por el sistema', 'auto' => 'Automático', 'celular' => 'Desde el celular', 'pendiente' => 'Pendiente'];
@@ -21,6 +21,20 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <button name="tipo" value="<?= $t ?>" class="<?= $c['tipo'] === $t ? 'activo seg-' . $t : '' ?>" <?= $c['tipo'] === $t ? 'aria-pressed="true"' : 'aria-pressed="false"' ?>><?= $n ?></button>
     <?php endforeach; ?>
 </form>
+<?php if (count($equipo) > 1 && $c['tipo'] !== 'personal'): $yoId = (int) usuario()['id']; ?>
+<form method="post" class="asignar">
+    <?= csrf_campo() ?><input type="hidden" name="accion" value="asignar">
+    <label for="asignado">Atiende</label>
+    <select id="asignado" name="usuario_id" onchange="this.form.submit()">
+        <option value="">Nadie todavía</option>
+        <?php foreach ($equipo as $x): ?>
+        <option value="<?= (int) $x['id'] ?>" <?= (int) ($c['asignado_a'] ?? 0) === (int) $x['id'] ? 'selected' : '' ?>><?= e($x['nombre']) ?><?= (int) $x['id'] === $yoId ? ' (yo)' : '' ?></option>
+        <?php endforeach; ?>
+    </select>
+    <?php if ((int) ($c['asignado_a'] ?? 0) !== $yoId): ?><button class="boton boton-claro" name="usuario_id" value="yo">Atender yo</button><?php endif; ?>
+    <noscript><button class="boton boton-claro">Cambiar</button></noscript>
+</form>
+<?php endif; ?>
 <?php if ($c['tipo'] === 'personal'): ?>
 <p class="nota">Personal: el sistema <b>nunca</b> le contesta solo. Contéstale tú desde el celular (gratis).</p>
 <?php endif; ?>
@@ -56,6 +70,18 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 <form method="post" class="escribir" id="escribir">
     <?= csrf_campo() ?>
     <label class="oculto" for="texto">Mensaje</label>
+    <?php if ($respuestas): ?>
+    <div class="rapidas">
+        <label for="rapida" class="oculto">Respuesta rápida</label>
+        <select id="rapida" aria-label="Respuesta rápida">
+            <option value="">Respuesta rápida…</option>
+            <?php foreach ($respuestas as $rr): ?><option value="<?= e($rr['texto']) ?>">/<?= e($rr['atajo']) ?> · <?= e(mb_strimwidth($rr['texto'], 0, 40, '…')) ?></option><?php endforeach; ?>
+        </select>
+        <?php if (es_admin()): ?><a href="<?= e(url('respuestas')) ?>">Editar</a><?php endif; ?>
+    </div>
+    <?php elseif (es_admin()): ?>
+    <p class="suave pequeno"><a href="<?= e(url('respuestas')) ?>">Crear respuestas rápidas</a> para no escribir lo mismo cada vez.</p>
+    <?php endif; ?>
     <textarea id="texto" name="texto" rows="3" maxlength="4096" placeholder="Escribe tu respuesta…" required><?= e($borrador) ?></textarea>
     <div class="botones-envio">
         <a class="boton boton-gratis" id="enviar-celular" href="<?= e(Telefono::enlace($c['telefono'])) ?>" data-tel="<?= e($c['telefono']) ?>" target="_blank" rel="noopener">

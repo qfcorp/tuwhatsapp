@@ -771,6 +771,42 @@ igual(Campanias::procesar($db, $martes20)['enviados'], 0, 'cancelada no envía')
 $r = Contactos::importar($db, $lc, "0981000010, Gaby\n0981000011, Hugo", 'cliente', true, true);
 igual(Campanias::contar($db, $lc, 'cliente', '', true), 5, 'importados con permiso de promociones');
 
+
+echo "== Varios agentes y respuestas rápidas\n";
+use TuWhatsApp\Respuestas;
+$clAg = Empresas::agregarUsuario($db, 1, 'agente1@tukan.com', 'Luis Agente', 'agente');
+$ag1 = (int) $db->query("SELECT id FROM usuarios WHERE correo = 'agente1@tukan.com'")->fetchColumn();
+$bellaAdmin = (int) $db->query("SELECT id FROM usuarios WHERE correo = 'bella@salon.com'")->fetchColumn();
+$ana = Contactos::porTelefono($db, $lc, '593981000001');
+try {
+    Contactos::asignar($db, $lc, (int) $ana['id'], $bellaAdmin, 1);
+    ok(false, 'no se asigna a alguien de otra cuenta');
+} catch (RuntimeException $e) {
+    ok(str_contains($e->getMessage(), 'no es de tu equipo'), 'no se asigna a alguien de otra cuenta');
+}
+Contactos::asignar($db, $lc, (int) $ana['id'], $ag1, 1);
+$mios = Contactos::bandeja($db, $lc, 'mios', '', 100, $ag1);
+igual(array_column($mios, 'telefono'), ['593981000001'], 'Míos: solo la de Luis');
+igual($mios[0]['asignado_nombre'], 'Luis Agente', 'nombre de quien atiende');
+ok(!in_array('593981000001', array_column(Contactos::bandeja($db, $lc, 'sin_asignar'), 'telefono'), true), 'ya no sale en Sin asignar');
+$nuevoC = Contactos::porTelefono($db, $lc, '593981000006');
+Contactos::tomarSiLibre($db, (int) $nuevoC['id'], $ag1);
+Contactos::tomarSiLibre($db, (int) $ana['id'], 999999);
+igual((int) Contactos::porTelefono($db, $lc, '593981000001')['asignado_a'], $ag1, 'si ya tiene dueño, no se lo quita');
+igual((int) Contactos::porTelefono($db, $lc, '593981000006')['asignado_a'], $ag1, 'si estaba libre, lo toma quien responde');
+Contactos::asignar($db, $lc, (int) $ana['id'], null, 1);
+ok(in_array('593981000001', array_column(Contactos::bandeja($db, $lc, 'sin_asignar'), 'telefono'), true), 'quitar asignación');
+Respuestas::guardar($db, $lc, '/Precios ', 'Nuestros planes empiezan en $10.');
+igual(Respuestas::lista($db, $lc)[0]['atajo'], 'precios', 'atajo limpio');
+try {
+    Respuestas::guardar($db, $lc, 'precios', 'otro');
+    ok(false, 'atajo repetido');
+} catch (RuntimeException $e) {
+    ok(true, 'atajo repetido');
+}
+Respuestas::borrar($db, $lid, (int) Respuestas::lista($db, $lc)[0]['id']);
+igual(count(Respuestas::lista($db, $lc)), 1, 'no se borra la de otro número');
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

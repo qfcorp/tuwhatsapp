@@ -325,6 +325,32 @@ webhook "$BAJA" > /dev/null; sleep 0.3
 get "/?r=chat&c=$C"
 ok 'tiene "no quiere promociones" && tiene "Pidió no recibir más promociones"' "STOP la saca de las campañas"
 
+
+echo "== Varios agentes y respuestas rápidas"
+J="$TUKAN_J"
+get "/?r=cuenta"
+post "/?r=cuenta" --data-urlencode "accion=agregar_usuario" --data-urlencode "nombre=Luis Agente" --data-urlencode "correo=luis@tukan.com" --data-urlencode "rol=agente"
+CLAVE_LUIS="$(claveMostrada)"
+get "/?r=chat&c=$C"
+ok 'tiene "Atiende" && tiene "Luis Agente" && tiene "(yo)</option>"' "en el chat se elige quién atiende"
+ok 'grep -q "selected>Dimitry (yo)" "$P"' "al responder desde el panel, la conversación pasó a mí"
+get "/?r=bandeja&f=mios"; ok 'tiene "Ana Salón Quito" && tiene "chip-asignado"' "filtro Míos"
+get "/?r=bandeja&f=sin_asignar"; ok '! tiene "Ana Salón Quito"' "ya no está en Sin asignar"
+get "/?r=chat&c=$C"
+LUIS_ID=$(grep -o '<option value="[0-9]*"[^>]*>Luis Agente' "$P" | grep -o 'value="[0-9]*"' | grep -o '[0-9]*' | head -1)
+post "/?r=chat&c=$C" --data-urlencode "accion=asignar" --data-urlencode "usuario_id=$LUIS_ID"
+ok 'tiene "Conversación asignada" && tiene "Atender yo"' "pasarla a Luis"
+get "/?r=bandeja&f=mios"; ok '! tiene "Ana Salón Quito"' "ya no está en mis chats"
+get "/?r=respuestas"
+post "/?r=respuestas" --data-urlencode "atajo=cuenta" --data-urlencode "texto=Banco Pichincha cuenta 123"
+ok 'tiene "Respuesta guardada" && tiene "/cuenta"' "crear respuesta rápida"
+get "/?r=chat&c=$C"; ok 'tiene "Respuesta rápida…" && tiene "Banco Pichincha cuenta 123"' "elegir respuesta rápida en el chat"
+entrar luis@tukan.com "$CLAVE_LUIS"
+seguir "/?r=chat&c=$C"; ok 'tiene "Respuesta rápida…" && ! tiene ">Editar<"' "el agente usa respuestas pero no las edita"
+get "/?r=respuestas"; ok '[ "$CODIGO" = 302 ]' "el agente no abre la administración de respuestas"
+get "/?r=campanias"; ok '[ "$CODIGO" = 302 ]' "el agente no abre campañas"
+get "/?r=bandeja"; ok '! tiene "r=campanias" && ! tiene "r=reglas"' "el menú del agente no muestra Campañas ni Automático"
+
 echo
 echo "Resultado: $BIEN bien, $MAL mal"
 [ "$MAL" = 0 ] && echo "TODO BIEN" || echo "HAY FALLAS"
