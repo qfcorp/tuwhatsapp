@@ -46,7 +46,10 @@ Recibir mensajes y enviar desde la app del celular es **gratis**. Con $12: unas 
 - 21 oct 2026: instalador probado en un servidor simulado (Ubuntu + nginx + PHP-FPM + PostgreSQL): RESULTADO correcto, crear usuario LISTO, entrar al panel muestra "Conectar número", verificación del webhook responde bien, y correrlo 2 veces no borra nada.
 - 21 oct 2026: el comando del Paso 1 ya no lleva tilde (se rompía al pegar desde el celular).
 - 21 oct 2026: **Pasos 1, 2 y 3 HECHOS.** Programa instalado en qfcorp, usuario creado, y ruta publicada en Cloudflare (túnel `servidorqf` → `whatsapp.tukanec.com` → `http://localhost:80`). https://whatsapp.tukanec.com ya muestra la pantalla de entrar.
-- **SIGUE: Paso 4 (Meta).**
+- 21 oct 2026: **Meta:** creada la app **"Tukan Mensajes"** (ID 2592670637899782) en el portafolio **Qfproducciones** (verificación del negocio YA completa), caso de uso WhatsApp. Meta no permite la palabra "WhatsApp" en el nombre de la app.
+- 21 oct 2026: la app quedó marcada como **Tech Provider** (no se puede revertir). Faltan: verificación de acceso, revisión de la app, publicar la app (sin publicar, Meta NO manda mensajes reales al webhook).
+- 21 oct 2026: al agregar +593 99 640 8397 Meta respondió *"no cumple los requisitos para registrarse o migrar"* (error 3441034): el número sigue activo en la app WhatsApp Business del celular. La lista solo ofrece "número nuevo" o "número virtual", no coexistencia.
+- **SIGUE: decidir** A) borrar la cuenta en la app del celular (se pierden chats y catálogo de la app) y registrar ya, o B) coexistencia: botón "Conectar con WhatsApp Business (QR)" en el programa + aprobación de Tech Provider (mantiene app, catálogo e historial). Mientras tanto probar con el número de prueba de Meta.
 
 ### ✅ Paso 1. Instalar en el servidor qfcorp (por SSH)
 Pegar esta línea completa (como usuario qf, NO como root; pedirá la contraseña de sudo):
