@@ -123,6 +123,76 @@
         });
     }
 
+    // Conectar con WhatsApp Business (código QR): ventana de Meta (Embedded Signup v5, coexistencia con la app del celular)
+    var btnQr = $('#btn-qr');
+    if (btnQr) {
+        var estadoQr = $('#qr-estado');
+        var datosMeta = null, codigo = null, enviado = false, espera = null;
+        var decir = function (t) { estadoQr.textContent = t; };
+        var enviar = function () {
+            if (enviado || !codigo) { return; }
+            if (!datosMeta) {   // a veces el código llega antes que los datos: se espera un momento
+                if (!espera) { espera = setTimeout(function () { espera = 'fin'; enviar(); }, 4000); }
+                if (espera !== 'fin') { return; }
+            }
+            enviado = true;
+            decir('Guardando la conexión…');
+            var f = new URLSearchParams();
+            f.append('csrf', btnQr.dataset.csrf);
+            f.append('code', codigo);
+            f.append('evento', datosMeta ? datosMeta.event : '');
+            f.append('waba_id', datosMeta && datosMeta.data ? (datosMeta.data.waba_id || '') : '');
+            f.append('phone_number_id', datosMeta && datosMeta.data ? (datosMeta.data.phone_number_id || '') : '');
+            f.append('nombre', ($('#qr-nombre') || {}).value || '');
+            fetch('/?r=conectar_qr', { method: 'POST', body: f, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.ok) { decir('¡Listo! Abriendo tu número…'); location.href = d.ir; }
+                    else { decir(d.error || 'No se pudo conectar.'); enviado = false; btnQr.disabled = false; }
+                })
+                .catch(function () { decir('No se pudo hablar con el servidor. Revisa el internet e intenta de nuevo.'); enviado = false; btnQr.disabled = false; });
+        };
+        window.addEventListener('message', function (ev) {
+            if (!/(^|\.)facebook\.com$/.test(String(ev.origin).replace(/^https:\/\//, ''))) { return; }
+            var d;
+            try { d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch (e) { return; }
+            if (!d || d.type !== 'WA_EMBEDDED_SIGNUP') { return; }
+            if (d.event === 'CANCEL') {
+                decir(d.data && d.data.error_message ? 'Meta: ' + d.data.error_message : 'Cerraste la ventana de Meta antes de terminar.');
+                btnQr.disabled = false;
+                return;
+            }
+            datosMeta = d;
+            enviar();
+        });
+        window.fbAsyncInit = function () {
+            FB.init({ appId: btnQr.dataset.app, autoLogAppEvents: true, xfbml: false, version: btnQr.dataset.version });
+            btnQr.disabled = false;
+        };
+        btnQr.disabled = true;
+        decir('Cargando Meta…');
+        var s = document.createElement('script');
+        s.src = 'https://connect.facebook.net/es_LA/sdk.js';
+        s.async = true; s.defer = true; s.crossOrigin = 'anonymous';
+        s.onload = function () { decir(''); };
+        s.onerror = function () { decir('No se pudo cargar Meta. Desactiva el bloqueador de anuncios o prueba con Chrome.'); };
+        document.head.appendChild(s);
+        btnQr.addEventListener('click', function () {
+            if (!window.FB) { return; }
+            btnQr.disabled = true; datosMeta = null; codigo = null; enviado = false; espera = null;
+            decir('Sigue los pasos en la ventana de Meta…');
+            FB.login(function (resp) {
+                if (resp && resp.authResponse && resp.authResponse.code) { codigo = resp.authResponse.code; enviar(); }
+                else { decir('No se completó el permiso en Meta. Intenta de nuevo.'); btnQr.disabled = false; }
+            }, {
+                config_id: btnQr.dataset.config,
+                response_type: 'code',
+                override_default_response_type: true,
+                extras: { version: 'v5', setup: {} }
+            });
+        });
+    }
+
     // Botones "Copiar"
     $$('.btn-copiar').forEach(function (b) {
         b.addEventListener('click', function () {

@@ -74,9 +74,24 @@ final class Webhook
     private function cambio(string $campo, array $v): void
     {
         $pnid = (string) ($v['metadata']['phone_number_id'] ?? '');
+        if ($pnid === '' && !in_array($campo, ['messages', 'smb_message_echoes', 'history', 'smb_app_state_sync'], true)) {
+            return;   // avisos de la cuenta (account_update y otros): quedan guardados en webhook_log
+        }
         $linea = $pnid !== '' ? Lineas::porPhoneNumberId($this->db, $pnid) : null;
         if ($linea === null) {
             throw new \RuntimeException("Número desconocido (phone_number_id $pnid): agrégalo en Números");
+        }
+        if ($campo === 'history') {
+            foreach ((array) ($v['history'] ?? []) as $h) {
+                $this->historial($linea, (array) $h);
+            }
+            return;
+        }
+        if ($campo === 'smb_app_state_sync') {
+            foreach ((array) ($v['state_sync'] ?? []) as $s) {
+                $this->contactoDelCelular($linea, (array) $s);
+            }
+            return;
         }
         if ($campo === 'messages') {
             $nombres = [];
@@ -112,6 +127,7 @@ final class Webhook
             'location' => '[Ubicación] ' . trim((string) ($m['location']['name'] ?? '') . ' ' . ($m['location']['address'] ?? '')),
             'contacts' => '[Contacto compartido]',
             'reaction' => '[Reacción ' . ($m['reaction']['emoji'] ?? '') . ']',
+            'media_placeholder' => '[Archivo del historial]',
             default => '[Mensaje no compatible]',
         };
     }
@@ -221,6 +237,73 @@ final class Webhook
         $st->execute([$linea['id'], $contacto['id'], ($m['type'] ?? '') === 'text' ? 'texto' : 'otro', mb_substr($texto, 0, 4096), $wamid, $cuando->format('c')]);
         if ($st->fetchColumn() !== false) {
             Pendientes::marcarPorEco($this->db, (int) $linea['id'], $tel, $texto);
+        }
+    }
+
+    /**
+     * Historial de la app del celular (coexistencia). Llega por partes; cada mensaje se guarda una sola vez.
+     * Nunca se contesta solo a un mensaje del historial.
+     */
+    private function historial(array $linea, array $h): void
+    {
+        if (!empty($h['errors'])) {
+            $this->db->prepare("UPDATE lineas SET historial_estado = 'rechazado' WHERE id = ?")->execute([$linea['id']]);
+            return;
+        }
+        $ahora = $this->ahora ?? new DateTimeImmutable();
+        $propio = preg_replace('/\D+/', '', (string) $linea['telefono']);
+        $estados = ['READ' => 'leido', 'DELIVERED' => 'entregado', 'SENT' => 'enviado', 'PLAYED' => 'leido', 'PENDING' => 'enviado', 'ERROR' => 'fallido'];
+        foreach ((array) ($h['threads'] ?? []) as $hilo) {
+            $cliente = preg_replace('/\D+/', '', (string) ($hilo['id'] ?? ''));
+            if ($cliente === '') {
+                continue;
+            }
+            $contacto = Contactos::obtener($this->db, (int) $linea['id'], $cliente);
+            foreach ((array) ($hilo['messages'] ?? []) as $m) {
+                $wamid = (string) ($m['id'] ?? '');
+                if ($wamid === '') {
+                    continue;
+                }
+                $de = preg_replace('/\D+/', '', (string) ($m['from'] ?? ''));
+                $sale = isset($m['to']) || ($de !== '' && $de !== $cliente) || ($propio !== '' && $de === $propio);
+                $cuando = isset($m['timestamp']) ? (new DateTimeImmutable('@' . (int) $m['timestamp']))->setTimezone($ahora->getTimezone()) : $ahora;
+                $texto = self::textoDe($m);
+                $estado = $sale ? ($estados[strtoupper((string) ($m['history_context']['status'] ?? ''))] ?? 'enviado') : 'recibido';
+                $st = $this->db->prepare("INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, tipo, texto, wamid, estado, costo, leido, motivo, creado)
+                                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, true, ?, ?) ON CONFLICT (wamid) DO NOTHING RETURNING id");
+                $st->execute([$linea['id'], $contacto['id'], $sale ? 'sale' : 'entra', $sale ? 'celular' : 'cliente',
+                              ($m['type'] ?? '') === 'text' ? 'texto' : 'otro', mb_substr($texto, 0, 4096), $wamid, $estado,
+                              $sale ? null : 'Del historial del celular', $cuando->format('c')]);
+                if (!$sale && $st->fetchColumn() !== false) {
+                    $this->db->prepare('UPDATE contactos SET ultimo_entrante = GREATEST(COALESCE(ultimo_entrante, ?), ?) WHERE id = ?')
+                       ->execute([$cuando->format('c'), $cuando->format('c'), $contacto['id']]);
+                }
+            }
+        }
+        $progreso = max(0, min(100, (int) ($h['metadata']['progress'] ?? 0)));
+        $this->db->prepare("UPDATE lineas SET historial_progreso = GREATEST(historial_progreso, ?),
+                            historial_estado = CASE WHEN GREATEST(historial_progreso, ?) >= 100 THEN 'completo' ELSE 'recibiendo' END WHERE id = ?")
+           ->execute([$progreso, $progreso, $linea['id']]);
+    }
+
+    /**
+     * Contactos de la agenda del celular (coexistencia). Los nuevos entran como "Desconocido" con su nombre;
+     * los que ya existen no cambian de tipo. Si se borran del celular, aquí se quedan (no se pierde la conversación).
+     */
+    private function contactoDelCelular(array $linea, array $s): void
+    {
+        if (($s['type'] ?? '') !== 'contact' || ($s['action'] ?? '') !== 'add') {
+            return;
+        }
+        $c = (array) ($s['contact'] ?? []);
+        $tel = Telefono::normalizar((string) ($c['phone_number'] ?? ''));
+        if ($tel === null) {
+            return;
+        }
+        $nombre = trim((string) ($c['full_name'] ?? $c['first_name'] ?? ''));
+        $contacto = Contactos::obtener($this->db, (int) $linea['id'], $tel);
+        if ($nombre !== '' && (string) $contacto['nombre'] === '') {
+            $this->db->prepare('UPDATE contactos SET nombre = ? WHERE id = ?')->execute([mb_substr($nombre, 0, 100), $contacto['id']]);
         }
     }
 

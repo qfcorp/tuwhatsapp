@@ -37,6 +37,16 @@ CREATE TABLE IF NOT EXISTS lineas (
     creado              timestamptz NOT NULL DEFAULT now()
 );
 
+-- Conexión con código QR (Embedded Signup de Meta, coexistencia con la app WhatsApp Business del celular)
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS conectado_por      text NOT NULL DEFAULT 'manual';   -- manual | qr
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS coexistencia       boolean NOT NULL DEFAULT false;   -- el número sigue en la app del celular
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS conectado_en       timestamptz;
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS sync_contactos     text NOT NULL DEFAULT '';         -- '' | ok:<request_id> | error:<texto>
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS sync_historial     text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS historial_progreso integer NOT NULL DEFAULT 0;
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS historial_estado   text NOT NULL DEFAULT '';         -- '' | recibiendo | completo | rechazado
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS pin_cifrado        text NOT NULL DEFAULT '';         -- PIN de 2 pasos (solo números nuevos)
+
 CREATE TABLE IF NOT EXISTS contactos (
     id              serial PRIMARY KEY,
     linea_id        integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,

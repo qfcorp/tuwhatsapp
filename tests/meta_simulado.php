@@ -17,6 +17,28 @@ if (preg_match('#^/bot[^/]+/sendMessage$#', $ruta)) {
 if ($auth === 'Bearer token_malo_0000000000000000000') {
     sale(401, ['error' => ['message' => 'Invalid OAuth access token', 'code' => 190]]);
 }
+if (preg_match('#^/v[\d.]+/oauth/access_token$#', $ruta)) {   // botón QR: código -> token del negocio
+    if (($_GET['client_secret'] ?? '') !== 'secreto_de_prueba' || ($_GET['client_id'] ?? '') === '') {
+        sale(400, ['error' => ['message' => 'Error validating client secret', 'code' => 1]]);
+    }
+    if (str_starts_with((string) ($_GET['code'] ?? ''), 'codigo_vencido')) {
+        sale(400, ['error' => ['message' => 'This authorization code has expired', 'code' => 100]]);
+    }
+    sale(200, ['access_token' => 'EAAGnegocio' . substr(md5((string) $_GET['code']), 0, 20), 'token_type' => 'bearer']);
+}
+if (preg_match('#^/v[\d.]+/(\d+)/subscribed_apps$#', $ruta) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    sale(200, ['success' => true]);
+}
+if (preg_match('#^/v[\d.]+/(\d+)/register$#', $ruta) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $d = json_decode($cuerpo, true);
+    preg_match('/^\d{6}$/', (string) ($d['pin'] ?? '')) ? sale(200, ['success' => true]) : sale(400, ['error' => ['message' => 'PIN', 'code' => 100]]);
+}
+if (preg_match('#^/v[\d.]+/(\d+)/smb_app_data$#', $ruta, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($m[1] === '666') {
+        sale(400, ['error' => ['message' => 'Sync window expired', 'code' => 100]]);
+    }
+    sale(200, ['messaging_product' => 'whatsapp', 'request_id' => 'REQ' . bin2hex(random_bytes(4))]);
+}
 if (preg_match('#^/v[\d.]+/(\d+)/messages$#', $ruta, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $d = json_decode($cuerpo, true);
     if (($d['status'] ?? '') === 'read') {

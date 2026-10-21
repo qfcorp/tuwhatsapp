@@ -24,6 +24,8 @@ post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "cl
 ok 'tiene "incorrectos"' "contraseña mala"
 post "/?r=login" --data-urlencode "correo=DIMI@tukanec.com" --data-urlencode "clave=claveSegura1"
 ok 'tiene "Conectar número" && tiene "Primero conecta"' "entra y pide conectar el número"
+ok 'tiene "id=\"btn-qr\"" && tiene "data-app=\"2592670637899782\"" && tiene "data-config=\"1112223334445\"" && tiene "recomendado"' "muestra el botón Conectar con WhatsApp Business"
+ok 'tiene "Conectar a mano"' "conectar a mano sigue disponible"
 
 echo "== Conectar número"
 post "/?r=linea" --data-urlencode "nombre=Tukán ventas" --data-urlencode "telefono=0996408397" --data-urlencode "phone_number_id=100" \
@@ -169,6 +171,35 @@ CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "Authorization: Bearer api_token_d
          -d '{"telefono":"0998888888","nombre":"Salón Bella","tipo":"cliente"}' "$W/api.php?accion=contacto")
 ok '[ "$CODIGO" = 200 ] && grep -q "\"tipo\":\"cliente\"" "$P"' "API registra cliente"
 get "/?r=pendientes";  ok 'tiene "Salón Bella" && tiene "tusalon"' "el pendiente de la API aparece"
+
+echo "== Conectar con código QR"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" -d "code=codigo_bueno_1234567&evento=FINISH&waba_id=300&phone_number_id=301" "$W/?r=conectar_qr")
+ok '[ "$CODIGO" = 400 ] && tiene "\"ok\":false"' "sin csrf se rechaza"
+get "/?r=linea"
+T=$(grep -o 'data-csrf="[^"]*"' "$P" | head -1 | sed 's/.*="//;s/"$//')
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" --data-urlencode "csrf=$T" --data-urlencode "code=codigo_vencido_99999" \
+         --data-urlencode "evento=FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING" --data-urlencode "waba_id=300" --data-urlencode "phone_number_id=301" "$W/?r=conectar_qr")
+ok '[ "$CODIGO" = 200 ] && tiene "\"ok\":false" && tiene "30 segundos"' "código vencido explica qué pasó"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" --data-urlencode "csrf=$T" --data-urlencode "code=codigo_bueno_1234567" \
+         --data-urlencode "evento=FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING" --data-urlencode "waba_id=300" --data-urlencode "phone_number_id=301" \
+         --data-urlencode "nombre=QF Producciones" "$W/?r=conectar_qr")
+ok '[ "$CODIGO" = 200 ] && tiene "\"ok\":true" && tiene "\"coexistencia\":true" && tiene "r=linea"' "conecta con código QR"
+ok '! tiene "EAAG" && ! tiene "pin"' "no devuelve el token ni el PIN al navegador"
+IR=$(grep -o '"ir":"[^"]*"' "$P" | sed 's/"ir":"//;s/"$//;s#\\/#/#g')
+get "$IR"
+ok 'tiene "Número conectado con código QR" && tiene "Conectado con código QR" && tiene "sigue funcionando en la app WhatsApp Business"' "pantalla del número conectado"
+ok 'tiene "Contactos del celular" && tiene "pedido a Meta" && ! tiene "Traer historial"' "contactos e historial ya pedidos"
+get "/?r=lineas";  ok 'tiene "QF Producciones" && tiene "Tukán ventas"' "los dos números en la lista"
+H='{"object":"whatsapp_business_account","entry":[{"id":"300","changes":[{"field":"history","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593996408397","phone_number_id":"301"},"history":[{"metadata":{"phase":0,"chunk_order":1,"progress":100},"threads":[{"id":"593987776655","messages":[{"from":"593987776655","id":"wamid.WEBH1","timestamp":"1760000000","type":"text","text":{"body":"Mensaje viejo del celular"}}]}]}]}}]}]}'
+ok '[ "$(webhook "$H")" = 200 ]' "historial firmado aceptado"
+sleep 0.3
+get "/?r=bandeja"; ok 'tiene "Mensaje viejo del celular" || tiene "987 776 655"' "el historial aparece en la bandeja del número QR"
+get "$IR"; ok 'tiene "completo"' "historial completo"
+post "$IR" --data-urlencode "accion=sync_historial"
+ok 'tiene "Meta solo lo permite una vez"' "no deja pedir el historial dos veces"
+get "/?r=lineas"
+L1=$(grep -o 'r=linea&amp;id=[0-9]*' "$P" | head -1 | grep -o '[0-9]*$')
+post "/?r=cambiar_linea" --data-urlencode "linea_id=$L1"
 
 echo "== Seguridad"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" -L -d "accion=tipo&tipo=personal" "$W/?r=chat&c=$C")

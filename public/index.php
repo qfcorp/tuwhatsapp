@@ -9,8 +9,9 @@ use TuWhatsApp\Lineas;
 use TuWhatsApp\Mensajeria;
 use TuWhatsApp\Meta;
 use TuWhatsApp\Pendientes;
+use TuWhatsApp\Registro;
 
-$rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos'];
+$rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr'];
 $ruta = (string) ($_GET['r'] ?? 'bandeja');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
@@ -20,6 +21,35 @@ if ($ruta !== 'login' && !usuario()) {
     redirigir('login');
 }
 $post = $_SERVER['REQUEST_METHOD'] === 'POST';
+if ($ruta === 'conectar_qr') {   // lo llama el botón "Conectar con WhatsApp Business" (responde JSON)
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    if (!$post || !csrf_ok()) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'La página estaba abierta hace mucho. Recárgala e intenta de nuevo.']);
+        exit;
+    }
+    try {
+        $r = Registro::completar(db(), $_POST);
+    } catch (\Throwable $e) {
+        error_log('tuwhatsapp conectar_qr: ' . $e);
+        $r = ['ok' => false, 'error' => 'Error del servidor al guardar el número. Intenta de nuevo.'];
+    }
+    if ($r['ok']) {
+        $_SESSION['linea_id'] = $r['linea_id'];
+        aviso('Número conectado con código QR: ' . $r['numero'] . ($r['coexistencia'] ? ' (sigue funcionando en la app del celular).' : '.'));
+        if ($r['pin'] !== '') {
+            aviso('PIN de verificación en dos pasos de este número: ' . $r['pin'] . '. Guárdalo; Meta lo pide si cambias de servidor.', 'info');
+        }
+        foreach ($r['avisos'] as $a) {
+            aviso($a, 'error');
+        }
+        $r['ir'] = url('linea', ['id' => $r['linea_id']]);
+    }
+    unset($r['pin']);
+    echo json_encode($r, JSON_UNESCAPED_UNICODE);
+    exit;
+}
 if ($post && !csrf_ok()) {
     aviso('La página estaba abierta hace mucho. Intenta de nuevo.', 'error');
     header('Location: ' . ($_SERVER['REQUEST_URI'] ?? '/'));
@@ -293,6 +323,12 @@ try {
         if ($post) {
             if (($_POST['accion'] ?? '') === 'probar' && $editar) {
                 $prueba = Meta::deLinea($editar)->probar();
+            } elseif (in_array($_POST['accion'] ?? '', ['sync_contactos', 'sync_historial'], true) && $editar) {
+                $cual = $_POST['accion'] === 'sync_contactos' ? 'contactos' : 'historial';
+                $x = Registro::sincronizar(db(), $editar, $cual);
+                aviso($x['ok'] ? 'Pedido a Meta: los ' . $cual . ' van llegando en unos minutos. Deja abierta la app WhatsApp Business en el celular.'
+                               : 'No se pudo pedir los ' . $cual . ': ' . $x['error'], $x['ok'] ? 'ok' : 'error');
+                redirigir('linea', ['id' => $editar['id']]);
             } else {
                 $id = Lineas::guardarConexion(db(), $editar ? (int) $editar['id'] : null, $_POST);
                 $_SESSION['linea_id'] = $id;
