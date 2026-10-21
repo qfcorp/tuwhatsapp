@@ -298,6 +298,33 @@ post "/?r=volver_tukan"
 ok 'tiene "Clientes de Tukán" && ! tiene "Soporte: estás"' "volver a Tukán"
 get "/?r=bandeja"; ok 'tiene "Peluquería Ana\|Ana Salón Quito"' "Tukán sigue viendo lo suyo"
 
+
+echo "== Campañas"
+J="$TUKAN_J"
+get "/?r=campanias"
+ok 'tiene "Nueva campaña" && tiene "recordatorio_pago" && tiene "aceptó"' "pantalla de campañas"
+get "/?r=chat&c=$C"
+post "/?r=chat&c=$C" --data-urlencode "accion=marketing" --data-urlencode "marketing=acepta"
+ok 'tiene "Guardado" && tiene "aria-pressed=\"true\">Aceptó"' "marcar que aceptó promociones"
+post "/?r=chat&c=$C" --data-urlencode "accion=datos" --data-urlencode "nombre=Ana Salón Quito" --data-urlencode "notas=" --data-urlencode "etiquetas=VIP, quito"
+ok 'tiene "vip, quito"' "etiquetas del contacto"
+get "/?r=campanias"
+post "/?r=campanias" --data-urlencode "accion=revisar" --data-urlencode "nombre=Recordatorio web" --data-urlencode "plantilla=recordatorio_pago|es" \
+     --data-urlencode "dato_tipo[1]=nombre" --data-urlencode "dato_valor[1]=amigo" --data-urlencode "dato_tipo[2]=fijo" --data-urlencode "dato_valor[2]=30 de noviembre" \
+     --data-urlencode "filtro_tipo=cliente" --data-urlencode "filtro_etiqueta=vip" --data-urlencode "solo_acepta=1" --data-urlencode "por_minuto=30"
+ok 'tiene "Revisar campaña" && tiene "Enviar a 1 contactos" && tiene "Hola Ana, tu plan vence el 30 de noviembre."' "revisar antes de enviar"
+post "/?r=campanias" --data-urlencode "accion=lanzar" --data-urlencode "total=1"
+ok 'tiene "Campaña creada para 1 contactos" && tiene "Enviando"' "campaña creada"
+php bin/campanias.php | grep -q "enviados 1"; ok '[ $? = 0 ]' "el envío por minuto (cron) la manda"
+get "/?r=campanias"
+ok 'tiene "Terminada" && tiene "<b>1</b> de 1 enviados"' "campaña terminada"
+post "/?r=campanias" --data-urlencode "accion=revisar" --data-urlencode "plantilla=promo_octubre|es" --data-urlencode "filtro_tipo=cliente" --data-urlencode "filtro_etiqueta=nadie" --data-urlencode "solo_acepta=1"
+ok 'tiene "No hay contactos con esas condiciones" && ! tiene "Enviar a 0"' "sin contactos no deja enviar"
+BAJA='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"metadata":{"phone_number_id":"100"},"contacts":[{"profile":{"name":"Ana"},"wa_id":"593991111111"}],"messages":[{"from":"593991111111","id":"wamid.WEBBAJA","timestamp":"'$(date +%s)'","type":"text","text":{"body":"STOP"}}]}}]}]}'
+webhook "$BAJA" > /dev/null; sleep 0.3
+get "/?r=chat&c=$C"
+ok 'tiene "no quiere promociones" && tiene "Pidió no recibir más promociones"' "STOP la saca de las campañas"
+
 echo
 echo "Resultado: $BIEN bien, $MAL mal"
 [ "$MAL" = 0 ] && echo "TODO BIEN" || echo "HAY FALLAS"

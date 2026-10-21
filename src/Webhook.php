@@ -165,6 +165,11 @@ final class Webhook
             $this->motivo((int) $id, 'No es texto: contestas tú');
             return;
         }
+        if (Campanias::pideBaja($texto)) {
+            Campanias::marcarMarketing($this->db, (int) $linea['id'], (int) $contacto['id'], 'baja');
+            $this->motivo((int) $id, 'Pidió no recibir más promociones: ya no entra en campañas');
+            return;
+        }
         $st = $this->db->prepare("SELECT count(*) FROM mensajes WHERE contacto_id = ? AND origen = 'auto' AND estado NOT IN ('fallido', 'bloqueado') AND creado > ?");
         $st->execute([$contacto['id'], $ahora->modify('-' . (int) $linea['horas_silencio'] . ' hours')->format('c')]);
         $d = Empresas::alDiaPorLinea($this->db, $linea)

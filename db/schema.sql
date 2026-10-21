@@ -175,4 +175,53 @@ ALTER TABLE lineas ALTER COLUMN empresa_id SET NOT NULL;
 CREATE INDEX IF NOT EXISTS lineas_empresa ON lineas (empresa_id);
 CREATE INDEX IF NOT EXISTS usuarios_empresa ON usuarios (empresa_id);
 
+
+-- ---------------------------------------------------------------------
+-- Campañas masivas con plantillas, permiso de promociones y etiquetas
+-- ---------------------------------------------------------------------
+ALTER TABLE mensajes DROP CONSTRAINT IF EXISTS mensajes_origen_check;
+ALTER TABLE mensajes ADD CONSTRAINT mensajes_origen_check
+    CHECK (origen IN ('cliente', 'panel', 'auto', 'celular', 'pendiente', 'campania'));
+
+-- marketing: sin_dato | acepta (dio permiso para promociones) | baja (pidió no recibir más)
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS marketing    text NOT NULL DEFAULT 'sin_dato';
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS marketing_en timestamptz;
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS etiquetas    text NOT NULL DEFAULT '';   -- separadas por coma: vip, quito
+DO $$ BEGIN
+    ALTER TABLE contactos ADD CONSTRAINT contactos_marketing CHECK (marketing IN ('sin_dato', 'acepta', 'baja'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS campanias (
+    id              serial PRIMARY KEY,
+    linea_id        integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    nombre          text NOT NULL,
+    plantilla       text NOT NULL,
+    idioma          text NOT NULL,
+    categoria       text NOT NULL,
+    cuerpo          text NOT NULL,
+    datos           text NOT NULL DEFAULT '[]',     -- [{"tipo":"nombre"} | {"tipo":"fijo","valor":"..."}] por cada {{n}}
+    filtro_tipo     text NOT NULL DEFAULT 'cliente',
+    filtro_etiqueta text NOT NULL DEFAULT '',
+    solo_acepta     boolean NOT NULL DEFAULT true,
+    por_minuto      integer NOT NULL DEFAULT 30 CHECK (por_minuto BETWEEN 1 AND 600),
+    estado          text NOT NULL DEFAULT 'enviando' CHECK (estado IN ('enviando', 'pausada', 'terminada', 'cancelada')),
+    motivo_pausa    text NOT NULL DEFAULT '',
+    usuario_id      integer REFERENCES usuarios(id) ON DELETE SET NULL,
+    creado          timestamptz NOT NULL DEFAULT now(),
+    terminado       timestamptz
+);
+CREATE INDEX IF NOT EXISTS campanias_linea ON campanias (linea_id, creado);
+
+CREATE TABLE IF NOT EXISTS campania_envios (
+    id          bigserial PRIMARY KEY,
+    campania_id integer NOT NULL REFERENCES campanias(id) ON DELETE CASCADE,
+    contacto_id integer NOT NULL REFERENCES contactos(id) ON DELETE CASCADE,
+    estado      text NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'enviado', 'fallido', 'omitido')),
+    mensaje_id  bigint REFERENCES mensajes(id) ON DELETE SET NULL,
+    error       text,
+    enviado_en  timestamptz,
+    UNIQUE (campania_id, contacto_id)
+);
+CREATE INDEX IF NOT EXISTS campania_envios_pendientes ON campania_envios (campania_id) WHERE estado = 'pendiente';
+
 COMMIT;

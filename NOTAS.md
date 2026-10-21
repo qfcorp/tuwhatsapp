@@ -132,3 +132,4 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 - Panel Clientes de Tukán (ícono edificio, solo super), Mi cuenta (equipo, contraseña, token de API), cuenta suspendida/vencida bloqueada, soporte "Entrar a su cuenta".
 - Pruebas: lógica 234, pantallas 108.
 - Siguiente: campañas masivas con plantillas y varios agentes por chat; luego conectar con el Panel Tukán Central.
+- Hecho: campañas masivas (tablas `campanias`, `campania_envios`; `contactos.marketing/etiquetas`; cron `bin/campanias.php`). Pruebas: lógica 272, pantallas 117.

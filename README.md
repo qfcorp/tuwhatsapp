@@ -90,6 +90,13 @@ En **Automático**: revisa horario, palabras clave y el menú, prueba con el **p
 - Cuenta **suspendida o vencida**: no entra al panel, no contesta sola y no envía; los mensajes que llegan se siguen guardando.
 - Un número no se puede conectar en dos cuentas, y se respeta el máximo de números del plan (también con el botón QR).
 
+## Campañas masivas
+- Menú **Campañas** (solo administradores): eliges una plantilla aprobada, qué va en cada `{{n}}` (nombre del contacto o un texto fijo), a quién (clientes, o clientes y desconocidos; con una etiqueta) y cuántos por minuto. Antes de enviar muestra cuántos contactos, el costo y cuánto queda del tope.
+- Nunca llega a Personales ni a quien pidió la baja. Por defecto solo a quien **aceptó promociones** (se marca en el chat, al importar contactos o por la API con `"promociones": true`).
+- Si alguien responde **BAJA**, **STOP** o **No más**, sale solo de las campañas.
+- Se envía poco a poco desde `bin/campanias.php` (cron de cada minuto que pone el instalador). Si llega al tope del mes, la campaña se **pausa sola**; subes el tope y la reanudas.
+- Muestra enviados, leídos, quién respondió, fallidos (con el motivo) y costo.
+
 ## API para otros programas
 Cabecera `Authorization: Bearer <token>`: el token de cada cliente (Mi cuenta → Crear token) o, para Tukán, `TUWA_API_TOKEN` de `/var/www/tuwhatsapp/config/.env`. Cuerpo JSON.
 ```

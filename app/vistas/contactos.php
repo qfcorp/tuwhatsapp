@@ -41,6 +41,7 @@ use TuWhatsApp\Telefono;
             </select>
         </label>
         <label class="check"><input type="checkbox" name="solo_nuevos" value="1" checked> No cambiar los que ya están en el programa (recomendado)</label>
+        <label class="check"><input type="checkbox" name="acepta_promos" value="1"> Todos aceptaron recibir promociones (solo para clientes; sirve para las campañas)</label>
 
         <button type="button" class="boton boton-grande boton-gratis" id="btn-agenda" hidden>Elegir de la agenda del celular</button>
         <p class="suave pequeno" id="txt-agenda" hidden>Se abre tu agenda: marca los contactos que quieras (o "Seleccionar todo") y toca Listo.</p>

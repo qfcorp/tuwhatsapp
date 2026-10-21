@@ -13,7 +13,7 @@ use TuWhatsApp\Pendientes;
 use TuWhatsApp\Registro;
 
 $rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr', 'plantillas',
-          'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan'];
+          'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan', 'campanias'];
 $ruta = (string) ($_GET['r'] ?? 'bandeja');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
@@ -26,7 +26,7 @@ $post = $_SERVER['REQUEST_METHOD'] === 'POST';
 
 // Permisos: lo de Tukán solo para su personal; la configuración solo para administradores de la cuenta
 $soloSuper = ['clientes', 'cliente', 'ver_cuenta'];
-$soloAdmin = ['reglas', 'lineas', 'linea', 'conectar_qr'];
+$soloAdmin = ['reglas', 'lineas', 'linea', 'conectar_qr', 'campanias'];
 if (usuario()) {
     if (in_array($ruta, $soloSuper, true) && !es_super()) {
         http_response_code(403);
@@ -92,7 +92,7 @@ function vista(string $nombre, string $titulo, array $datos = []): never
 
 // Páginas que necesitan un número conectado
 $linea = usuario() ? linea_actual() : null;
-if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas'], true)) {
+if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas', 'campanias'], true)) {
     if (!es_admin()) {
         aviso('El administrador de tu cuenta todavía no conecta el número de WhatsApp.', 'info');
         redirigir('cuenta');
@@ -183,8 +183,12 @@ try {
             if ($accion === 'tipo') {
                 Contactos::cambiarTipo(db(), $lid, $cid, (string) ($_POST['tipo'] ?? ''));
                 aviso('Ahora es: ' . tipo_contacto((string) $_POST['tipo']) . '.');
+            } elseif ($accion === 'marketing') {
+                \TuWhatsApp\Campanias::marcarMarketing(db(), $lid, $cid, (string) ($_POST['marketing'] ?? ''));
+                aviso('Guardado.');
             } elseif ($accion === 'datos') {
                 Contactos::guardar(db(), $lid, (string) $c['telefono'], (string) ($_POST['nombre'] ?? ''), (string) $c['tipo'], (string) ($_POST['notas'] ?? ''));
+                Contactos::guardarEtiquetas(db(), $lid, $cid, (string) ($_POST['etiquetas'] ?? ''));
                 aviso('Datos guardados.');
             } elseif ($accion === 'silencio') {
                 $horas = (int) ($_POST['horas'] ?? 0);
@@ -376,6 +380,44 @@ try {
         unset($_SESSION['empresa_vista'], $_SESSION['linea_id']);
         redirigir(es_super() ? 'clientes' : 'bandeja');
 
+    case 'campanias':
+        if ($post) {
+            $accion = (string) ($_POST['accion'] ?? '');
+            if (in_array($accion, ['pausar', 'reanudar', 'cancelar'], true)) {
+                \TuWhatsApp\Campanias::cambiar(db(), $lid, (int) ($_POST['id'] ?? 0), $accion);
+                aviso(['pausar' => 'Campaña pausada.', 'reanudar' => 'Campaña reanudada: sigue enviando en el próximo minuto.', 'cancelar' => 'Campaña cancelada. Lo que faltaba ya no se envía.'][$accion]);
+                redirigir('campanias');
+            }
+            $aprobadas = Meta::deLinea($linea)->plantillas();
+            if (!$aprobadas['ok']) {
+                throw new RuntimeException($aprobadas['error']);
+            }
+            $form = $accion === 'lanzar' ? ($_SESSION['campania_form'] ?? []) : $_POST;
+            $_SESSION['campania_form'] = $form;
+            $prep = \TuWhatsApp\Campanias::preparar(db(), $linea, $form, $aprobadas['plantillas']);
+            if ($accion === 'lanzar') {
+                if ((int) ($_POST['total'] ?? -1) !== $prep['total']) {
+                    aviso('La lista de contactos cambió mientras revisabas: revisa otra vez antes de enviar.', 'info');
+                } else {
+                    $id = \TuWhatsApp\Campanias::crear(db(), $linea, $prep, (int) usuario()['id']);
+                    unset($_SESSION['campania_form']);
+                    aviso('Campaña creada para ' . $prep['total'] . ' contactos. Empieza a enviarse en el próximo minuto (' . $prep['por_minuto'] . ' por minuto).');
+                    redirigir('campanias');
+                }
+            }
+            vista('campania_revisar', 'Revisar campaña', ['linea' => $linea, 'prep' => $prep]);
+        }
+        $aprobadas = Meta::deLinea($linea)->plantillas();
+        vista('campanias', 'Campañas', [
+            'linea' => $linea, 'campanias' => \TuWhatsApp\Campanias::lista(db(), $lid),
+            'plantillas' => $aprobadas['ok'] ? $aprobadas['plantillas'] : [], 'errorMeta' => $aprobadas['ok'] ? null : $aprobadas['error'],
+            'etiquetas' => Contactos::etiquetasUsadas(db(), $lid), 'form' => $_SESSION['campania_form'] ?? [],
+            'cuentas' => [
+                'acepta' => \TuWhatsApp\Campanias::contar(db(), $lid, 'cliente_desconocido', '', true),
+                'clientes' => \TuWhatsApp\Campanias::contar(db(), $lid, 'cliente', '', false),
+            ],
+        ]);
+
     case 'pendientes':
         if ($post) {
             $accion = (string) ($_POST['accion'] ?? '');
@@ -422,7 +464,7 @@ try {
                 if (!$filas) {
                     throw new RuntimeException('No se encontró ningún contacto con número. Revisa que el archivo sea de contactos (.vcf o .csv).');
                 }
-                $r = Contactos::importar(db(), $lid, $filas, $tipo, $soloNuevos);
+                $r = Contactos::importar(db(), $lid, $filas, $tipo, $soloNuevos, !empty($_POST['acepta_promos']) && $tipo !== 'personal');
                 $msg = "Listo: {$r['nuevos']} nuevos como " . tipo_contacto($tipo) . ($r['cambiados'] ? ", {$r['cambiados']} actualizados" : '')
                      . ($r['iguales'] ? ", {$r['iguales']} ya estaban y no se tocaron" : '') . '.';
                 if ($r['malos']) {

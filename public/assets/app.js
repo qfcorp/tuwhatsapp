@@ -234,6 +234,23 @@
         pintar();
     }
 
+
+    // Campaña nueva: mostrar solo los datos que pide la plantilla elegida
+    var formC = $('#form-campania');
+    if (formC) {
+        var verDatos = function () {
+            var sel = $('input[name=plantilla]:checked', formC);
+            var n = sel ? +sel.dataset.espacios : 0;
+            $$('#datos-campania fieldset', formC).forEach(function (fs) {
+                var usa = +fs.dataset.n <= n;
+                fs.hidden = !usa;
+                $$('input, select', fs).forEach(function (x) { x.disabled = !usa; });
+            });
+        };
+        $$('input[name=plantilla]', formC).forEach(function (r) { r.addEventListener('change', verDatos); });
+        verDatos();
+    }
+
     // Botones "Copiar"
     $$('.btn-copiar').forEach(function (b) {
         b.addEventListener('click', function () {

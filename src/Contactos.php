@@ -66,7 +66,7 @@ final class Contactos
      * @param list<array{0:string,1:string}>|string $filas
      * @return array{nuevos:int, cambiados:int, iguales:int, malos:list<string>, total:int}
      */
-    public static function importar(PDO $db, int $lineaId, array|string $filas, string $tipo, bool $soloNuevos = false): array
+    public static function importar(PDO $db, int $lineaId, array|string $filas, string $tipo, bool $soloNuevos = false, bool $aceptaPromos = false): array
     {
         if (!in_array($tipo, self::TIPOS, true)) {
             throw new RuntimeException('Tipo de contacto no válido.');
@@ -97,6 +97,10 @@ final class Contactos
                     continue;
                 }
                 self::guardar($db, $lineaId, $tel, mb_substr($nombre, 0, 100), $tipo);
+                if ($aceptaPromos) {
+                    $db->prepare("UPDATE contactos SET marketing = 'acepta', marketing_en = now() WHERE linea_id = ? AND telefono = ? AND marketing <> 'baja'")
+                       ->execute([$lineaId, $tel]);
+                }
                 $existe ? $r['cambiados']++ : $r['nuevos']++;
             }
             $db->commit();
@@ -105,6 +109,33 @@ final class Contactos
             throw $e;
         }
         return $r;
+    }
+
+    /** "VIP, quito ,  vip" -> "vip, quito" */
+    public static function limpiarEtiquetas(string $t): string
+    {
+        $r = [];
+        foreach (preg_split('/[,;]+/', $t) ?: [] as $x) {
+            $x = mb_substr(trim(mb_strtolower($x)), 0, 30);
+            if ($x !== '' && !in_array($x, $r, true)) {
+                $r[] = $x;
+            }
+        }
+        return implode(', ', array_slice($r, 0, 20));
+    }
+
+    public static function guardarEtiquetas(PDO $db, int $lineaId, int $id, string $etiquetas): void
+    {
+        $db->prepare('UPDATE contactos SET etiquetas = ? WHERE id = ? AND linea_id = ?')->execute([self::limpiarEtiquetas($etiquetas), $id, $lineaId]);
+    }
+
+    /** Etiquetas usadas en el número, con cuántos contactos tiene cada una. */
+    public static function etiquetasUsadas(PDO $db, int $lineaId): array
+    {
+        $st = $db->prepare("SELECT trim(e) AS etiqueta, count(*) AS n FROM contactos, unnest(string_to_array(etiquetas, ',')) e
+                            WHERE linea_id = ? AND etiquetas <> '' GROUP BY trim(e) ORDER BY n DESC, 1 LIMIT 50");
+        $st->execute([$lineaId]);
+        return $st->fetchAll(PDO::FETCH_KEY_PAIR);
     }
 
     public static function nombre(array $c): string

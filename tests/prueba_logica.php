@@ -662,6 +662,115 @@ igual((int) $lista[0]['id'], 1, 'Tukán primero en la lista');
 $fila = array_values(array_filter($lista, fn ($x) => (int) $x['id'] === $e2))[0];
 igual([(int) $fila['numeros'], (int) $fila['mensajes_mes'] > 0], [1, true], 'cifras del cliente');
 
+
+echo "== Campañas masivas\n";
+use TuWhatsApp\Campanias;
+ok(Campanias::pideBaja('BAJA'), 'BAJA es pedido de baja');
+ok(Campanias::pideBaja('  Stop!! '), 'Stop!! también');
+ok(Campanias::pideBaja('No más'), 'No más');
+ok(!Campanias::pideBaja('quiero dar de baja mi pedido de ayer'), 'una frase larga no es baja');
+ok(!Campanias::pideBaja('hola'), 'hola no es baja');
+igual(Campanias::valores([['tipo' => 'nombre', 'valor' => 'amigo'], ['tipo' => 'fijo', 'valor' => '20 %']], ['nombre' => 'ANA maría López', 'nombre_whatsapp' => '']),
+      ['Ana', '20 %'], 'primer nombre bonito y texto fijo');
+igual(Campanias::valores([['tipo' => 'nombre', 'valor' => 'amigo']], ['nombre' => '', 'nombre_whatsapp' => '']), ['amigo'], 'sin nombre usa el texto de respaldo');
+igual(Campanias::valores([['tipo' => 'nombre', 'valor' => 'amigo']], ['nombre' => '', 'nombre_whatsapp' => '+593 99']), ['amigo'], 'un número no sirve de nombre');
+
+$lc = Lineas::guardarConexion($db, null, ['nombre' => 'Campañas', 'phone_number_id' => '777', 'waba_id' => '778', 'token' => 'EAAGtokenCampania123456789'], 1);
+$lineaC = Lineas::buscar($db, $lc);
+$mk = function (string $tel, string $nombre, string $tipo, string $mkt, string $etq = '') use ($db, $lc) {
+    $c = Contactos::guardar($db, $lc, $tel, $nombre, $tipo);
+    Campanias::marcarMarketing($db, $lc, (int) $c['id'], $mkt);
+    Contactos::guardarEtiquetas($db, $lc, (int) $c['id'], $etq);
+    return (int) $c['id'];
+};
+$mk('0981000001', 'Ana López', 'cliente', 'acepta', 'VIP, Quito');
+$mk('0981000002', 'Beto', 'cliente', 'acepta', 'quito');
+$mk('0981000003', '', 'cliente', 'sin_dato');
+$mk('0981000004', 'Mamá', 'personal', 'acepta');
+$mk('0981000005', 'Carla', 'cliente', 'baja', 'vip');
+$mk('0981000006', 'Nuevo', 'desconocido', 'acepta');
+igual(Campanias::contar($db, $lc, 'cliente', '', true), 2, 'clientes que aceptaron');
+igual(Campanias::contar($db, $lc, 'cliente', '', false), 3, 'todos los clientes menos la baja');
+igual(Campanias::contar($db, $lc, 'cliente_desconocido', '', true), 3, 'con desconocidos que aceptaron');
+igual(Campanias::contar($db, $lc, 'cliente', 'vip', false), 1, 'etiqueta vip (sin la baja)');
+igual(Campanias::contar($db, $lc, 'cliente', 'QUITO', true), 2, 'etiqueta sin importar mayúsculas');
+igual(array_keys(Contactos::etiquetasUsadas($db, $lc)), ['quito', 'vip'], 'etiquetas usadas');
+
+$aprob = \TuWhatsApp\Meta::deLinea($lineaC)->plantillas()['plantillas'];
+try {
+    Campanias::preparar($db, $lineaC, ['plantilla' => 'recordatorio_pago|es', 'dato_tipo' => [1 => 'nombre', 2 => 'fijo'], 'dato_valor' => [1 => '', 2 => '']], $aprob);
+    ok(false, 'falta el texto fijo');
+} catch (RuntimeException $e) {
+    ok(str_contains($e->getMessage(), '{{2}}'), 'falta el texto fijo');
+}
+$prep = Campanias::preparar($db, $lineaC, ['nombre' => 'Recordatorio', 'plantilla' => 'recordatorio_pago|es', 'dato_tipo' => [1 => 'nombre', 2 => 'fijo'],
+    'dato_valor' => [1 => 'amigo', 2 => '30 de noviembre'], 'filtro_tipo' => 'cliente_desconocido', 'solo_acepta' => '1', 'por_minuto' => '2'], $aprob);
+igual([$prep['total'], $prep['minutos'], $prep['costo']], [3, 2, 0.0339], 'revisión: 3 contactos, 2 minutos, costo');
+igual($prep['ejemplo'], 'Hola Ana, tu plan vence el 30 de noviembre.', 'vista previa con el nombre');
+$idc = Campanias::crear($db, $lineaC, $prep, null);
+// Después de crearla, Beto pide la baja: no le debe llegar
+$beto = Contactos::porTelefono($db, $lc, '593981000002');
+limpiarSim();
+$wh->procesar(str_replace('"100"', '"777"', entrante('593981000002', 'Baja', 'wamid.BAJA1', $martes20->getTimestamp())));
+igual(Contactos::porTelefono($db, $lc, '593981000002')['marketing'], 'baja', 'responder BAJA lo saca de las promociones');
+ok(str_contains((string) $db->query("SELECT motivo FROM mensajes WHERE wamid = 'wamid.BAJA1'")->fetchColumn(), 'no recibir'), 'motivo de la baja');
+igual(count(sim()), 0, 'a la baja no se le contesta');
+limpiarSim();
+$r = Campanias::procesar($db, $martes20);
+igual($r['enviados'], 1, 'primer minuto: 1 enviado (Beto se omite, 2 por minuto)');
+$r = Campanias::procesar($db, $martes20);
+igual($r['enviados'], 1, 'segundo minuto: el último');
+$envios = array_values(array_filter(sim(), fn ($x) => $x['ruta'] === '/v24.0/777/messages'));
+igual(count($envios), 2, 'Meta recibió 2 plantillas');
+igual($envios[0]['cuerpo']['template']['components'][0]['parameters'][0]['text'] ?? null, 'Ana', 'con el nombre de Ana');
+igual($envios[1]['cuerpo']['template']['components'][0]['parameters'][0]['text'] ?? null, 'Nuevo', 'y el del desconocido');
+$k = Campanias::lista($db, $lc)[0];
+igual([$k['estado'], (int) $k['enviados'], (int) $k['omitidos'], (int) $k['pendientes']], ['terminada', 2, 1, 0], 'campaña terminada con 1 omitido');
+igual($db->query("SELECT count(*) FROM mensajes WHERE linea_id = $lc AND origen = 'campania'")->fetchColumn(), 2, 'mensajes guardados como campaña');
+// Respuesta después de la campaña
+(new Webhook($db, $martes20->modify('+1 hour')))->procesar(str_replace('"100"', '"777"', entrante('593981000001', 'me interesa', 'wamid.RESP1', $martes20->getTimestamp() + 600)));
+igual((int) Campanias::lista($db, $lc)[0]['respondieron'], 1, 'cuenta quién respondió');
+
+// Tope: la campaña se pausa sola y se reanuda
+Contactos::guardar($db, $lc, '0981000007', 'Dani', 'cliente');
+Campanias::marcarMarketing($db, $lc, (int) Contactos::porTelefono($db, $lc, '593981000007')['id'], 'acepta');
+Contactos::guardar($db, $lc, '0981000008', 'Eva', 'cliente');
+Campanias::marcarMarketing($db, $lc, (int) Contactos::porTelefono($db, $lc, '593981000008')['id'], 'acepta');
+$gastado = Gasto::delMes($db, $lc, $martes20);
+Lineas::guardarTope($db, $lc, number_format($gastado + 0.08, 2, '.', ''), '80');
+$lineaC = Lineas::buscar($db, $lc);
+$prep = Campanias::preparar($db, $lineaC, ['plantilla' => 'promo_octubre|es', 'filtro_tipo' => 'cliente', 'solo_acepta' => '1', 'por_minuto' => '10'], $aprob);
+igual([$prep['total'], $prep['alcanza'] < $prep['total'] || $prep['alcanza'] >= 1], [3, true], 'promo a 3 clientes que aceptaron');
+$idp = Campanias::crear($db, $lineaC, $prep, null);
+$r = Campanias::procesar($db, $martes20);
+$k = array_values(array_filter(Campanias::lista($db, $lc), fn ($x) => (int) $x['id'] === $idp))[0];
+igual([$r['enviados'], $r['pausadas'], $k['estado']], [1, 1, 'pausada'], 'se pausa al llegar al tope');
+ok(str_contains($k['motivo_pausa'], 'tope'), 'motivo de la pausa');
+igual((int) $k['pendientes'], 2, 'lo que faltaba queda pendiente');
+igual((int) $db->query("SELECT count(*) FROM mensajes WHERE linea_id = $lc AND estado = 'bloqueado'")->fetchColumn(), 0, 'no deja mensajes bloqueados sueltos');
+Lineas::guardarTope($db, $lc, '50', '80');
+Campanias::cambiar($db, $lc, $idp, 'reanudar');
+$r = Campanias::procesar($db, $martes20);
+igual($r['enviados'], 2, 'reanudada termina');
+try {
+    Campanias::cambiar($db, $lc, $idp, 'pausar');
+    ok(false, 'no se pausa una terminada');
+} catch (RuntimeException $e) {
+    ok(true, 'no se pausa una terminada');
+}
+try {
+    Campanias::cambiar($db, $lid, $idp, 'cancelar');
+    ok(false, 'no se toca la campaña de otro número');
+} catch (RuntimeException $e) {
+    ok(str_contains($e->getMessage(), 'no existe'), 'no se toca la campaña de otro número');
+}
+$idx = Campanias::crear($db, Lineas::buscar($db, $lc), Campanias::preparar($db, Lineas::buscar($db, $lc), ['plantilla' => 'promo_octubre|es', 'filtro_tipo' => 'cliente', 'solo_acepta' => '1'], $aprob), null);
+Campanias::cambiar($db, $lc, $idx, 'cancelar');
+igual(Campanias::procesar($db, $martes20)['enviados'], 0, 'cancelada no envía');
+// Importar con permiso de promociones
+$r = Contactos::importar($db, $lc, "0981000010, Gaby\n0981000011, Hugo", 'cliente', true, true);
+igual(Campanias::contar($db, $lc, 'cliente', '', true), 5, 'importados con permiso de promociones');
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

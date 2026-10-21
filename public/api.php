@@ -7,7 +7,7 @@ declare(strict_types=1);
  *   POST /api.php?accion=pendiente  {"telefono":"0991234567","nombre":"Ana","texto":"Hola...","linea":1}
  *        -> lo agrega a Pendientes (para enviarlo gratis desde el celular)
  *   POST /api.php?accion=contacto   {"telefono":"0991234567","nombre":"Ana","tipo":"cliente","linea":1}
- *        -> crea o actualiza un contacto (tipo: cliente, personal o desconocido)
+ *        -> crea o actualiza un contacto (tipo: cliente, personal o desconocido; opcional "promociones": true|false y "etiquetas": "vip, quito")
  * "linea" es opcional (por defecto el primer número).
  */
 define('TUWA_SIN_SESION', true);
@@ -60,6 +60,12 @@ try {
         case 'contacto':
             $c = \TuWhatsApp\Contactos::guardar(db(), (int) $linea['id'], (string) ($d['telefono'] ?? ''), (string) ($d['nombre'] ?? ''),
                 (string) ($d['tipo'] ?? 'cliente'));
+            if (isset($d['promociones'])) {
+                \TuWhatsApp\Campanias::marcarMarketing(db(), (int) $linea['id'], (int) $c['id'], $d['promociones'] ? 'acepta' : 'baja');
+            }
+            if (isset($d['etiquetas'])) {
+                \TuWhatsApp\Contactos::guardarEtiquetas(db(), (int) $linea['id'], (int) $c['id'], (string) $d['etiquetas']);
+            }
             responder(200, ['ok' => true, 'id' => (int) $c['id'], 'telefono' => $c['telefono'], 'tipo' => $c['tipo']]);
         default:
             responder(400, ['ok' => false, 'error' => 'Acción no válida (usa pendiente o contacto)']);

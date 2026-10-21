@@ -11,7 +11,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <a href="<?= e(url('bandeja')) ?>" class="volver" aria-label="Volver a la bandeja">‹</a>
     <div>
         <h1><?= e(Contactos::nombre($c)) ?></h1>
-        <p class="suave"><?= e(Telefono::bonito($c['telefono'])) ?><?= $c['nombre_whatsapp'] !== '' && $c['nombre_whatsapp'] !== Contactos::nombre($c) ? ' · en WhatsApp: ' . e($c['nombre_whatsapp']) : '' ?></p>
+        <p class="suave"><?= e(Telefono::bonito($c['telefono'])) ?><?= $c['nombre_whatsapp'] !== '' && $c['nombre_whatsapp'] !== Contactos::nombre($c) ? ' · en WhatsApp: ' . e($c['nombre_whatsapp']) : '' ?><?= $c['etiquetas'] !== '' ? ' · ' . e($c['etiquetas']) : '' ?><?= $c['marketing'] === 'baja' ? ' · <b>no quiere promociones</b>' : '' ?></p>
     </div>
 </div>
 
@@ -78,8 +78,18 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="datos">
         <label>Nombre<input name="nombre" maxlength="100" value="<?= e($c['nombre']) ?>" placeholder="<?= e($c['nombre_whatsapp']) ?>"></label>
+        <label>Etiquetas (separadas por coma: vip, quito)<input name="etiquetas" maxlength="300" value="<?= e($c['etiquetas']) ?>"></label>
         <label>Notas<textarea name="notas" rows="3" maxlength="2000"><?= e($c['notas']) ?></textarea></label>
         <button class="boton">Guardar</button>
+    </form>
+    <form method="post" class="formulario">
+        <?= csrf_campo() ?><input type="hidden" name="accion" value="marketing">
+        <p class="suave">¿Recibe promociones (campañas)? Meta pide que el cliente haya aceptado.</p>
+        <div class="segmentos">
+            <?php foreach (['acepta' => 'Aceptó', 'sin_dato' => 'Sin respuesta', 'baja' => 'No quiere'] as $k => $n): ?>
+            <button name="marketing" value="<?= $k ?>" class="<?= $c['marketing'] === $k ? 'activo' : '' ?>" aria-pressed="<?= $c['marketing'] === $k ? 'true' : 'false' ?>"><?= $n ?></button>
+            <?php endforeach; ?>
+        </div>
     </form>
     <?php if (!$silencio && $c['tipo'] !== 'personal'): ?>
     <form method="post" class="formulario">

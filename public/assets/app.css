@@ -292,3 +292,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--n
     .acciones-barra a { padding: 7px 6px; }
     .selector-linea select { max-width: 38vw; }
 }
+
+.cifra-grande { font-size: 1.6rem; margin: 0 0 4px; }
+.texto-alerta { color: var(--rojo); font-weight: 600; }
+.menu a { font-size: .68rem; }
