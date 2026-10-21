@@ -37,7 +37,7 @@ Recibir mensajes y enviar desde la app del celular **no se paga**. Con $12: unas
 ### Paso 1. Instalar en el servidor qfcorp
 Entra por SSH al servidor qfcorp (el mismo de TuSalón) y pega **una sola línea**:
 ```
-curl -fsSL https://raw.githubusercontent.com/qfcorp/tuwhatsapp/main/deploy/instalar.sh -o ~/instalar_tuwhatsapp.sh && bash ~/instalar_tuwhatsapp.sh
+curl -fsSL https://raw.githubusercontent.com/qfcorp/tuwhatsapp/main/deploy/instalar.sh -o /tmp/instalar_tuwhatsapp.sh && bash /tmp/instalar_tuwhatsapp.sh
 ```
 Al final debe decir: tablas 9, extensiones 4, página de entrar 200, webhook 403.
 

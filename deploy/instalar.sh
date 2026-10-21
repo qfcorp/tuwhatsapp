@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Instalador de WhatsApp Tukán (Ubuntu con PHP, PostgreSQL, nginx y túnel de Cloudflare).
 # Uso (como el usuario normal, NO como root), una sola línea:
-#   curl -fsSL https://raw.githubusercontent.com/qfcorp/tuwhatsapp/main/deploy/instalar.sh -o ~/instalar_tuwhatsapp.sh && bash ~/instalar_tuwhatsapp.sh
+#   curl -fsSL https://raw.githubusercontent.com/qfcorp/tuwhatsapp/main/deploy/instalar.sh -o /tmp/instalar_tuwhatsapp.sh && bash /tmp/instalar_tuwhatsapp.sh
 # Se puede correr las veces que quieras: actualiza el programa y NUNCA borra mensajes ni la configuración.
 # Los mensajes van sin tildes a proposito (se leen bien por SSH desde el celular).
 set -u
