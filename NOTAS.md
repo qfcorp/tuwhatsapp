@@ -57,6 +57,7 @@ En el servidor (`/var/www/tuwhatsapp/config/.env`) ya están: META_APP_ID, META_
 3. Webhook verificado y suscrito (la prueba de Meta llegó bien).
 4. Registrado como **Tech Provider independiente**.
 5. Botón QR programado, probado y funcionando: abre la ventana correcta de Meta ("Conecta tu cuenta fácilmente con Qfproducciones").
+7. **Crear plantillas desde el panel** (ícono de hoja arriba): estado Aprobada / En revisión / Rechazada con motivo, vista previa, botones y borrar. Sirve para el video de la revisión de Meta.
 6. **Número de prueba de Meta conectado** en el programa ("Prueba Meta") con token temporal de 24 h.
 
 ## ⚠️ Por qué todavía no está el número de Tukán

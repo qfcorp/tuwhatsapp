@@ -71,14 +71,46 @@ if (preg_match('#^/v[\d.]+/(\d+)/messages$#', $ruta, $m) && $_SERVER['REQUEST_ME
     sale(200, ['messaging_product' => 'whatsapp', 'contacts' => [['input' => $d['to'], 'wa_id' => $d['to']]], 'messages' => [['id' => 'wamid.SIM' . bin2hex(random_bytes(6))]]]);
 }
 if (preg_match('#^/v[\d.]+/(\d+)/message_templates$#', $ruta)) {
-    sale(200, ['data' => [
-        ['name' => 'recordatorio_pago', 'language' => 'es', 'status' => 'APPROVED', 'category' => 'UTILITY',
+    $archivo = $log . '.plantillas.json';
+    $creadas = is_file($archivo) ? (json_decode((string) file_get_contents($archivo), true) ?: []) : [];
+    $fijas = [
+        ['id' => '1', 'name' => 'recordatorio_pago', 'language' => 'es', 'status' => 'APPROVED', 'category' => 'UTILITY',
          'components' => [['type' => 'BODY', 'text' => 'Hola {{1}}, tu plan vence el {{2}}.']]],
-        ['name' => 'promo_octubre', 'language' => 'es', 'status' => 'APPROVED', 'category' => 'MARKETING',
-         'components' => [['type' => 'HEADER', 'format' => 'TEXT', 'text' => 'Oferta'], ['type' => 'BODY', 'text' => 'Este mes tenemos descuento en TuSalón.']]],
-        ['name' => 'en_revision', 'language' => 'es', 'status' => 'PENDING', 'category' => 'MARKETING',
+        ['id' => '2', 'name' => 'promo_octubre', 'language' => 'es', 'status' => 'APPROVED', 'category' => 'MARKETING',
+         'components' => [['type' => 'HEADER', 'format' => 'TEXT', 'text' => 'Oferta'], ['type' => 'BODY', 'text' => 'Este mes tenemos descuento en TuSalón.'],
+                          ['type' => 'FOOTER', 'text' => 'Tukán'], ['type' => 'BUTTONS', 'buttons' => [['type' => 'QUICK_REPLY', 'text' => 'Me interesa']]]]],
+        ['id' => '3', 'name' => 'en_revision', 'language' => 'es', 'status' => 'PENDING', 'category' => 'MARKETING',
          'components' => [['type' => 'BODY', 'text' => 'No debe salir']]],
-    ]]);
+        ['id' => '4', 'name' => 'rechazada_vieja', 'language' => 'es', 'status' => 'REJECTED', 'category' => 'MARKETING', 'rejected_reason' => 'PROMOTIONAL',
+         'components' => [['type' => 'BODY', 'text' => 'Gana dinero fácil']]],
+    ];
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $d = json_decode($cuerpo, true) ?: [];
+        foreach (array_merge($fijas, $creadas) as $p) {
+            if ($p['name'] === ($d['name'] ?? '') && $p['language'] === ($d['language'] ?? '')) {
+                sale(400, ['error' => ['message' => 'Invalid parameter', 'code' => 100, 'error_subcode' => 2388024]]);
+            }
+        }
+        if (empty($d['name']) || empty($d['category']) || empty($d['components'])) {
+            sale(400, ['error' => ['message' => 'Invalid parameter', 'code' => 100, 'error_user_msg' => 'Faltan datos']]);
+        }
+        $nueva = ['id' => (string) random_int(1000, 9999), 'name' => $d['name'], 'language' => $d['language'], 'category' => $d['category'],
+                  'status' => str_starts_with($d['name'], 'auto_') ? 'APPROVED' : 'PENDING', 'components' => $d['components']];
+        $creadas[] = $nueva;
+        file_put_contents($archivo, json_encode($creadas));
+        sale(200, ['id' => $nueva['id'], 'status' => $nueva['status'], 'category' => $d['category']]);
+    }
+    if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+        $nombre = (string) ($_GET['name'] ?? '');
+        $antes = count($creadas);
+        $creadas = array_values(array_filter($creadas, fn ($p) => $p['name'] !== $nombre));
+        if ($antes === count($creadas) && !in_array($nombre, array_column($fijas, 'name'), true)) {
+            sale(400, ['error' => ['message' => 'Template not found', 'code' => 100, 'error_user_msg' => 'No existe esa plantilla']]);
+        }
+        file_put_contents($archivo, json_encode($creadas));
+        sale(200, ['success' => true]);
+    }
+    sale(200, ['data' => array_merge($fijas, $creadas)]);
 }
 if (preg_match('#^/v[\d.]+/(\d+)$#', $ruta, $m)) {
     sale(200, ['display_phone_number' => '+593 99 640 8397', 'verified_name' => 'Tukán Software', 'quality_rating' => 'GREEN', 'id' => $m[1] ?? '']);

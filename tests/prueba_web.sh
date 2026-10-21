@@ -76,6 +76,25 @@ ok 'tiene "recordatorio_pago" && tiene "promo_octubre" && ! tiene "en_revision"'
 post "/?r=plantilla&c=$C" --data-urlencode "plantilla=recordatorio_pago|es" --data-urlencode "dato[]=Ana" --data-urlencode "dato[]=30/10"
 ok 'tiene "Plantilla enviada (gratis)" && tiene "Hola Ana, tu plan vence el 30/10."' "plantilla de utilidad con la ventana abierta: gratis"
 
+echo "== Crear plantillas desde el panel"
+get "/?r=plantillas&c=$C"
+ok 'tiene "Crear plantilla nueva" && tiene "Rechazada" && tiene "En revisión" && tiene "PROMOTIONAL"' "pantalla de plantillas con estados"
+post "/?r=plantillas&c=$C" --data-urlencode "accion=crear" --data-urlencode "nombre=Demo Lista" --data-urlencode "categoria=UTILITY" --data-urlencode "idioma=es" \
+     --data-urlencode "cuerpo=Hola {{1}}, tu demo de {{2}} ya está lista." --data-urlencode "ejemplo[1]=Ana" --data-urlencode "ejemplo[2]=TuSalón" \
+     --data-urlencode "boton_tipo[0]=QUICK_REPLY" --data-urlencode "boton_texto[0]=Quiero verla"
+ok 'tiene "Plantilla &quot;demo_lista&quot; enviada a Meta" && tiene "demo_lista"' "crear plantilla"
+post "/?r=plantillas&c=$C" --data-urlencode "accion=crear" --data-urlencode "nombre=Mala" --data-urlencode "categoria=MARKETING" --data-urlencode "idioma=es" \
+     --data-urlencode "cuerpo={{1}} oferta" --data-urlencode "ejemplo[1]=Ana"
+ok 'tiene "no puede ir al principio" && tiene "{{1}} oferta"' "error explicado y el formulario no se borra"
+post "/?r=plantillas&c=$C" --data-urlencode "accion=crear" --data-urlencode "nombre=auto prueba" --data-urlencode "categoria=MARKETING" --data-urlencode "idioma=es" \
+     --data-urlencode "cuerpo=Promoción de octubre para tu negocio"
+ok 'tiene "Ya está aprobada"' "plantilla aprobada al instante"
+post "/?r=plantillas&c=$C" --data-urlencode "accion=borrar" --data-urlencode "nombre=demo_lista"
+ok 'tiene "Plantilla &quot;demo_lista&quot; borrada"' "borrar plantilla"
+get "/?r=plantilla&c=$C"
+ok 'tiene "auto_prueba" && tiene "Crear o ver todas las plantillas"' "la aprobada ya se puede enviar"
+get "/?r=bandeja"; ok 'tiene "r=plantillas"' "ícono de plantillas arriba"
+
 echo "== Número nuevo y ventana cerrada"
 get "/?r=bandeja"
 post "/?r=nuevo_chat" --data-urlencode "telefono=0995555555" --data-urlencode "nombre=Pedro" --data-urlencode "tipo=cliente"

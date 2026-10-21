@@ -7,11 +7,11 @@ use TuWhatsApp\Gasto;
     <a href="<?= e(url('chat', ['c' => $c['id']])) ?>" class="volver" aria-label="Volver al chat">‹</a>
     <div><h1>Enviar plantilla</h1><p class="suave">a <?= e(Contactos::nombre($c)) ?></p></div>
 </div>
-<p class="suave">Las plantillas se crean y Meta las aprueba en el Administrador de WhatsApp de Meta. Aquí salen solo las aprobadas.</p>
+<p class="suave">Aquí salen solo las plantillas que Meta ya aprobó. <a href="<?= e(url('plantillas', ['c' => $c['id']])) ?>">Crear o ver todas las plantillas</a>.</p>
 <?php if ($errorMeta): ?>
 <div class="aviso aviso-error"><?= e($errorMeta) ?></div>
 <?php elseif (!$plantillas): ?>
-<div class="vacio"><p><b>No tienes plantillas aprobadas todavía.</b></p><p class="suave">Créalas en business.facebook.com → WhatsApp Manager → Plantillas de mensajes.</p></div>
+<div class="vacio"><p><b>No tienes plantillas aprobadas todavía.</b></p><p><a class="boton" href="<?= e(url('plantillas', ['c' => $c['id']])) ?>">Crear una plantilla</a></p></div>
 <?php else: ?>
 <form method="post" class="formulario" id="form-plantilla">
     <?= csrf_campo() ?>

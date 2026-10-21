@@ -266,6 +266,54 @@ igual($r['costo'], 0.074, 'marketing');
 $r = $m->plantilla($linea, $viejo, $p['plantillas'][0], ['Pedro', ''], 'panel');
 ok(!$r['ok'], 'falta un dato');
 
+echo "== Crear plantillas\n";
+use TuWhatsApp\Plantillas;
+igual(Plantillas::nombre('Recordatorio de Pagó  #1'), 'recordatorio_de_pago_1', 'nombre de plantilla');
+$base = ['nombre' => 'Recordatorio pago nuevo', 'categoria' => 'UTILITY', 'idioma' => 'es', 'cuerpo' => "Hola {{ 1 }}, tu plan vence el {{2}}.\nGracias.",
+         'ejemplo' => [1 => 'Ana', 2 => '30 de octubre'], 'encabezado' => 'Aviso', 'pie' => 'Tukán Software',
+         'boton_tipo' => ['URL', 'QUICK_REPLY', 'NINGUNO'], 'boton_texto' => ['Pagar', 'Ya pagué', ''], 'boton_destino' => ['https://tukanec.com/pagar', '', '']];
+$d = Plantillas::armar($base);
+igual($d['name'], 'recordatorio_pago_nuevo', 'nombre normalizado');
+igual($d['components'][1]['text'], "Hola {{1}}, tu plan vence el {{2}}.\nGracias.", 'variables arregladas ({{ 1 }} -> {{1}})');
+igual($d['components'][1]['example']['body_text'], [['Ana', '30 de octubre']], 'ejemplos');
+igual(array_column($d['components'], 'type'), ['HEADER', 'BODY', 'FOOTER', 'BUTTONS'], 'partes en orden');
+igual(array_column($d['components'][3]['buttons'], 'type'), ['QUICK_REPLY', 'URL'], 'botones de respuesta primero');
+$debeFallar = function (array $cambio, string $palabra, string $que) use ($base) {
+    try {
+        Plantillas::armar(array_merge($base, $cambio));
+        ok(false, $que);
+    } catch (RuntimeException $e) {
+        ok(str_contains($e->getMessage(), $palabra), $que . ': ' . $e->getMessage());
+    }
+};
+$debeFallar(['cuerpo' => '{{1}}, hola'], 'principio', 'variable al inicio');
+$debeFallar(['cuerpo' => 'Hola {{1}}.'], 'final', 'variable al final');
+$debeFallar(['cuerpo' => 'Hola {{1}} y {{3}} gracias'], 'orden', 'variables saltadas');
+$debeFallar(['ejemplo' => [1 => 'Ana']], 'ejemplo', 'falta un ejemplo');
+$debeFallar(['categoria' => 'OTRA'], 'Marketing', 'categoría mala');
+$debeFallar(['encabezado' => 'Hola {{1}}'], 'encabezado', 'variable en el encabezado');
+$debeFallar(['boton_destino' => ['tukanec.com', '', '']], 'https', 'enlace sin https');
+$debeFallar(['boton_tipo' => ['QUICK_REPLY', 'QUICK_REPLY', 'QUICK_REPLY', 'QUICK_REPLY'], 'boton_texto' => ['a', 'b', 'c', 'd']], 'Máximo', 'demasiados botones');
+$debeFallar(['cuerpo' => str_repeat('a', 1025)], '1024', 'texto muy largo');
+$debeFallar(['cuerpo' => "Hola\n\n\nchao"], 'blanco', 'muchas líneas en blanco');
+$debeFallar(['nombre' => '¡¡!!'], 'nombre', 'nombre vacío');
+$meta = \TuWhatsApp\Meta::deLinea($linea);
+$t = $meta->todasLasPlantillas();
+ok($t['ok'] && count($t['plantillas']) === 4, 'todas las plantillas (con pendientes y rechazadas)');
+$rech = array_values(array_filter($t['plantillas'], fn ($x) => $x['estado'] === 'REJECTED'))[0] ?? [];
+igual($rech['motivo'] ?? null, 'PROMOTIONAL', 'motivo del rechazo');
+$promo = array_values(array_filter($t['plantillas'], fn ($x) => $x['nombre'] === 'promo_octubre'))[0];
+igual([$promo['encabezado'], $promo['pie'], $promo['botones'][0]['texto'] ?? null], ['Oferta', 'Tukán', 'Me interesa'], 'encabezado, pie y botón leídos');
+$c = $meta->crearPlantilla($d);
+ok($c['ok'] && $c['estado'] === 'PENDING', 'plantilla creada en revisión');
+$c = $meta->crearPlantilla($d);
+ok(!$c['ok'] && str_contains($c['error'], 'Ya existe'), 'nombre repetido explicado: ' . ($c['error'] ?? ''));
+igual(count($meta->todasLasPlantillas()['plantillas']), 5, 'aparece en la lista');
+igual(count($meta->plantillas()['plantillas']), 2, 'para enviar solo salen aprobadas');
+ok($meta->borrarPlantilla('recordatorio_pago_nuevo')['ok'], 'borrar');
+igual(count($meta->todasLasPlantillas()['plantillas']), 4, 'ya no aparece');
+ok(!$meta->borrarPlantilla('no_existe')['ok'], 'borrar una que no existe');
+
 echo "== Errores de Meta\n";
 $sin = Contactos::guardar($db, $lid, '0990000000', 'Sin WhatsApp', 'cliente');
 $db->prepare('UPDATE contactos SET ultimo_entrante = ? WHERE id = ?')->execute([$martes20->format('c'), $sin['id']]);

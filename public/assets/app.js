@@ -198,6 +198,42 @@
         });
     }
 
+
+    // Plantilla nueva: ejemplos solo para las variables escritas y vista previa en vivo
+    var formN = $('#form-nueva-plantilla');
+    if (formN) {
+        var cuerpoN = $('textarea[name=cuerpo]', formN), vista = $('#vista-plantilla');
+        var esc = function (t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; };
+        var pintar = function () {
+            var texto = cuerpoN.value.replace(/\{\{\s*(\d+)\s*\}\}/g, '{{$1}}');
+            var usadas = {};
+            (texto.match(/\{\{(\d+)\}\}/g) || []).forEach(function (v) { usadas[v.replace(/\D/g, '')] = true; });
+            $$('#ejemplos label', formN).forEach(function (l) {
+                var usa = !!usadas[l.dataset.n];
+                l.hidden = !usa;
+                $('input', l).required = usa;
+            });
+            var html = esc(texto).replace(/\{\{(\d+)\}\}/g, function (m, n) {
+                var ej = $('input[name="ejemplo[' + n + ']"]', formN);
+                return '<mark>' + esc(ej && ej.value ? ej.value : '{{' + n + '}}') + '</mark>';
+            }).replace(/\n/g, '<br>');
+            $('.vp-encabezado', vista).textContent = $('input[name=encabezado]', formN).value;
+            $('.vp-cuerpo', vista).innerHTML = html || '<span class="suave">Escribe el texto…</span>';
+            $('.vp-pie', vista).textContent = $('input[name=pie]', formN).value;
+            var bots = '';
+            $$('.fila-boton', formN).forEach(function (f) {
+                var tipo = $('select', f).value, txt = $('input[name^=boton_texto]', f).value;
+                $('input[name^=boton_destino]', f).hidden = !(tipo === 'URL' || tipo === 'PHONE_NUMBER');
+                $('input[name^=boton_texto]', f).hidden = tipo === 'NINGUNO';
+                if (tipo !== 'NINGUNO' && txt) { bots += '<span>' + esc(txt) + '</span>'; }
+            });
+            $('.vp-botones', vista).innerHTML = bots;
+        };
+        formN.addEventListener('input', pintar);
+        formN.addEventListener('change', pintar);
+        pintar();
+    }
+
     // Botones "Copiar"
     $$('.btn-copiar').forEach(function (b) {
         b.addEventListener('click', function () {

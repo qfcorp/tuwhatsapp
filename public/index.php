@@ -11,7 +11,7 @@ use TuWhatsApp\Meta;
 use TuWhatsApp\Pendientes;
 use TuWhatsApp\Registro;
 
-$rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr'];
+$rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr', 'plantillas'];
 $ruta = (string) ($_GET['r'] ?? 'bandeja');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
@@ -71,7 +71,7 @@ function vista(string $nombre, string $titulo, array $datos = []): never
 
 // Páginas que necesitan un número conectado
 $linea = usuario() ? linea_actual() : null;
-if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos'], true)) {
+if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas'], true)) {
     aviso('Primero conecta tu número de WhatsApp de Meta.', 'info');
     redirigir('linea');
 }
@@ -224,6 +224,38 @@ try {
         vista('plantilla', 'Enviar plantilla', [
             'linea' => $linea, 'c' => $c, 'plantillas' => $lista, 'errorMeta' => $r['ok'] ? null : $r['error'],
             'precios' => Gasto::precios(db()),
+        ]);
+
+    case 'plantillas':
+        $meta = Meta::deLinea($linea);
+        if ($post) {
+            $accion = (string) ($_POST['accion'] ?? '');
+            if ($accion === 'crear') {
+                $_SESSION['form_plantilla'] = $_POST;
+                $datos = \TuWhatsApp\Plantillas::armar($_POST);
+                $r = $meta->crearPlantilla($datos);
+                if ($r['ok']) {
+                    unset($_SESSION['form_plantilla']);
+                    aviso('Plantilla "' . $datos['name'] . '" enviada a Meta. ' . ($r['estado'] === 'APPROVED'
+                        ? 'Ya está aprobada y lista para usar.'
+                        : 'Meta la revisa: normalmente tarda de unos minutos a 24 horas. Aquí verás si la aprueban.'));
+                } else {
+                    aviso('Meta no aceptó la plantilla: ' . $r['error'], 'error');
+                }
+            } elseif ($accion === 'borrar') {
+                $nombre = (string) ($_POST['nombre'] ?? '');
+                $r = $meta->borrarPlantilla($nombre);
+                aviso($r['ok'] ? 'Plantilla "' . $nombre . '" borrada.' : 'No se pudo borrar: ' . $r['error'], $r['ok'] ? 'ok' : 'error');
+            }
+            redirigir('plantillas', array_filter(['c' => $_GET['c'] ?? null]));
+        }
+        $r = $meta->todasLasPlantillas();
+        $form = $_SESSION['form_plantilla'] ?? [];
+        unset($_SESSION['form_plantilla']);
+        vista('plantillas', 'Plantillas', [
+            'linea' => $linea, 'plantillas' => $r['ok'] ? $r['plantillas'] : [], 'errorMeta' => $r['ok'] ? null : $r['error'],
+            'precios' => Gasto::precios(db()), 'form' => $form,
+            'volverChat' => isset($_GET['c']) ? Contactos::buscar(db(), $lid, (int) $_GET['c']) : null,
         ]);
 
     case 'pendientes':

@@ -22,6 +22,9 @@ final class Meta
         132001 => 'Esa plantilla no existe en ese idioma o todavía no está aprobada.',
         190    => 'El token de Meta venció o está mal. Ve a Números y pega un token nuevo.',
         100    => 'Meta rechazó los datos (revisa el Phone number ID y el token).',
+        2388023 => 'Meta todavía está borrando una plantilla con ese nombre: usa otro nombre o espera unas semanas.',
+        2388024 => 'Ya existe una plantilla con ese nombre e idioma.',
+        2388299 => 'Una variable {{1}} no puede ir al principio ni al final del texto: agrega palabras antes o después.',
         368    => 'Meta bloqueó temporalmente esta cuenta por incumplir sus reglas.',
         131031 => 'La cuenta de WhatsApp Business está bloqueada o falta verificar el negocio.',
         133010 => 'El número todavía no está registrado en la API de WhatsApp.',
@@ -71,37 +74,87 @@ final class Meta
         return $this->enviar(['messaging_product' => 'whatsapp', 'status' => 'read', 'message_id' => $wamid]);
     }
 
-    /** Plantillas aprobadas de la cuenta de WhatsApp Business. */
+    public const ESTADOS_PLANTILLA = ['APPROVED' => 'Aprobada', 'PENDING' => 'En revisión', 'REJECTED' => 'Rechazada', 'PAUSED' => 'Pausada',
+                                      'DISABLED' => 'Desactivada', 'IN_APPEAL' => 'En apelación', 'PENDING_DELETION' => 'Borrándose'];
+
+    /** Plantillas aprobadas (las que se pueden enviar). */
     public function plantillas(): array
+    {
+        $r = $this->todasLasPlantillas();
+        if (!$r['ok']) {
+            return $r;
+        }
+        return ['ok' => true, 'plantillas' => array_values(array_filter($r['plantillas'], fn ($p) => $p['estado'] === 'APPROVED'))];
+    }
+
+    /** Todas las plantillas de la cuenta, con su estado y el motivo si Meta la rechazó. */
+    public function todasLasPlantillas(): array
     {
         if ($this->wabaId === '') {
             return ['ok' => false, 'error' => 'Falta el "Identificador de la cuenta de WhatsApp Business" (WABA ID) en Números.'];
         }
-        $r = $this->pedir('GET', '/' . $this->wabaId . '/message_templates?fields=name,language,status,category,components&limit=200');
+        $r = $this->pedir('GET', '/' . $this->wabaId . '/message_templates?fields=id,name,language,status,category,components,rejected_reason&limit=200');
         if (!$r['ok']) {
             return $r;
         }
         $lista = [];
         foreach ((array) ($r['datos']['data'] ?? []) as $p) {
-            if (($p['status'] ?? '') !== 'APPROVED') {
-                continue;
-            }
-            $cuerpo = '';
+            $cuerpo = $encabezado = $pie = '';
+            $botones = [];
             foreach ((array) ($p['components'] ?? []) as $c) {
-                if (($c['type'] ?? '') === 'BODY') {
+                $tipo = strtoupper((string) ($c['type'] ?? ''));
+                if ($tipo === 'BODY') {
                     $cuerpo = (string) ($c['text'] ?? '');
+                } elseif ($tipo === 'HEADER' && strtoupper((string) ($c['format'] ?? 'TEXT')) === 'TEXT') {
+                    $encabezado = (string) ($c['text'] ?? '');
+                } elseif ($tipo === 'FOOTER') {
+                    $pie = (string) ($c['text'] ?? '');
+                } elseif ($tipo === 'BUTTONS') {
+                    foreach ((array) ($c['buttons'] ?? []) as $b) {
+                        $botones[] = ['tipo' => strtoupper((string) ($b['type'] ?? '')), 'texto' => (string) ($b['text'] ?? ''),
+                                      'destino' => (string) ($b['url'] ?? $b['phone_number'] ?? '')];
+                    }
                 }
             }
             preg_match_all('/\{\{(\d+)\}\}/', $cuerpo, $m);
+            $motivo = (string) ($p['rejected_reason'] ?? '');
             $lista[] = [
+                'id' => (string) ($p['id'] ?? ''),
                 'nombre' => (string) $p['name'],
                 'idioma' => (string) $p['language'],
                 'categoria' => Gasto::DE_META[strtolower((string) ($p['category'] ?? ''))] ?? 'marketing',
+                'estado' => strtoupper((string) ($p['status'] ?? '')),
+                'motivo' => in_array($motivo, ['', 'NONE'], true) ? '' : $motivo,
+                'encabezado' => $encabezado,
                 'cuerpo' => $cuerpo,
+                'pie' => $pie,
+                'botones' => $botones,
                 'espacios' => $m[1] ? max(array_map('intval', $m[1])) : 0,
             ];
         }
         return ['ok' => true, 'plantillas' => $lista];
+    }
+
+    /** Manda una plantilla nueva a Meta para que la revise. $datos viene de Plantillas::armar(). */
+    public function crearPlantilla(array $datos): array
+    {
+        if ($this->wabaId === '') {
+            return ['ok' => false, 'error' => 'Falta el "Identificador de la cuenta de WhatsApp Business" (WABA ID) en Números.'];
+        }
+        $r = $this->pedir('POST', '/' . $this->wabaId . '/message_templates', $datos);
+        if (!$r['ok']) {
+            return $r;
+        }
+        return ['ok' => true, 'id' => (string) ($r['datos']['id'] ?? ''), 'estado' => strtoupper((string) ($r['datos']['status'] ?? 'PENDING'))];
+    }
+
+    /** Borra una plantilla (todas sus versiones de idioma con ese nombre). */
+    public function borrarPlantilla(string $nombre): array
+    {
+        if ($this->wabaId === '') {
+            return ['ok' => false, 'error' => 'Falta el WABA ID en Números.'];
+        }
+        return $this->pedir('DELETE', '/' . $this->wabaId . '/message_templates?name=' . rawurlencode($nombre));
     }
 
     /** Prueba que el Phone number ID y el token funcionan. */
@@ -161,10 +214,14 @@ final class Meta
     {
         $err = $datos['error'] ?? $datos;
         $codigo = (int) ($err['code'] ?? 0);
-        if (isset(self::ERRORES[$codigo])) {
+        $sub = (int) ($err['error_subcode'] ?? 0);
+        if ($sub && isset(self::ERRORES[$sub])) {
+            return self::ERRORES[$sub];
+        }
+        if (isset(self::ERRORES[$codigo]) && !($codigo === 100 && !empty($err['error_user_msg']))) {
             return self::ERRORES[$codigo];
         }
-        $msg = (string) ($err['error_data']['details'] ?? $err['message'] ?? $err['title'] ?? '');
+        $msg = (string) ($err['error_user_msg'] ?? $err['error_data']['details'] ?? $err['message'] ?? $err['title'] ?? '');
         return 'Meta respondió con un error' . ($codigo ? " $codigo" : ($http ? " (HTTP $http)" : '')) . ($msg !== '' ? ": $msg" : '.');
     }
 }

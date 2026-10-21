@@ -50,6 +50,7 @@ if ($u && $linea) {
     <span class="nombre-linea"><?= e($linea['nombre']) ?></span>
     <?php endif; ?>
     <nav class="acciones-barra">
+        <a href="<?= e(url('plantillas')) ?>" title="Plantillas" aria-label="Plantillas"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M8 12h8M8 16h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
         <a href="<?= e(url('lineas')) ?>" title="Números conectados" aria-label="Números conectados"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
         <a href="<?= e(url('salir')) ?>" title="Salir" aria-label="Salir"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16l-4-4 4-4M6 12h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     </nav>
@@ -82,6 +83,6 @@ if ($u && $linea) {
     <?php endforeach; ?>
 </nav>
 <?php endif; ?>
-<script src="/assets/app.js?v=5" defer></script>
+<script src="/assets/app.js?v=3" defer></script>
 </body>
 </html>
