@@ -807,6 +807,62 @@ try {
 Respuestas::borrar($db, $lid, (int) Respuestas::lista($db, $lc)[0]['id']);
 igual(count(Respuestas::lista($db, $lc)), 1, 'no se borra la de otro número');
 
+
+echo "== Panel Tukán Central (protocolo v1)\n";
+use TuWhatsApp\TukanCentral;
+putenv('TUKAN_CENTRAL_ID=');
+igual(TukanCentral::config(), null, 'sin configurar está apagado');
+$sec = str_repeat('a1', 32);
+putenv('TUKAN_CENTRAL_ID=tuwhatsapp');
+putenv('TUKAN_CENTRAL_SECRET=' . $sec);
+$tc = new TukanCentral($db);
+$t0 = time();
+$tok = fn (array $cambio = []) => TukanCentral::firmar(array_merge(['v' => 1, 'tipo' => 'estado', 'inst' => 'tuwhatsapp', 'email' => 'Dimi@Tukanec.com',
+    'nombre' => 'Dimitry', 'iat' => $t0, 'exp' => $t0 + 60, 'nonce' => bin2hex(random_bytes(16))], $cambio), $sec);
+$p = $tc->validar($tok(), 'estado', $t0);
+igual($p['email'], 'dimi@tukanec.com', 'token bueno (correo en minúsculas)');
+$rechazo = function (string $t, string $accion, string $palabra, string $que, ?int $ahora = null) use ($tc, $t0) {
+    try {
+        $tc->validar($t, $accion, $ahora ?? $t0);
+        ok(false, $que);
+    } catch (RuntimeException $e) {
+        ok(str_contains($e->getMessage(), $palabra) && $e->getCode() === 401, $que . ': ' . $e->getMessage());
+    }
+};
+$bueno = $tok();
+$rechazo(substr($bueno, 0, -2) . 'xx', 'estado', 'firma', 'firma mala');
+$rechazo(TukanCentral::firmar(['v' => 1, 'tipo' => 'estado', 'inst' => 'tuwhatsapp', 'email' => 'a@b.com', 'iat' => $t0, 'exp' => $t0 + 60, 'nonce' => bin2hex(random_bytes(16))], 'otro_secreto_de_32_letras_o_mas_xx'), 'estado', 'firma', 'otro secreto');
+$rechazo($tok(['inst' => 'tusalon']), 'estado', 'otra instalación', 'otro inst');
+$rechazo($tok(['tipo' => 'sso']), 'estado', 'acción', 'tipo cambiado');
+$rechazo($tok(['v' => 2]), 'estado', 'Versión', 'otra versión');
+$rechazo($tok(['iat' => $t0 - 200, 'exp' => $t0 - 150]), 'estado', 'venció', 'vencido');
+$rechazo($tok(['iat' => $t0 + 200, 'exp' => $t0 + 250]), 'estado', 'futura', 'fecha futura');
+$rechazo($tok(['exp' => $t0 + 600]), 'estado', 'dura más', 'dura demasiado');
+$rechazo($tok(['email' => 'no-es-correo']), 'estado', 'correo', 'correo inválido');
+$rechazo($tok(['nonce' => 'abc']), 'estado', 'nonce', 'nonce mal formado');
+$repetido = $tok();
+$tc->validar($repetido, 'estado', $t0);
+$rechazo($repetido, 'estado', 'ya se usó', 'un enlace sirve una sola vez');
+$e = $tc->estado(new DateTimeImmutable('today'));
+ok($e['ok'] && $e['protocolo'] === 1 && $e['producto'] === 'tuwhatsapp', 'estado: cabecera');
+ok(is_array($e['negocios']) && $e['negocios']['total'] >= 1, 'estado: negocios (sin contar a Tukán)');
+ok(array_key_exists('Números conectados', $e['extra']) && count($e['extra']) <= 8, 'estado: extra');
+$uid = $tc->superUsuario(['email' => 'nuevo.staff@tukanec.com', 'nombre' => 'Staff Nuevo']);
+$fila = $db->query("SELECT * FROM usuarios WHERE id = $uid")->fetch();
+ok($fila['super'] && $fila['creado_por_central'] && (int) $fila['empresa_id'] === 1, 'SSO crea al personal de Tukán la primera vez');
+igual($tc->superUsuario(['email' => 'nuevo.staff@tukanec.com']), $uid, 'la segunda vez usa el mismo');
+try {
+    $tc->superUsuario(['email' => 'bella@salon.com']);
+    ok(false, 'el correo de un cliente no entra como personal de Tukán');
+} catch (RuntimeException $x) {
+    ok($x->getCode() === 403, 'el correo de un cliente no entra como personal de Tukán');
+}
+$okLim = true;
+for ($i = 0; $i < 30; $i++) { $okLim = $okLim && $tc->dentroDelLimite('9.9.9.9', $t0); }
+ok($okLim && !$tc->dentroDelLimite('9.9.9.9', $t0), 'límite de 30 por minuto');
+putenv('TUKAN_CENTRAL_ID=');
+putenv('TUKAN_CENTRAL_SECRET=');
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

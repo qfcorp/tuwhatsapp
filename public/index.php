@@ -119,9 +119,12 @@ try {
             if ((int) $st->fetchColumn() >= 10) {
                 $error = 'Demasiados intentos. Espera 15 minutos.';
             } else {
-                $st = db()->prepare('SELECT id, clave FROM usuarios WHERE lower(correo) = lower(?) AND activo');
+                $st = db()->prepare('SELECT id, clave, super FROM usuarios WHERE lower(correo) = lower(?) AND activo');
                 $st->execute([trim((string) ($_POST['correo'] ?? ''))]);
                 $f = $st->fetch();
+                if ($f && $f['super'] && \TuWhatsApp\TukanCentral::soloCentral()) {
+                    vista('login', 'Entrar', ['error' => 'El personal de Tukán entra solo desde el Panel Tukán Central.', 'hayUsuarios' => true]);
+                }
                 if ($f && password_verify((string) ($_POST['clave'] ?? ''), $f['clave'])) {
                     session_regenerate_id(true);
                     $_SESSION['usuario_id'] = (int) $f['id'];

@@ -240,4 +240,21 @@ CREATE TABLE IF NOT EXISTS respuestas_rapidas (
     UNIQUE (linea_id, atajo)
 );
 
+
+-- ---------------------------------------------------------------------
+-- Conector con el Panel Tukán Central (protocolo v1: entrar con un toque y cifras)
+-- ---------------------------------------------------------------------
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS creado_por_central boolean NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS tukan_central_nonces (
+    nonce char(32) PRIMARY KEY,
+    vence timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tukan_central_nonces_vence ON tukan_central_nonces (vence);
+CREATE TABLE IF NOT EXISTS tukan_central_pedidos (
+    ip     text NOT NULL,
+    minuto timestamptz NOT NULL,
+    n      integer NOT NULL DEFAULT 1,
+    PRIMARY KEY (ip, minuto)
+);
+
 COMMIT;

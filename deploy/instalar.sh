@@ -54,7 +54,7 @@ LLAVE="$(viejo TUWA_LLAVE)";        [ -n "$LLAVE" ]  || LLAVE="$(openssl rand -h
 VERIFY="$(viejo META_VERIFY_TOKEN)"; [ -n "$VERIFY" ] || VERIFY="tukan$(openssl rand -hex 12)"
 API="$(viejo TUWA_API_TOKEN)";       [ -n "$API" ]    || API="$(openssl rand -hex 24)"
 EXTRA=""
-[ -f "$ENVF" ] && EXTRA="$(grep -E '^(META_APP_SECRET|META_APP_ID|META_ES_CONFIG_ID|META_GRAPH_VERSION|META_GRAPH_URL|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID)=' "$ENVF" || true)"
+[ -f "$ENVF" ] && EXTRA="$(grep -E '^(TUKAN_CENTRAL_ID|TUKAN_CENTRAL_SECRET|TUKAN_CENTRAL_URL|TUKAN_SOLO_CENTRAL|META_APP_SECRET|META_APP_ID|META_ES_CONFIG_ID|META_GRAPH_VERSION|META_GRAPH_URL|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID)=' "$ENVF" || true)"
 {
   echo "TUWA_DB_HOST=127.0.0.1"
   echo "TUWA_DB_NAME=tuwhatsapp"
@@ -107,7 +107,7 @@ sudo touch /var/log/tuwhatsapp-campanias.log && sudo chown www-data:www-data /va
 
 echo
 echo "=========== RESULTADO ==========="
-echo "1) Tablas: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" < /dev/null) (deben ser 13)"
+echo "1) Tablas: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" < /dev/null) (deben ser 15)"
 echo "2) Extensiones de PHP: $(php -m | grep -E -c '^(pdo_pgsql|curl|mbstring|sodium)$') (deben ser 4)"
 curl -s -o /dev/null -w "3) Pagina de entrar: %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/?r=login"
 curl -s -o /dev/null -w "4) Webhook: %{http_code} (debe ser 403 hasta conectar Meta)\n" -H "Host: $DOMINIO" "http://127.0.0.1/webhook.php"

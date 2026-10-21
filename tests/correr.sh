@@ -36,6 +36,9 @@ TUWA_API_TOKEN=api_token_de_prueba_0123456789abcdef
 TUWA_URL=https://whatsapp.ejemplo.com
 META_APP_ID=2592670637899782
 META_ES_CONFIG_ID=1112223334445
+TUKAN_CENTRAL_ID=tuwhatsapp
+TUKAN_CENTRAL_SECRET=$(printf 'a1%.0s' $(seq 32))
+TUKAN_CENTRAL_URL=https://panel.ejemplo.com
 EOF
 TUWA_ENV="$ENVF" php -d display_errors=0 -d log_errors=1 -d error_log="$ENVF.log" -S "127.0.0.1:$WEB_PUERTO" -t public > /dev/null 2>&1 &
 WEB=$!

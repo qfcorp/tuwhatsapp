@@ -5,6 +5,7 @@ $hoy = new DateTimeImmutable('today');
 $en30 = $hoy->modify('+30 days')->format('Y-m-d');
 ?>
 <div class="cabeza"><h1>Clientes de Tukán</h1><span class="suave"><?= count($empresas) ?> cuentas</span></div>
+<?php if (!empty($_SESSION['desde_central'])): ?><p><a href="<?= e(\TuWhatsApp\TukanCentral::urlCentral()) ?>">← Panel Tukán</a></p><?php endif; ?>
 
 <details class="tarjeta plegable" <?= count($empresas) <= 1 ? 'open' : '' ?>>
     <summary>Crear cliente nuevo</summary>

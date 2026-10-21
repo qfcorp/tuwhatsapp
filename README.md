@@ -102,6 +102,13 @@ En **Automático**: revisa horario, palabras clave y el menú, prueba con el **p
 - Bandeja: filtros **Míos** y **Sin asignar**; cada conversación muestra quién la atiende.
 - **Respuestas rápidas** (Automático → Respuestas rápidas, o "Editar" en el chat): textos guardados que se pegan con un toque. Los agentes las usan; los administradores las crean.
 
+## Conectar con el Panel Tukán Central
+1. En panel.tukanec.com → **Programas** → **Agregar programa** → elige **WhatsApp Tukán**, ID `tuwhatsapp`, dirección `https://whatsapp.tukanec.com`.
+2. Copia el comando que te da y pégalo en el servidor (PuTTY de qfcorp). Es así:
+   `sudo bash /var/www/tuwhatsapp/deploy/conectar_central.sh tuwhatsapp <SECRETO> https://panel.tukanec.com` → debe terminar en `OK`.
+3. En el panel toca **Probar conexión**. Desde ahí entras con un toque (abre Clientes de Tukán) y ves las cifras: clientes en demo, activos, por vencer, vencidos, suspendidos, números, mensajes y gasto del mes.
+- Opcional: `TUKAN_SOLO_CENTRAL=1` en `config/.env` hace que el personal de Tukán solo entre desde el panel central (los clientes entran igual).
+
 ## API para otros programas
 Cabecera `Authorization: Bearer <token>`: el token de cada cliente (Mi cuenta → Crear token) o, para Tukán, `TUWA_API_TOKEN` de `/var/www/tuwhatsapp/config/.env`. Cuerpo JSON.
 ```

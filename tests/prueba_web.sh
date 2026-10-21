@@ -351,6 +351,25 @@ get "/?r=respuestas"; ok '[ "$CODIGO" = 302 ]' "el agente no abre la administrac
 get "/?r=campanias"; ok '[ "$CODIGO" = 302 ]' "el agente no abre campañas"
 get "/?r=bandeja"; ok '! tiene "r=campanias" && ! tiene "r=reglas"' "el menú del agente no muestra Campañas ni Automático"
 
+
+echo "== Panel Tukán Central"
+tokenCentral() { TIPO="$1" php -r '$b = fn($s) => rtrim(strtr(base64_encode($s), "+/", "-_"), "="); $n = time();
+  $p = $b(json_encode(["v"=>1,"tipo"=>getenv("TIPO"),"inst"=>"tuwhatsapp","email"=>"dimi@tukanec.com","nombre"=>"Dimitry","iat"=>$n,"exp"=>$n+60,"nonce"=>bin2hex(random_bytes(16))]));
+  echo $p . "." . $b(hash_hmac("sha256", $p, str_repeat("a1", 32), true));'; }
+T=$(tokenCentral estado)
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/tukan_central.php?accion=estado&t=$T")
+ok '[ "$CODIGO" = 200 ] && grep -q "\"producto\":\"tuwhatsapp\"" "$P" && grep -q "\"negocios\":{\"total\":1" "$P"' "estado para el panel central"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/tukan_central.php?accion=estado&t=$T")
+ok '[ "$CODIGO" = 401 ] && grep -q "ya se usó" "$P"' "el mismo enlace no sirve dos veces"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/tukan_central.php?accion=capacidades")
+ok '[ "$CODIGO" = 400 ] && ! grep -q "codigo" "$P"' "acción v2 -> 400 sin codigo (el panel lo toma como v1)"
+J="$(mktemp)"
+T=$(tokenCentral sso)
+seguir "/tukan_central.php?accion=sso&t=$T"
+ok 'tiene "Clientes de Tukán" && tiene "← Panel Tukán" && tiene "Entraste desde el Panel Tukán Central"' "entrar con un toque desde el panel central"
+seguir "/tukan_central.php?accion=sso&t=$T"
+ok 'tiene "No se pudo entrar" && tiene "ya se usó"' "enlace de entrada repetido"
+
 echo
 echo "Resultado: $BIEN bien, $MAL mal"
 [ "$MAL" = 0 ] && echo "TODO BIEN" || echo "HAY FALLAS"

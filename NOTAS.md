@@ -134,3 +134,4 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 - Siguiente: campañas masivas con plantillas y varios agentes por chat; luego conectar con el Panel Tukán Central.
 - Hecho: campañas masivas (tablas `campanias`, `campania_envios`; `contactos.marketing/etiquetas`; cron `bin/campanias.php`). Pruebas: lógica 272, pantallas 117.
 - Hecho: varios agentes (contactos.asignado_a, filtros Míos/Sin asignar) y respuestas rápidas (tabla respuestas_rapidas). Pruebas: lógica 282, pantallas 129. Tablas: 13.
+- Hecho: conector con el Panel Tukán Central v1 (public/tukan_central.php, src/TukanCentral.php, deploy/conectar_central.sh). Producto "tuwhatsapp". Tablas: 15. Pruebas: lógica 302, pantallas 134.
