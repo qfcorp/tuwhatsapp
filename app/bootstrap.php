@@ -114,15 +114,52 @@ function usuario(): ?array
     if ($id <= 0) {
         return $u = null;
     }
-    $st = db()->prepare('SELECT id, nombre, correo FROM usuarios WHERE id = ?');
+    $st = db()->prepare('SELECT id, nombre, correo, empresa_id, rol, super FROM usuarios WHERE id = ? AND activo');
     $st->execute([$id]);
     return $u = ($st->fetch() ?: null);
+}
+
+/** Personal de Tukán: ve el panel de Clientes y puede entrar a cualquier cuenta para dar soporte. */
+function es_super(): bool
+{
+    return (bool) (usuario()['super'] ?? false);
+}
+
+/** Administrador de su cuenta (o personal de Tukán): cambia reglas, gasto, números y equipo. Los agentes solo atienden. */
+function es_admin(): bool
+{
+    return es_super() || (usuario()['rol'] ?? '') === 'admin';
+}
+
+/** La empresa que se está mirando: la del usuario o, si es de Tukán y entró a dar soporte, la del cliente. */
+function empresa_actual(): ?array
+{
+    static $cache = [];
+    $u = usuario();
+    if (!$u) {
+        return null;
+    }
+    $id = (int) $u['empresa_id'];
+    if (es_super() && !empty($_SESSION['empresa_vista'])) {
+        $id = (int) $_SESSION['empresa_vista'];
+    }
+    return $cache[$id] ??= \TuWhatsApp\Empresas::buscar(db(), $id);
+}
+
+function viendo_otra_empresa(): bool
+{
+    $e = empresa_actual();
+    return $e !== null && (int) $e['id'] !== (int) (usuario()['empresa_id'] ?? 0);
 }
 
 /** La línea (número de WhatsApp) que se está mirando en el panel. */
 function linea_actual(): ?array
 {
-    $lineas = \TuWhatsApp\Lineas::todas(db());
+    $e = empresa_actual();
+    if (!$e) {
+        return null;
+    }
+    $lineas = \TuWhatsApp\Lineas::todas(db(), (int) $e['id']);
     if (!$lineas) {
         return null;
     }

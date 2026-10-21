@@ -167,7 +167,9 @@ final class Webhook
         }
         $st = $this->db->prepare("SELECT count(*) FROM mensajes WHERE contacto_id = ? AND origen = 'auto' AND estado NOT IN ('fallido', 'bloqueado') AND creado > ?");
         $st->execute([$contacto['id'], $ahora->modify('-' . (int) $linea['horas_silencio'] . ' hours')->format('c')]);
-        $d = Reglas::decidir($linea, $contacto, $texto, $ahora, (int) $st->fetchColumn());
+        $d = Empresas::alDiaPorLinea($this->db, $linea)
+            ? Reglas::decidir($linea, $contacto, $texto, $ahora, (int) $st->fetchColumn())
+            : ['responder' => false, 'motivo' => 'La cuenta no está al día: no se contesta solo', 'texto' => null, 'humano' => false];
         if (!$d['responder']) {
             $this->motivo((int) $id, $d['motivo']);
             return;

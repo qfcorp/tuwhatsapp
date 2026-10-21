@@ -12,14 +12,21 @@ final class Lineas
     public const MAX_OPCIONES = 6;
 
     /** @return list<array> */
-    public static function todas(PDO $db): array
+    /** Los números de una empresa (null = todos, solo para tareas internas). */
+    public static function todas(PDO $db, ?int $empresaId = null): array
     {
-        return $db->query('SELECT * FROM lineas ORDER BY id')->fetchAll();
+        if ($empresaId === null) {
+            return $db->query('SELECT * FROM lineas ORDER BY id')->fetchAll();
+        }
+        $st = $db->prepare('SELECT * FROM lineas WHERE empresa_id = ? ORDER BY id');
+        $st->execute([$empresaId]);
+        return $st->fetchAll();
     }
 
-    public static function buscar(PDO $db, int $id): ?array
+    /** Un número; con $empresaId solo si es de esa empresa (lo que usa el panel). */
+    public static function buscar(PDO $db, int $id, ?int $empresaId = null): ?array
     {
-        $st = $db->prepare('SELECT * FROM lineas WHERE id = ?');
+        $st = $db->prepare('SELECT * FROM lineas WHERE id = ?' . ($empresaId !== null ? ' AND empresa_id = ' . (int) $empresaId : ''));
         $st->execute([$id]);
         return $st->fetch() ?: null;
     }
@@ -70,8 +77,11 @@ final class Lineas
     }
 
     /** Crea o cambia los datos de conexión con Meta. El token solo se cambia si se escribe uno nuevo. */
-    public static function guardarConexion(PDO $db, ?int $id, array $d): int
+    public static function guardarConexion(PDO $db, ?int $id, array $d, int $empresaId = Empresas::TUKAN): int
     {
+        if ($id !== null && !self::buscar($db, $id, $empresaId)) {
+            throw new RuntimeException('Ese número no es de tu cuenta.');
+        }
         $nombre = trim((string) ($d['nombre'] ?? ''));
         $pnid = preg_replace('/\D+/', '', (string) ($d['phone_number_id'] ?? ''));
         $waba = preg_replace('/\D+/', '', (string) ($d['waba_id'] ?? ''));
@@ -88,14 +98,19 @@ final class Lineas
         }
         $otra = self::porPhoneNumberId($db, $pnid);
         if ($otra && (int) $otra['id'] !== (int) $id) {
-            throw new RuntimeException('Ese Phone number ID ya está en otro número: "' . $otra['nombre'] . '".');
+            throw new RuntimeException((int) $otra['empresa_id'] === $empresaId
+                ? 'Ese Phone number ID ya está en otro número: "' . $otra['nombre'] . '".'
+                : 'Ese número ya está conectado en otra cuenta. Si es tuyo, escribe a Tukán.');
+        }
+        if ($id === null && !Empresas::puedeAgregarNumero($db, $empresaId)) {
+            throw new RuntimeException('Tu plan no permite más números. Pide a Tukán que te agregue uno.');
         }
         if ($id === null) {
             if ($token === '') {
                 throw new RuntimeException('Falta el token de acceso de Meta.');
             }
-            $st = $db->prepare('INSERT INTO lineas (nombre, telefono, phone_number_id, waba_id, token_cifrado) VALUES (?, ?, ?, ?, ?) RETURNING id');
-            $st->execute([$nombre, $tel, $pnid, $waba, Cifrado::cifrar($token)]);
+            $st = $db->prepare('INSERT INTO lineas (empresa_id, nombre, telefono, phone_number_id, waba_id, token_cifrado) VALUES (?, ?, ?, ?, ?, ?) RETURNING id');
+            $st->execute([$empresaId, $nombre, $tel, $pnid, $waba, Cifrado::cifrar($token)]);
             return (int) $st->fetchColumn();
         }
         $db->prepare('UPDATE lineas SET nombre = ?, telefono = ?, phone_number_id = ?, waba_id = ? WHERE id = ?')

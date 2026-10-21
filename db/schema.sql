@@ -133,4 +133,46 @@ CREATE TABLE IF NOT EXISTS intentos_login (
 );
 CREATE INDEX IF NOT EXISTS intentos_login_ip ON intentos_login (ip, creado);
 
+
+-- ---------------------------------------------------------------------
+-- Cuentas por cliente (empresas). Cada empresa ve solo lo suyo.
+-- Lo que ya existía pasa a la empresa 1 "Tukán Software"; el primer usuario queda como super (personal de Tukán).
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS empresas (
+    id                serial PRIMARY KEY,
+    nombre            text NOT NULL,
+    estado            text NOT NULL DEFAULT 'activa' CHECK (estado IN ('demo', 'activa', 'suspendida')),
+    vence             date,
+    max_numeros       integer NOT NULL DEFAULT 1 CHECK (max_numeros BETWEEN 0 AND 100),
+    max_usuarios      integer NOT NULL DEFAULT 3 CHECK (max_usuarios BETWEEN 1 AND 500),
+    contacto          text NOT NULL DEFAULT '',
+    telefono          text NOT NULL DEFAULT '',
+    correo            text NOT NULL DEFAULT '',
+    notas             text NOT NULL DEFAULT '',
+    motivo_suspension text NOT NULL DEFAULT '',
+    api_token_hash    text NOT NULL DEFAULT '',
+    creado            timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO empresas (id, nombre, max_numeros, max_usuarios)
+    SELECT 1, 'Tukán Software', 20, 50 WHERE NOT EXISTS (SELECT 1 FROM empresas WHERE id = 1);
+SELECT setval(pg_get_serial_sequence('empresas', 'id'), GREATEST((SELECT max(id) FROM empresas), 1));
+
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS empresa_id integer REFERENCES empresas(id) ON DELETE CASCADE;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rol        text NOT NULL DEFAULT 'admin';
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS super      boolean NOT NULL DEFAULT false;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo     boolean NOT NULL DEFAULT true;
+UPDATE usuarios SET empresa_id = 1 WHERE empresa_id IS NULL;
+UPDATE usuarios SET super = true
+    WHERE id = (SELECT min(id) FROM usuarios) AND NOT EXISTS (SELECT 1 FROM usuarios WHERE super);
+ALTER TABLE usuarios ALTER COLUMN empresa_id SET NOT NULL;
+DO $$ BEGIN
+    ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol CHECK (rol IN ('admin', 'agente'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS empresa_id integer REFERENCES empresas(id) ON DELETE CASCADE;
+UPDATE lineas SET empresa_id = 1 WHERE empresa_id IS NULL;
+ALTER TABLE lineas ALTER COLUMN empresa_id SET NOT NULL;
+CREATE INDEX IF NOT EXISTS lineas_empresa ON lineas (empresa_id);
+CREATE INDEX IF NOT EXISTS usuarios_empresa ON usuarios (empresa_id);
+
 COMMIT;

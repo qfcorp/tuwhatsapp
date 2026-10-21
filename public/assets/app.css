@@ -269,3 +269,26 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--n
 .borrar-plantilla summary { cursor: pointer; color: var(--rojo); font-weight: 600; font-size: .9rem; }
 .boton-peligro { background: var(--rojo); }
 .boton-peligro:hover { background: #962C22; }
+
+/* Soporte y cuentas */
+.soporte { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 8px 16px; background: #2B5D84; color: #fff; font-size: .9rem; }
+.soporte .boton { min-height: 36px; padding: 6px 12px; }
+.clave-nueva { background: var(--naranja-claro); border: 2px dashed var(--naranja); border-radius: 10px; padding: 12px; margin: 0 0 14px; }
+.clave-nueva code { font-size: 1.15rem; font-weight: 700; background: #fff; padding: 4px 8px; display: inline-block; margin-top: 4px; user-select: all; }
+.lista-usuarios li { flex-wrap: wrap; }
+.lista-usuarios form { display: flex; gap: 6px; flex-wrap: wrap; }
+.lista-usuarios .boton { min-height: 36px; padding: 6px 10px; font-size: .85rem; }
+.chip-estado-activa { background: var(--verde-claro); color: #13603E; }
+.chip-estado-demo { background: var(--naranja-claro); color: var(--naranja-oscuro); }
+.chip-estado-suspendida, .chip-estado-vencida { background: var(--rojo-claro); color: var(--rojo); }
+.tarjeta-cliente { display: block; color: inherit; text-decoration: none; }
+.tarjeta-cliente:hover { border-color: var(--naranja); }
+.cifras { display: flex; gap: 14px; flex-wrap: wrap; font-size: .85rem; color: var(--tinta-suave); margin-top: 4px; }
+.bloqueada { text-align: center; max-width: 460px; margin: 10vh auto 0; }
+@media (max-width: 480px) {
+    .barra { gap: 6px; padding: 10px 10px; }
+    .marca span { display: none; }
+    .acciones-barra { gap: 0; }
+    .acciones-barra a { padding: 7px 6px; }
+    .selector-linea select { max-width: 38vw; }
+}

@@ -49,7 +49,7 @@ final class Registro
      * Hace todos los pasos. $d viene del navegador: code, evento, waba_id, phone_number_id, nombre.
      * @return array{ok:bool, linea_id?:int, coexistencia?:bool, numero?:string, pin?:string, avisos?:list<string>, error?:string}
      */
-    public static function completar(PDO $db, array $d, ?DateTimeImmutable $ahora = null): array
+    public static function completar(PDO $db, array $d, ?DateTimeImmutable $ahora = null, int $empresaId = Empresas::TUKAN): array
     {
         if (!self::listo()) {
             return ['ok' => false, 'error' => 'Falta configurar en el servidor META_APP_ID, META_ES_CONFIG_ID y la clave secreta de Meta (bash /var/www/tuwhatsapp/deploy/clave_meta.sh).'];
@@ -95,6 +95,15 @@ final class Registro
         // Coexistencia si Meta lo dijo en el evento o si el número sigue en la app del celular
         $coex = $evento === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' || $enApp;
 
+        // 1c. El número no puede ser de otra empresa, y la empresa debe tener cupo (antes de tocar nada en Meta)
+        $existe = Lineas::porPhoneNumberId($db, $pnid);
+        if ($existe && (int) $existe['empresa_id'] !== $empresaId) {
+            return ['ok' => false, 'error' => 'Ese número ya está conectado en otra cuenta. Si es tuyo, escribe a Tukán.'];
+        }
+        if (!$existe && !Empresas::puedeAgregarNumero($db, $empresaId)) {
+            return ['ok' => false, 'error' => 'Tu plan no permite más números. Pide a Tukán que te agregue uno.'];
+        }
+
         // 2. Suscribir la app a la cuenta (sin esto no llegan mensajes)
         $avisos = [];
         $s = self::pedir('POST', '/' . $waba . '/subscribed_apps', [], $token);
@@ -129,9 +138,9 @@ final class Registro
                           conectado_por = 'qr', coexistencia = ?, conectado_en = ?, pin_cifrado = CASE WHEN ? <> '' THEN ? ELSE pin_cifrado END WHERE id = ?")
                ->execute([$waba, Cifrado::cifrar($token), $tel, $tel, $coex ? 't' : 'f', $ahora->format('c'), $pin, $pin !== '' ? Cifrado::cifrar($pin) : '', $id]);
         } else {
-            $st = $db->prepare("INSERT INTO lineas (nombre, telefono, phone_number_id, waba_id, token_cifrado, conectado_por, coexistencia, conectado_en, pin_cifrado)
-                                VALUES (?, ?, ?, ?, ?, 'qr', ?, ?, ?) RETURNING id");
-            $st->execute([mb_substr($nombre, 0, 60), $tel, $pnid, $waba, Cifrado::cifrar($token), $coex ? 't' : 'f', $ahora->format('c'), $pin !== '' ? Cifrado::cifrar($pin) : '']);
+            $st = $db->prepare("INSERT INTO lineas (empresa_id, nombre, telefono, phone_number_id, waba_id, token_cifrado, conectado_por, coexistencia, conectado_en, pin_cifrado)
+                                VALUES (?, ?, ?, ?, ?, ?, 'qr', ?, ?, ?) RETURNING id");
+            $st->execute([$empresaId, mb_substr($nombre, 0, 60), $tel, $pnid, $waba, Cifrado::cifrar($token), $coex ? 't' : 'f', $ahora->format('c'), $pin !== '' ? Cifrado::cifrar($pin) : '']);
             $id = (int) $st->fetchColumn();
         }
 

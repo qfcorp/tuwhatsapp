@@ -551,6 +551,117 @@ try {
     ok(true, 'precio absurdo');
 }
 
+
+echo "== Cuentas por cliente (empresas)\n";
+use TuWhatsApp\Empresas;
+$hoy = new DateTimeImmutable('2026-10-21');
+ok(Empresas::alDia(['estado' => 'activa', 'vence' => null], $hoy), 'activa sin fecha: al día');
+ok(Empresas::alDia(['estado' => 'activa', 'vence' => '2026-10-21'], $hoy), 'vence hoy: todavía al día');
+ok(!Empresas::alDia(['estado' => 'activa', 'vence' => '2026-10-20'], $hoy), 'vencida ayer');
+ok(Empresas::alDia(['estado' => 'demo', 'vence' => '2026-10-28'], $hoy), 'demo vigente');
+ok(!Empresas::alDia(['estado' => 'demo', 'vence' => null], $hoy), 'demo sin fecha no vale');
+ok(!Empresas::alDia(['estado' => 'suspendida', 'vence' => '2030-01-01'], $hoy), 'suspendida');
+igual(Empresas::motivoBloqueo(['estado' => 'suspendida', 'motivo_suspension' => 'Falta el pago', 'vence' => null]), 'Falta el pago', 'motivo de suspensión');
+ok(preg_match('/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/', Empresas::claveNueva()) === 1, 'contraseña fácil de dictar');
+
+$nueva = Empresas::crear($db, ['nombre' => 'Salón Bella', 'estado' => 'demo', 'vence' => (new DateTimeImmutable('+7 days'))->format('Y-m-d'),
+    'max_numeros' => '1', 'max_usuarios' => '2', 'contacto' => 'Bella', 'telefono' => '0991112222', 'admin_correo' => 'Bella@Salon.com', 'admin_nombre' => 'Bella']);
+$e2 = (int) $nueva['empresa_id'];
+ok($e2 > 1 && strlen($nueva['clave']) === 14, 'empresa creada con su primer usuario');
+$u = $db->query("SELECT * FROM usuarios WHERE correo = 'bella@salon.com'")->fetch();
+ok($u && (int) $u['empresa_id'] === $e2 && $u['rol'] === 'admin' && !$u['super'] && password_verify($nueva['clave'], $u['clave']), 'usuario admin de su empresa (correo en minúsculas)');
+try {
+    Empresas::crear($db, ['nombre' => 'Otro', 'estado' => 'demo', 'vence' => '2030-01-01', 'admin_correo' => 'bella@salon.com']);
+    ok(false, 'correo repetido');
+} catch (RuntimeException $e) {
+    ok(str_contains($e->getMessage(), 'Ya existe'), 'correo repetido');
+}
+igual((int) $db->query("SELECT count(*) FROM empresas WHERE nombre = 'Otro'")->fetchColumn(), 0, 'si falla el usuario no queda la empresa a medias');
+try {
+    Empresas::crear($db, ['nombre' => 'Sin fecha', 'estado' => 'demo', 'admin_correo' => 'x@y.com']);
+    ok(false, 'demo sin fecha');
+} catch (RuntimeException $e) {
+    ok(true, 'demo sin fecha');
+}
+Empresas::agregarUsuario($db, $e2, 'agente@salon.com', 'Agente', 'agente');
+try {
+    Empresas::agregarUsuario($db, $e2, 'tercero@salon.com', 'Tercero', 'agente');
+    ok(false, 'límite de usuarios');
+} catch (RuntimeException $e) {
+    ok(str_contains($e->getMessage(), '2 usuarios'), 'límite de usuarios');
+}
+$agente = (int) $db->query("SELECT id FROM usuarios WHERE correo = 'agente@salon.com'")->fetchColumn();
+try {
+    Empresas::cambiarUsuario($db, 1, $agente, 'desactivar', 999);
+    ok(false, 'no se toca un usuario de otra empresa');
+} catch (RuntimeException $e) {
+    ok(str_contains($e->getMessage(), 'no es de tu cuenta'), 'no se toca un usuario de otra empresa');
+}
+Empresas::cambiarUsuario($db, $e2, $agente, 'desactivar', (int) $u['id']);
+Empresas::agregarUsuario($db, $e2, 'tercero@salon.com', 'Tercero', 'agente');
+ok(true, 'desactivado deja cupo');
+try {
+    Empresas::cambiarUsuario($db, $e2, (int) $u['id'], 'agente', (int) $u['id']);
+    ok(false, 'no se quita el admin a sí mismo');
+} catch (RuntimeException $e) {
+    ok(true, 'no se quita el admin a sí mismo');
+}
+
+// Números separados por empresa
+try {
+    Lineas::guardarConexion($db, null, ['nombre' => 'Robado', 'phone_number_id' => '100', 'token' => 'EAAGtokenDePrueba1234567890'], $e2);
+    ok(false, 'no puede usar el número de otra empresa');
+} catch (RuntimeException $e) {
+    ok(str_contains($e->getMessage(), 'otra cuenta'), 'no puede usar el número de otra empresa');
+}
+$l2 = Lineas::guardarConexion($db, null, ['nombre' => 'Bella', 'phone_number_id' => '900', 'waba_id' => '901', 'token' => 'EAAGtokenBella1234567890123'], $e2);
+try {
+    Lineas::guardarConexion($db, null, ['nombre' => 'Segundo', 'phone_number_id' => '902', 'token' => 'EAAGtokenBella1234567890123'], $e2);
+    ok(false, 'límite de números');
+} catch (RuntimeException $e) {
+    ok(str_contains($e->getMessage(), 'no permite más números'), 'límite de números');
+}
+igual(array_column(Lineas::todas($db, $e2), 'id'), [$l2], 'la empresa ve solo su número');
+igual(Lineas::buscar($db, $lid, $e2), null, 'no puede abrir el número de Tukán');
+try {
+    Lineas::guardarConexion($db, $lid, ['nombre' => 'X', 'phone_number_id' => '100', 'token' => ''], $e2);
+    ok(false, 'no puede editar el número de otra empresa');
+} catch (RuntimeException $e) {
+    ok(str_contains($e->getMessage(), 'no es de tu cuenta'), 'no puede editar el número de otra empresa');
+}
+$r = Registro::completar($db, ['code' => 'codigo_bueno_1234567', 'evento' => 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING', 'waba_id' => '300', 'phone_number_id' => '301'], null, $e2);
+ok(!$r['ok'] && str_contains($r['error'], 'otra cuenta'), 'QR: número de otra empresa rechazado: ' . ($r['error'] ?? ''));
+
+// Webhook y envíos según el estado de la cuenta
+$linea2 = Lineas::buscar($db, $l2);
+Lineas::guardarReglas($db, $l2, array_merge($form, ['regla_solo_clientes' => '0', 'regla_horario' => '0']));
+$linea2 = Lineas::buscar($db, $l2);
+limpiarSim();
+$wh->procesar(str_replace('"100"', '"900"', entrante('593991231231', 'precio por favor', 'wamid.B1', $martes20->getTimestamp())));
+ok(str_contains((string) $db->query("SELECT motivo FROM mensajes WHERE wamid = 'wamid.B1'")->fetchColumn(), 'Contestado solo'), 'cuenta en demo contesta sola');
+igual(count(array_filter(sim(), fn ($x) => $x['ruta'] === '/v24.0/900/messages')), 1, 'sale por el número de Bella');
+$db->prepare("UPDATE empresas SET estado = 'suspendida', motivo_suspension = 'Falta el pago' WHERE id = ?")->execute([$e2]);
+limpiarSim();
+$wh->procesar(str_replace('"100"', '"900"', entrante('593991231232', 'precio por favor', 'wamid.B2', $martes20->getTimestamp())));
+igual($db->query("SELECT motivo FROM mensajes WHERE wamid = 'wamid.B2'")->fetchColumn(), 'La cuenta no está al día: no se contesta solo', 'suspendida: guarda pero no contesta');
+igual(count(sim()), 0, 'nada a Meta');
+$cb = Contactos::porTelefono($db, $l2, '593991231232');
+$r = (new Mensajeria($db, $martes20))->texto($linea2, $cb, 'hola', 'panel');
+ok(!$r['ok'] && str_contains($r['error'], 'no está al día'), 'suspendida: no envía desde el panel');
+$db->prepare("UPDATE empresas SET estado = 'activa' WHERE id = ?")->execute([$e2]);
+
+// Token de API por empresa
+$tok = Empresas::nuevoTokenApi($db, $e2);
+igual((int) (Empresas::porTokenApi($db, $tok)['id'] ?? 0), $e2, 'token de API de la empresa');
+igual(Empresas::porTokenApi($db, 'tw_2_' . str_repeat('0', 48)), null, 'token falso');
+$tok2 = Empresas::nuevoTokenApi($db, $e2);
+igual(Empresas::porTokenApi($db, $tok), null, 'el token anterior deja de servir');
+ok(Empresas::porTokenApi($db, $tok2) !== null, 'el nuevo sirve');
+$lista = Empresas::lista($db);
+igual((int) $lista[0]['id'], 1, 'Tukán primero en la lista');
+$fila = array_values(array_filter($lista, fn ($x) => (int) $x['id'] === $e2))[0];
+igual([(int) $fila['numeros'], (int) $fila['mensajes_mes'] > 0], [1, true], 'cifras del cliente');
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

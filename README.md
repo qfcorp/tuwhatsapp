@@ -82,8 +82,16 @@ En **Automático**: revisa horario, palabras clave y el menú, prueba con el **p
 
 ---
 
+## Cuentas por cliente (para vender el servicio)
+- Cada **empresa** (cliente) tiene sus usuarios y sus números; solo ve lo suyo (contactos, mensajes, pendientes, reglas, plantillas y gasto).
+- **Personal de Tukán** (usuarios creados en el servidor con `bin/crear_usuario.php`): ícono del **edificio** arriba → **Clientes de Tukán**: crear cliente (demo con fecha o activa), su primer usuario (la contraseña se muestra una sola vez), números y usuarios permitidos, suspender con motivo, notas internas y **Entrar a su cuenta (soporte)**.
+- **Administrador** del cliente: configura todo y en **Mi cuenta** (ícono de la persona) agrega a su equipo (administradores o agentes) y crea su token de API.
+- **Agente**: solo atiende Bandeja, Pendientes y Contactos.
+- Cuenta **suspendida o vencida**: no entra al panel, no contesta sola y no envía; los mensajes que llegan se siguen guardando.
+- Un número no se puede conectar en dos cuentas, y se respeta el máximo de números del plan (también con el botón QR).
+
 ## API para otros programas
-Cabecera `Authorization: Bearer <TUWA_API_TOKEN>` (está en `/var/www/tuwhatsapp/config/.env`). Cuerpo JSON.
+Cabecera `Authorization: Bearer <token>`: el token de cada cliente (Mi cuenta → Crear token) o, para Tukán, `TUWA_API_TOKEN` de `/var/www/tuwhatsapp/config/.env`. Cuerpo JSON.
 ```
 POST https://whatsapp.tukanec.com/api.php?accion=pendiente
 {"telefono":"0991234567","nombre":"Salón Bella","texto":"Tu demo vence mañana","origen":"tusalon","linea":1}

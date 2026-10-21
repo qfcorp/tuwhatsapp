@@ -126,3 +126,9 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 - Archivos principales: `src/Registro.php` (botón QR), `src/Webhook.php`, `src/Reglas.php`, `src/Mensajeria.php`, `src/Gasto.php`, `deploy/instalar.sh`, `deploy/clave_meta.sh`.
 - Pruebas: `PGPORT=5432 PGUSER=postgres bash tests/correr.sh` → debe terminar en `TODO BIEN`.
 - Cuidado: hay dos ventanas de PuTTY; la del programa es **qf@qfcorp** (no `root@vps-...`).
+
+## 21 oct 2026 (tarde): cuentas por cliente
+- Hecho: empresas separadas (tabla `empresas`, `usuarios.empresa_id/rol/super/activo`, `lineas.empresa_id`). Lo que había quedó en la empresa 1 "Tukán Software" y el primer usuario es super.
+- Panel Clientes de Tukán (ícono edificio, solo super), Mi cuenta (equipo, contraseña, token de API), cuenta suspendida/vencida bloqueada, soporte "Entrar a su cuenta".
+- Pruebas: lógica 234, pantallas 108.
+- Siguiente: campañas masivas con plantillas y varios agentes por chat; luego conectar con el Panel Tukán Central.

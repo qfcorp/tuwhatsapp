@@ -8,9 +8,13 @@ $menu = [
     'reglas'     => ['Automático', 'M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5 6.8 15M17.2 9l2.6-1.5M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
     'gasto'      => ['Gasto',      'M12 3v18M17 7.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2.2 2.6 5 3.3 5 1.5 5 3.5-2.2 3.2-5 3.2-5-1.3-5-3.2'],
 ];
+if ($u && !es_admin()) {
+    unset($menu['reglas']);
+}
 $activo = $rutaActual === 'chat' || $rutaActual === 'plantilla' ? 'bandeja' : $rutaActual;
 $avisos = tomar_avisos();
-$lineas = $u ? \TuWhatsApp\Lineas::todas(db()) : [];
+$empresaVista = $u ? empresa_actual() : null;
+$lineas = $empresaVista ? \TuWhatsApp\Lineas::todas(db(), (int) $empresaVista['id']) : [];
 $cuentaPend = ($u && $linea) ? \TuWhatsApp\Pendientes::contar(db(), (int) $linea['id']) : 0;
 $gastoBarra = null;
 if ($u && $linea) {
@@ -28,7 +32,7 @@ if ($u && $linea) {
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($titulo) ?> · WhatsApp Tukán</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314211F'/%3E%3Cpath d='M7 25l2-5a9 9 0 1 1 3.5 3.3z' fill='%23F28C28'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/assets/app.css?v=4">
+<link rel="stylesheet" href="/assets/app.css?v=6">
 </head>
 <body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?>">
 <?php if ($u): ?>
@@ -51,10 +55,19 @@ if ($u && $linea) {
     <?php endif; ?>
     <nav class="acciones-barra">
         <a href="<?= e(url('plantillas')) ?>" title="Plantillas" aria-label="Plantillas"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M8 12h8M8 16h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-        <a href="<?= e(url('lineas')) ?>" title="Números conectados" aria-label="Números conectados"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
+<?php if (es_admin()): ?><a href="<?= e(url('lineas')) ?>" title="Números conectados" aria-label="Números conectados"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a><?php endif; ?>
+        <a href="<?= e(url('cuenta')) ?>" title="Mi cuenta" aria-label="Mi cuenta"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
+        <?php if (es_super()): ?><a href="<?= e(url('clientes')) ?>" title="Clientes de Tukán" aria-label="Clientes de Tukán"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5M9 10h.01M15 10h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a><?php endif; ?>
         <a href="<?= e(url('salir')) ?>" title="Salir" aria-label="Salir"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16l-4-4 4-4M6 12h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     </nav>
 </header>
+<?php if (viendo_otra_empresa()): ?>
+<form method="post" action="<?= e(url('volver_tukan')) ?>" class="soporte">
+    <?= csrf_campo() ?>
+    <span>Soporte: estás en la cuenta de <b><?= e($empresaVista['nombre']) ?></b><?= \TuWhatsApp\Empresas::alDia($empresaVista) ? '' : ' (no está al día)' ?></span>
+    <button class="boton boton-claro">Volver a Tukán</button>
+</form>
+<?php endif; ?>
 <?php if ($gastoBarra): ?>
 <a class="tope <?= $gastoBarra['pct'] >= 100 ? 'lleno' : ($gastoBarra['pct'] >= $gastoBarra['aviso'] ? 'alerta' : '') ?>" href="<?= e(url('gasto')) ?>">
     <span class="tope-texto"><?= $gastoBarra['pct'] >= 100 ? 'Tope alcanzado: solo se envía gratis desde el celular' : 'Gasto del mes en Meta' ?></span>

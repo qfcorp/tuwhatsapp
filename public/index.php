@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/app/bootstrap.php';
 
 use TuWhatsApp\Contactos;
+use TuWhatsApp\Empresas;
 use TuWhatsApp\Gasto;
 use TuWhatsApp\Lineas;
 use TuWhatsApp\Mensajeria;
@@ -11,7 +12,8 @@ use TuWhatsApp\Meta;
 use TuWhatsApp\Pendientes;
 use TuWhatsApp\Registro;
 
-$rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr', 'plantillas'];
+$rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr', 'plantillas',
+          'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan'];
 $ruta = (string) ($_GET['r'] ?? 'bandeja');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
@@ -21,6 +23,25 @@ if ($ruta !== 'login' && !usuario()) {
     redirigir('login');
 }
 $post = $_SERVER['REQUEST_METHOD'] === 'POST';
+
+// Permisos: lo de Tukán solo para su personal; la configuración solo para administradores de la cuenta
+$soloSuper = ['clientes', 'cliente', 'ver_cuenta'];
+$soloAdmin = ['reglas', 'lineas', 'linea', 'conectar_qr'];
+if (usuario()) {
+    if (in_array($ruta, $soloSuper, true) && !es_super()) {
+        http_response_code(403);
+        $ruta = 'bandeja';
+    }
+    if ((in_array($ruta, $soloAdmin, true) || ($post && in_array($ruta, ['gasto', 'plantillas'], true))) && !es_admin()) {
+        aviso('Solo el administrador de la cuenta puede cambiar eso.', 'error');
+        redirigir('bandeja');
+    }
+    // Cuenta suspendida o vencida: no entra (el personal de Tukán sí, para dar soporte)
+    $empresaHoy = empresa_actual();
+    if (!es_super() && !Empresas::alDia($empresaHoy) && !in_array($ruta, ['salir', 'bloqueada'], true)) {
+        redirigir('bloqueada');
+    }
+}
 if ($ruta === 'conectar_qr') {   // lo llama el botón "Conectar con WhatsApp Business" (responde JSON)
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
@@ -30,7 +51,7 @@ if ($ruta === 'conectar_qr') {   // lo llama el botón "Conectar con WhatsApp Bu
         exit;
     }
     try {
-        $r = Registro::completar(db(), $_POST);
+        $r = Registro::completar(db(), $_POST, null, (int) empresa_actual()['id']);
     } catch (\Throwable $e) {
         error_log('tuwhatsapp conectar_qr: ' . $e);
         $r = ['ok' => false, 'error' => 'Error del servidor al guardar el número. Intenta de nuevo.'];
@@ -72,6 +93,10 @@ function vista(string $nombre, string $titulo, array $datos = []): never
 // Páginas que necesitan un número conectado
 $linea = usuario() ? linea_actual() : null;
 if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas'], true)) {
+    if (!es_admin()) {
+        aviso('El administrador de tu cuenta todavía no conecta el número de WhatsApp.', 'info');
+        redirigir('cuenta');
+    }
     aviso('Primero conecta tu número de WhatsApp de Meta.', 'info');
     redirigir('linea');
 }
@@ -94,7 +119,7 @@ try {
             if ((int) $st->fetchColumn() >= 10) {
                 $error = 'Demasiados intentos. Espera 15 minutos.';
             } else {
-                $st = db()->prepare('SELECT id, clave FROM usuarios WHERE lower(correo) = lower(?)');
+                $st = db()->prepare('SELECT id, clave FROM usuarios WHERE lower(correo) = lower(?) AND activo');
                 $st->execute([trim((string) ($_POST['correo'] ?? ''))]);
                 $f = $st->fetch();
                 if ($f && password_verify((string) ($_POST['clave'] ?? ''), $f['clave'])) {
@@ -114,7 +139,7 @@ try {
         redirigir('login');
 
     case 'cambiar_linea':
-        if ($post && Lineas::buscar(db(), (int) ($_POST['linea_id'] ?? 0))) {
+        if ($post && Lineas::buscar(db(), (int) ($_POST['linea_id'] ?? 0), (int) empresa_actual()['id'])) {
             $_SESSION['linea_id'] = (int) $_POST['linea_id'];
         }
         redirigir('bandeja');
@@ -258,6 +283,99 @@ try {
             'volverChat' => isset($_GET['c']) ? Contactos::buscar(db(), $lid, (int) $_GET['c']) : null,
         ]);
 
+    case 'bloqueada':
+        $e = empresa_actual();
+        if (es_super() || Empresas::alDia($e)) {
+            redirigir('bandeja');
+        }
+        vista('bloqueada', 'Cuenta no disponible', ['linea' => null, 'empresa' => $e]);
+
+    case 'cuenta':
+        $e = empresa_actual();
+        if ($post) {
+            $accion = (string) ($_POST['accion'] ?? '');
+            if ($accion === 'mi_clave') {
+                Empresas::cambiarMiClave(db(), (int) usuario()['id'], (string) ($_POST['actual'] ?? ''), (string) ($_POST['nueva'] ?? ''), (string) ($_POST['repetir'] ?? ''));
+                aviso('Tu contraseña se cambió.');
+            } elseif (!es_admin()) {
+                throw new RuntimeException('Solo el administrador de la cuenta puede cambiar eso.');
+            } elseif ($accion === 'agregar_usuario') {
+                $clave = Empresas::agregarUsuario(db(), (int) $e['id'], (string) ($_POST['correo'] ?? ''), (string) ($_POST['nombre'] ?? ''), (string) ($_POST['rol'] ?? 'agente'));
+                $_SESSION['clave_mostrar'] = ['correo' => mb_strtolower(trim((string) $_POST['correo'])), 'clave' => $clave];
+                aviso('Usuario creado. Pásale su correo y su contraseña (se muestra una sola vez).');
+            } elseif ($accion === 'usuario') {
+                $clave = Empresas::cambiarUsuario(db(), (int) $e['id'], (int) ($_POST['id'] ?? 0), (string) ($_POST['que'] ?? ''), (int) usuario()['id']);
+                if ($clave !== null) {
+                    $st = db()->prepare('SELECT correo FROM usuarios WHERE id = ?');
+                    $st->execute([(int) $_POST['id']]);
+                    $_SESSION['clave_mostrar'] = ['correo' => (string) $st->fetchColumn(), 'clave' => $clave];
+                    aviso('Contraseña nueva creada (se muestra una sola vez).');
+                } else {
+                    aviso('Cambiado.');
+                }
+            } elseif ($accion === 'token_api') {
+                $_SESSION['token_mostrar'] = Empresas::nuevoTokenApi(db(), (int) $e['id']);
+                aviso('Token de API nuevo creado. El anterior ya no sirve.');
+            }
+            redirigir('cuenta');
+        }
+        $clave = $_SESSION['clave_mostrar'] ?? null;
+        $token = $_SESSION['token_mostrar'] ?? null;
+        unset($_SESSION['clave_mostrar'], $_SESSION['token_mostrar']);
+        vista('cuenta', 'Mi cuenta', ['empresa' => $e, 'usuarios' => Empresas::usuarios(db(), (int) $e['id']),
+            'claveNueva' => $clave, 'tokenNuevo' => $token, 'numeros' => count(Lineas::todas(db(), (int) $e['id']))]);
+
+    case 'clientes':
+        if ($post) {
+            $r = Empresas::crear(db(), $_POST);
+            $_SESSION['clave_mostrar'] = ['correo' => mb_strtolower(trim((string) $_POST['admin_correo'])), 'clave' => $r['clave'], 'empresa' => (string) $_POST['nombre']];
+            aviso('Cliente creado.');
+            redirigir('cliente', ['id' => $r['empresa_id']]);
+        }
+        vista('clientes', 'Clientes de Tukán', ['empresas' => Empresas::lista(db())]);
+
+    case 'cliente':
+        $e = Empresas::buscar(db(), (int) ($_GET['id'] ?? 0));
+        if (!$e) {
+            aviso('Ese cliente no existe.', 'error');
+            redirigir('clientes');
+        }
+        if ($post) {
+            if (($_POST['accion'] ?? '') === 'agregar_usuario') {
+                $clave = Empresas::agregarUsuario(db(), (int) $e['id'], (string) ($_POST['correo'] ?? ''), (string) ($_POST['nombre'] ?? ''), (string) ($_POST['rol'] ?? 'admin'));
+                $_SESSION['clave_mostrar'] = ['correo' => mb_strtolower(trim((string) $_POST['correo'])), 'clave' => $clave];
+                aviso('Usuario creado.');
+            } elseif (($_POST['accion'] ?? '') === 'usuario') {
+                $clave = Empresas::cambiarUsuario(db(), (int) $e['id'], (int) ($_POST['id'] ?? 0), (string) ($_POST['que'] ?? ''), (int) usuario()['id']);
+                if ($clave !== null) {
+                    $st = db()->prepare('SELECT correo FROM usuarios WHERE id = ?');
+                    $st->execute([(int) $_POST['id']]);
+                    $_SESSION['clave_mostrar'] = ['correo' => (string) $st->fetchColumn(), 'clave' => $clave];
+                }
+                aviso('Cambiado.');
+            } else {
+                Empresas::guardar(db(), (int) $e['id'], $_POST);
+                aviso('Datos del cliente guardados.');
+            }
+            redirigir('cliente', ['id' => $e['id']]);
+        }
+        $clave = $_SESSION['clave_mostrar'] ?? null;
+        unset($_SESSION['clave_mostrar']);
+        vista('cliente', $e['nombre'], ['empresa' => $e, 'usuarios' => Empresas::usuarios(db(), (int) $e['id']),
+            'numeros' => Lineas::todas(db(), (int) $e['id']), 'claveNueva' => $clave]);
+
+    case 'ver_cuenta':   // personal de Tukán entra a la cuenta de un cliente para dar soporte
+        if ($post && ($e = Empresas::buscar(db(), (int) ($_POST['empresa_id'] ?? 0)))) {
+            $_SESSION['empresa_vista'] = (int) $e['id'] === (int) usuario()['empresa_id'] ? null : (int) $e['id'];
+            unset($_SESSION['linea_id']);
+            aviso('Estás viendo la cuenta de ' . $e['nombre'] . '. Todo lo que hagas queda en su cuenta.', 'info');
+        }
+        redirigir('bandeja');
+
+    case 'volver_tukan':
+        unset($_SESSION['empresa_vista'], $_SESSION['linea_id']);
+        redirigir(es_super() ? 'clientes' : 'bandeja');
+
     case 'pendientes':
         if ($post) {
             $accion = (string) ($_POST['accion'] ?? '');
@@ -336,6 +454,9 @@ try {
     case 'gasto':
         if ($post) {
             if (($_POST['accion'] ?? '') === 'precios') {
+                if (!es_super()) {
+                    throw new RuntimeException('Los precios de Meta los actualiza Tukán.');
+                }
                 Gasto::guardarPrecios(db(), (array) ($_POST['precio'] ?? []));
                 aviso('Precios guardados.');
             } else {
@@ -347,10 +468,14 @@ try {
         vista('gasto', 'Gasto en Meta', ['linea' => $linea, 'resumen' => Gasto::resumen(db(), $linea), 'precios' => Gasto::precios(db())]);
 
     case 'lineas':
-        vista('lineas', 'Números', ['lineas' => Lineas::todas(db())]);
+        vista('lineas', 'Números', ['lineas' => Lineas::todas(db(), (int) empresa_actual()['id']), 'empresa' => empresa_actual()]);
 
     case 'linea':
-        $editar = isset($_GET['id']) ? Lineas::buscar(db(), (int) $_GET['id']) : null;
+        $editar = isset($_GET['id']) ? Lineas::buscar(db(), (int) $_GET['id'], (int) empresa_actual()['id']) : null;
+        if (isset($_GET['id']) && !$editar) {
+            aviso('Ese número no existe en tu cuenta.', 'error');
+            redirigir('lineas');
+        }
         $prueba = null;
         if ($post) {
             if (($_POST['accion'] ?? '') === 'probar' && $editar) {
@@ -362,7 +487,7 @@ try {
                                : 'No se pudo pedir los ' . $cual . ': ' . $x['error'], $x['ok'] ? 'ok' : 'error');
                 redirigir('linea', ['id' => $editar['id']]);
             } else {
-                $id = Lineas::guardarConexion(db(), $editar ? (int) $editar['id'] : null, $_POST);
+                $id = Lineas::guardarConexion(db(), $editar ? (int) $editar['id'] : null, $_POST, (int) empresa_actual()['id']);
                 $_SESSION['linea_id'] = $id;
                 $nueva = Lineas::buscar(db(), $id);
                 $prueba = Meta::deLinea($nueva)->probar();

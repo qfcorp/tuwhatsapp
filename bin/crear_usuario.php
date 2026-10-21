@@ -29,7 +29,9 @@ if (mb_strlen($clave) < 8) {
     fwrite(STDERR, "ERROR: la contrasena debe tener al menos 8 letras o numeros.\n");
     exit(1);
 }
-$st = db()->prepare('INSERT INTO usuarios (correo, nombre, clave) VALUES (lower(?), ?, ?)
-                     ON CONFLICT (correo) DO UPDATE SET nombre = EXCLUDED.nombre, clave = EXCLUDED.clave RETURNING id');
+// Desde el servidor se crea personal de Tukán (cuenta 1, super: ve el panel de Clientes).
+// Los usuarios de los clientes se crean desde el panel: Clientes → el cliente → Agregar usuario.
+$st = db()->prepare("INSERT INTO usuarios (correo, nombre, clave, empresa_id, rol, super, activo) VALUES (lower(?), ?, ?, 1, 'admin', true, true)
+                     ON CONFLICT (correo) DO UPDATE SET nombre = EXCLUDED.nombre, clave = EXCLUDED.clave, activo = true RETURNING id");
 $st->execute([$correo, $nombre !== '' ? $nombre : $correo, password_hash($clave, PASSWORD_DEFAULT)]);
 echo "LISTO: ya puedes entrar con $correo\n";

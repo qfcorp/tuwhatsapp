@@ -15,6 +15,7 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
     <?php if ($r['bloqueados'] > 0): ?><p class="suave"><?= (int) $r['bloqueados'] === 1 ? '1 mensaje no se envió' : (int) $r['bloqueados'] . ' mensajes no se enviaron' ?> por el tope este mes.</p><?php endif; ?>
 </section>
 
+<?php if (es_admin()): ?>
 <form method="post" class="tarjeta formulario">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="tope">
     <h2>Tope del mes</h2>
@@ -26,6 +27,7 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
     <p class="suave pequeno">El aviso sale arriba en el panel<?= getenv('TELEGRAM_BOT_TOKEN') ? ' y por Telegram' : '' ?>.</p>
     <button class="boton">Guardar tope</button>
 </form>
+<?php endif; ?>
 
 <?php if ($r['por_origen']): ?>
 <section class="tarjeta">
@@ -62,6 +64,7 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
 </section>
 <?php endif; ?>
 
+<?php if (es_super()): ?>
 <details class="tarjeta plegable">
     <summary>Precios de Meta por mensaje</summary>
     <form method="post" class="formulario">
@@ -73,3 +76,4 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
         <button class="boton">Guardar precios</button>
     </form>
 </details>
+<?php endif; ?>

@@ -232,6 +232,72 @@ ok 'tiene "Intenta de nuevo" && ! tiene "Ahora es: Personal"' "POST sin csrf se 
 get "/?r=algo_raro";  ok '[ "$CODIGO" = 404 ]' "ruta desconocida 404"
 get "/?r=salir"; get "/?r=gasto"; ok '[ "$CODIGO" = 302 ]' "después de salir no entra"
 
+
+echo "== Cuentas por cliente"
+entrar() { J="$(mktemp)"; get "/?r=login"; post "/?r=login" --data-urlencode "correo=$1" --data-urlencode "clave=$2"; }
+claveMostrada() { grep -o '<code>[^<]*</code>' "$P" | sed -n 3p | sed 's/<[^>]*>//g'; }
+entrar dimi@tukanec.com claveSegura1
+TUKAN_J="$J"
+get "/?r=clientes"
+ok 'tiene "Clientes de Tukán" && tiene "Tukán Software (nosotros)"' "panel de clientes para el personal de Tukán"
+VENCE=$(date -d '+7 days' +%F)
+post "/?r=clientes" --data-urlencode "nombre=Salón Bella" --data-urlencode "estado=demo" --data-urlencode "vence=$VENCE" --data-urlencode "max_numeros=1" \
+     --data-urlencode "max_usuarios=2" --data-urlencode "contacto=Bella" --data-urlencode "telefono=0991112222" \
+     --data-urlencode "admin_nombre=Bella" --data-urlencode "admin_correo=bella@salon.com"
+ok 'tiene "Cliente creado" && tiene "bella@salon.com" && tiene "Entrar a su cuenta (soporte)"' "crear cliente y ver su contraseña"
+CLAVE_BELLA="$(claveMostrada)"
+EMP=$(grep -o 'name="empresa_id" value="[0-9]*"' "$P" | head -1 | grep -o '[0-9]*')
+get "/?r=cliente&id=$EMP"; ok '! tiene "$CLAVE_BELLA"' "la contraseña se muestra una sola vez"
+
+entrar bella@salon.com "$CLAVE_BELLA"
+BELLA_J="$J"
+ok 'tiene "Conectar número" && tiene "Primero conecta"' "el cliente entra y le pide conectar su número"
+ok '! tiene "r=clientes"' "el cliente no ve el panel de Tukán"
+get "/?r=clientes"; ok '[ "$CODIGO" = 302 ] || ! tiene "Clientes de Tukán"' "no puede abrir Clientes"
+get "/?r=chat&c=$C"; ok '[ "$CODIGO" = 302 ]' "no puede abrir chats de Tukán"
+seguir "/?r=linea&id=1"; ok 'tiene "no existe en tu cuenta"' "no puede abrir el número de Tukán"
+get "/?r=cuenta"
+post "/?r=linea" --data-urlencode "nombre=Robado" --data-urlencode "phone_number_id=100" --data-urlencode "token=EAAGtokenDePrueba1234567890"
+ok 'tiene "otra cuenta"' "no puede conectar el número de otro"
+get "/?r=cuenta"
+ok 'tiene "Salón Bella" && tiene "Demo" && tiene "Números: 0 de 1"' "Mi cuenta con su plan"
+post "/?r=cuenta" --data-urlencode "accion=agregar_usuario" --data-urlencode "nombre=Agente Uno" --data-urlencode "correo=agente@salon.com" --data-urlencode "rol=agente"
+ok 'tiene "Usuario creado" && tiene "agente@salon.com"' "el cliente agrega a su agente"
+CLAVE_AG="$(claveMostrada)"
+ok '! tiene "Agregar una persona" && tiene "permite 2 usuarios"' "llegó al límite de usuarios"
+post "/?r=cuenta" --data-urlencode "accion=token_api"
+TOKEN_BELLA=$(grep -o 'tw_[0-9]*_[0-9a-f]*' "$P" | head -1)
+ok '[ -n "$TOKEN_BELLA" ]' "crea su token de API"
+post "/?r=cuenta" --data-urlencode "accion=mi_clave" --data-urlencode "actual=$CLAVE_BELLA" --data-urlencode "nueva=BellaNueva1" --data-urlencode "repetir=BellaNueva1"
+ok 'tiene "Tu contraseña se cambió"' "cambia su contraseña"
+
+entrar agente@salon.com "$CLAVE_AG"
+ok 'tiene "todavía no conecta el número" && tiene "Mi cuenta" && ! tiene "Agregar una persona"' "el agente entra (sin número) y no administra"
+get "/?r=reglas"; ok '[ "$CODIGO" = 302 ]' "el agente no abre las reglas"
+
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "Authorization: Bearer $TOKEN_BELLA" -d '{"telefono":"0991234567","texto":"hola"}' "$W/api.php?accion=pendiente")
+ok '[ "$CODIGO" = 404 ] && grep -q "No existe ese número" "$P"' "API con token del cliente usa solo sus números"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "Authorization: Bearer $TOKEN_BELLA" -d '{"telefono":"0991234567","texto":"hola","linea":1}' "$W/api.php?accion=pendiente")
+ok '[ "$CODIGO" = 404 ]' "API del cliente no puede usar el número de Tukán"
+
+J="$TUKAN_J"
+get "/?r=cliente&id=$EMP"
+post "/?r=cliente&id=$EMP" --data-urlencode "accion=datos" --data-urlencode "nombre=Salón Bella" --data-urlencode "estado=suspendida" --data-urlencode "vence=$VENCE" \
+     --data-urlencode "motivo_suspension=Falta el pago de noviembre" --data-urlencode "max_numeros=1" --data-urlencode "max_usuarios=2"
+ok 'tiene "Datos del cliente guardados" && tiene "Falta el pago de noviembre"' "Tukán suspende al cliente"
+J="$BELLA_J"
+seguir "/?r=bandeja"; ok 'tiene "Cuenta no disponible" && tiene "Falta el pago de noviembre" && tiene "wa.me/593996408397"' "cliente suspendido ve el aviso"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "Authorization: Bearer $TOKEN_BELLA" -d '{"telefono":"0991234567","texto":"hola"}' "$W/api.php?accion=pendiente")
+ok '[ "$CODIGO" = 403 ]' "API de cuenta suspendida"
+
+J="$TUKAN_J"
+get "/?r=cliente&id=$EMP"
+post "/?r=ver_cuenta" --data-urlencode "empresa_id=$EMP"
+ok 'tiene "Soporte: estás en la cuenta de" && tiene "Salón Bella" && tiene "no está al día" && tiene "Conectar número"' "Tukán entra a la cuenta del cliente para soporte"
+post "/?r=volver_tukan"
+ok 'tiene "Clientes de Tukán" && ! tiene "Soporte: estás"' "volver a Tukán"
+get "/?r=bandeja"; ok 'tiene "Peluquería Ana\|Ana Salón Quito"' "Tukán sigue viendo lo suyo"
+
 echo
 echo "Resultado: $BIEN bien, $MAL mal"
 [ "$MAL" = 0 ] && echo "TODO BIEN" || echo "HAY FALLAS"

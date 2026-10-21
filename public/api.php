@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * API para que otros programas (TuSalón, el Panel Tukán Central...) usen este WhatsApp.
- * Cabecera: Authorization: Bearer <TUWA_API_TOKEN de config/.env>. Cuerpo JSON. Respuesta JSON.
+ * Cabecera: Authorization: Bearer <token de la empresa (Mi cuenta) o TUWA_API_TOKEN de config/.env para Tukán>. Cuerpo JSON. Respuesta JSON.
  *   POST /api.php?accion=pendiente  {"telefono":"0991234567","nombre":"Ana","texto":"Hola...","linea":1}
  *        -> lo agrega a Pendientes (para enviarlo gratis desde el celular)
  *   POST /api.php?accion=contacto   {"telefono":"0991234567","nombre":"Ana","tipo":"cliente","linea":1}
@@ -23,10 +23,21 @@ function responder(int $codigo, array $datos): never
     exit;
 }
 
-$token = trim((string) getenv('TUWA_API_TOKEN'));
+// Token: el de cada empresa (Mi cuenta → Crear token) o, para Tukán, TUWA_API_TOKEN de config/.env
 $cab = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
-if (strlen($token) < 32 || !str_starts_with($cab, 'Bearer ') || !hash_equals($token, substr($cab, 7))) {
+$enviado = str_starts_with($cab, 'Bearer ') ? substr($cab, 7) : '';
+$global = trim((string) getenv('TUWA_API_TOKEN'));
+$empresa = null;
+if ($enviado !== '' && strlen($global) >= 32 && hash_equals($global, $enviado)) {
+    $empresa = \TuWhatsApp\Empresas::buscar(db(), \TuWhatsApp\Empresas::TUKAN);
+} elseif ($enviado !== '') {
+    $empresa = \TuWhatsApp\Empresas::porTokenApi(db(), $enviado);
+}
+if (!$empresa) {
     responder(401, ['ok' => false, 'error' => 'Token no válido']);
+}
+if (!\TuWhatsApp\Empresas::alDia($empresa)) {
+    responder(403, ['ok' => false, 'error' => 'La cuenta no está al día']);
 }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     responder(405, ['ok' => false, 'error' => 'Usa POST']);
@@ -35,7 +46,8 @@ $d = json_decode((string) file_get_contents('php://input', false, null, 0, 65536
 if (!is_array($d)) {
     responder(400, ['ok' => false, 'error' => 'El cuerpo debe ser JSON']);
 }
-$linea = isset($d['linea']) ? \TuWhatsApp\Lineas::buscar(db(), (int) $d['linea']) : (\TuWhatsApp\Lineas::todas(db())[0] ?? null);
+$linea = isset($d['linea']) ? \TuWhatsApp\Lineas::buscar(db(), (int) $d['linea'], (int) $empresa['id'])
+                            : (\TuWhatsApp\Lineas::todas(db(), (int) $empresa['id'])[0] ?? null);
 if (!$linea) {
     responder(404, ['ok' => false, 'error' => 'No existe ese número']);
 }

@@ -57,6 +57,9 @@ final class Mensajeria
 
     private function enviar(array $linea, array $contacto, string $categoria, array $msg, string $origen, ?int $usuarioId, callable $llamar): array
     {
+        if (!Empresas::alDiaPorLinea($this->db, $linea)) {
+            return ['ok' => false, 'error' => 'La cuenta no está al día: no se puede enviar por el sistema. Escribe a Tukán para renovarla.'];
+        }
         $ahora = $this->ahora();
         $costo = Gasto::estimar($this->db, $categoria, $contacto, $ahora);
         $this->db->beginTransaction();
