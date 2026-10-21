@@ -157,6 +157,7 @@
             var d;
             try { d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch (e) { return; }
             if (!d || d.type !== 'WA_EMBEDDED_SIGNUP') { return; }
+            try { console.log('[TukanQR] Meta:', d.event, JSON.stringify(d.data || {})); } catch (e) {}
             if (d.event === 'CANCEL') {
                 decir(d.data && d.data.error_message ? 'Meta: ' + d.data.error_message : 'Cerraste la ventana de Meta antes de terminar.');
                 btnQr.disabled = false;
@@ -182,6 +183,7 @@
             btnQr.disabled = true; datosMeta = null; codigo = null; enviado = false; espera = null;
             decir('Sigue los pasos en la ventana de Meta…');
             FB.login(function (resp) {
+                try { console.log('[TukanQR] permiso:', resp && resp.status, !!(resp && resp.authResponse && resp.authResponse.code)); } catch (e) {}
                 if (resp && resp.authResponse && resp.authResponse.code) { codigo = resp.authResponse.code; enviar(); }
                 else { decir('No se completó el permiso en Meta. Intenta de nuevo.'); btnQr.disabled = false; }
             }, {

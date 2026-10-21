@@ -382,8 +382,6 @@ putenv('META_ES_CONFIG_ID=1112223334445');
 ok(Registro::listo(), 'con App ID, Config ID y clave está listo');
 $r = Registro::completar($db, ['code' => 'codigo_bueno_1234567', 'evento' => 'CANCEL', 'waba_id' => '300', 'phone_number_id' => '301']);
 ok(!$r['ok'] && str_contains($r['error'], 'no se terminó'), 'cancelado en Meta');
-$r = Registro::completar($db, ['code' => 'codigo_bueno_1234567', 'evento' => 'FINISH', 'waba_id' => '', 'phone_number_id' => '301']);
-ok(!$r['ok'] && str_contains($r['error'], 'Dominios permitidos'), 'sin WABA ID avisa del dominio');
 $r = Registro::completar($db, ['code' => '', 'evento' => 'FINISH', 'waba_id' => '300', 'phone_number_id' => '301']);
 ok(!$r['ok'] && str_contains($r['error'], 'código'), 'sin código');
 limpiarSim();
@@ -396,10 +394,10 @@ $r = Registro::completar($db, ['code' => 'codigo_bueno_1234567', 'evento' => 'FI
                                'waba_id' => '300', 'phone_number_id' => '301', 'nombre' => 'QF Producciones']);
 ok($r['ok'] && $r['coexistencia'] === true && $r['pin'] === '' && $r['avisos'] === [], 'coexistencia conectada sin avisos');
 $llamadas = array_map(fn ($x) => $x['metodo'] . ' ' . preg_replace('#^/v[\d.]+#', '', $x['ruta']), sim());
-igual($llamadas, ['GET /oauth/access_token', 'POST /300/subscribed_apps', 'GET /301', 'POST /301/smb_app_data', 'POST /301/smb_app_data'], 'pasos en orden y SIN registrar el número');
+igual($llamadas, ['GET /oauth/access_token', 'GET /301', 'POST /300/subscribed_apps', 'POST /301/smb_app_data', 'POST /301/smb_app_data'], 'pasos en orden y SIN registrar el número');
 $s = sim();
 igual([$s[3]['cuerpo']['sync_type'], $s[4]['cuerpo']['sync_type']], ['smb_app_state_sync', 'history'], 'primero contactos y después historial');
-ok(str_starts_with($s[1]['auth'], 'Bearer EAAGnegocio'), 'se suscribe con el token del negocio');
+ok(str_starts_with($s[2]['auth'], 'Bearer EAAGnegocio'), 'se suscribe con el token del negocio');
 $q = Lineas::buscar($db, $r['linea_id']);
 igual([$q['nombre'], $q['conectado_por'], $q['coexistencia'], $q['waba_id'], $q['telefono']], ['QF Producciones', 'qr', true, '300', '593996408397'], 'línea guardada');
 ok(str_starts_with(Lineas::token($q), 'EAAGnegocio') && !str_contains($q['token_cifrado'], 'EAAG'), 'token guardado cifrado');
@@ -429,6 +427,31 @@ $db->prepare("UPDATE lineas SET coexistencia = true WHERE id = ?")->execute([$r3
 $x = Registro::sincronizar($db, Lineas::buscar($db, $r3['linea_id']), 'contactos');
 ok(!$x['ok'] && str_starts_with((string) Lineas::buscar($db, $r3['linea_id'])['sync_contactos'], 'error:'), 'si Meta rechaza queda el error');
 igual(Registro::estadoSync('ok:REQ1'), 'pedido a Meta', 'estado en palabras');
+
+echo "== QR: Meta no manda el número (coexistencia real)\n";
+limpiarSim();
+$r = Registro::completar($db, ['code' => 'codigo_coex_sin_numero1', 'evento' => 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING', 'waba_id' => '500', 'phone_number_id' => '']);
+ok($r['ok'] && $r['coexistencia'] === true && $r['pin'] === '', 'sin phone_number_id: lo busca en la cuenta');
+igual(Lineas::buscar($db, $r['linea_id'])['phone_number_id'], '501', 'elige el número que sigue en la app del celular');
+igual(count(array_filter(sim(), fn ($x) => str_ends_with($x['ruta'], '/register'))), 0, 'no registra (coexistencia)');
+igual(count(array_filter(sim(), fn ($x) => str_ends_with($x['ruta'], '/smb_app_data'))), 2, 'pide contactos e historial');
+
+limpiarSim();
+$r = Registro::completar($db, ['code' => 'codigo_sin_datos_12345', 'evento' => '', 'waba_id' => '', 'phone_number_id' => '']);
+ok($r['ok'] && $r['coexistencia'] === true, 'sin ningún dato de la ventana: lo averigua con el token');
+igual(Lineas::buscar($db, $r['linea_id'])['waba_id'], '600', 'cuenta sacada del permiso del token');
+igual(Lineas::buscar($db, $r['linea_id'])['phone_number_id'], '601', 'número sacado de la cuenta');
+igual(count(array_filter(sim(), fn ($x) => str_ends_with($x['ruta'], '/debug_token'))), 1, 'usa debug_token');
+
+limpiarSim();
+$r = Registro::completar($db, ['code' => 'codigo_sin_evento_123', 'evento' => '', 'waba_id' => '700', 'phone_number_id' => '']);
+ok($r['ok'] && $r['coexistencia'] === false && $r['pin'] === '', 'sin evento y número fuera de la app: no inventa');
+igual(count(array_filter(sim(), fn ($x) => str_ends_with($x['ruta'], '/register'))), 0, 'sin confirmación de Meta NUNCA registra a ciegas');
+ok(str_contains(implode(' ', $r['avisos']), 'No se registró'), 'avisa que no registró');
+
+limpiarSim();
+$r = Registro::completar($db, ['code' => 'codigo_cuenta_vacia1', 'evento' => 'FINISH', 'waba_id' => '800', 'phone_number_id' => '']);
+ok(!$r['ok'] && str_contains($r['error'], 'no tiene ningún número'), 'cuenta sin números: explica');
 
 echo "== Historial y contactos del celular (webhook)\n";
 $meta301 = ['display_phone_number' => '593996408397', 'phone_number_id' => '301'];

@@ -61,13 +61,10 @@ final class Registro
         if ($code === '' || !preg_match('/^[A-Za-z0-9_\-#.]{10,2000}$/', $code)) {
             return ['ok' => false, 'error' => 'Meta no devolvió el código de autorización. Vuelve a tocar el botón.'];
         }
-        if (!in_array($evento, self::EVENTOS_OK, true)) {
-            return ['ok' => false, 'error' => 'La conexión en Meta no se terminó (' . ($evento !== '' ? $evento : 'sin datos') . '). Vuelve a intentarlo y llega hasta "Finalizar".'];
+        // Evento vacío = la ventana de Meta no mandó sus datos (pasa a veces); se sigue y se averigua con el token.
+        if ($evento !== '' && !in_array($evento, self::EVENTOS_OK, true)) {
+            return ['ok' => false, 'error' => 'La conexión en Meta no se terminó (' . $evento . '). Vuelve a intentarlo y llega hasta "Finalizar".'];
         }
-        if ($waba === '' || $pnid === '') {
-            return ['ok' => false, 'error' => 'Meta no devolvió el número o la cuenta de WhatsApp Business. Revisa que el dominio esté en "Dominios permitidos" de la app de Meta.'];
-        }
-        $coex = $evento === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING';
 
         // 1. Código -> token del negocio
         $r = self::pedir('GET', '/oauth/access_token?' . http_build_query([
@@ -78,6 +75,26 @@ final class Registro
             return ['ok' => false, 'error' => 'No se pudo cambiar el código por el token: ' . ($r['error'] ?? 'Meta no devolvió el token') . '. El código dura 30 segundos: vuelve a intentarlo.'];
         }
 
+        // 1b. Si la ventana no mandó la cuenta o el número (con coexistencia Meta a veces solo manda la cuenta), se buscan con el token
+        if ($waba === '') {
+            $waba = self::wabaDelToken($token);
+        }
+        if ($waba === '') {
+            return ['ok' => false, 'error' => 'Meta no indicó qué cuenta de WhatsApp Business se conectó. Vuelve a intentarlo y elige tu cuenta en la ventana de Meta.'];
+        }
+        $infoNum = null;
+        if ($pnid === '') {
+            $infoNum = self::numeroDeLaCuenta($waba, $token);
+            $pnid = (string) ($infoNum['id'] ?? '');
+        }
+        if ($pnid === '') {
+            return ['ok' => false, 'error' => 'La cuenta de WhatsApp Business ' . $waba . ' no tiene ningún número. Vuelve a intentarlo y escribe tu número en la ventana de Meta.'];
+        }
+        $info = self::pedir('GET', '/' . $pnid . '?fields=display_phone_number,verified_name,is_on_biz_app,platform_type', null, $token);
+        $enApp = ($info['datos']['is_on_biz_app'] ?? $infoNum['is_on_biz_app'] ?? null) === true;
+        // Coexistencia si Meta lo dijo en el evento o si el número sigue en la app del celular
+        $coex = $evento === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' || $enApp;
+
         // 2. Suscribir la app a la cuenta (sin esto no llegan mensajes)
         $avisos = [];
         $s = self::pedir('POST', '/' . $waba . '/subscribed_apps', [], $token);
@@ -86,8 +103,11 @@ final class Registro
         }
 
         // 3. Número nuevo: registrarlo con PIN. Con coexistencia NO (ya está registrado por la app).
+        //    Por seguridad solo se registra si Meta confirmó "FINISH" (número nuevo): nunca a ciegas.
         $pin = '';
-        if (!$coex) {
+        if (!$coex && $evento === '') {
+            $avisos[] = 'No se registró el número en la API porque Meta no confirmó el tipo de conexión. Si es un número nuevo, vuelve a conectarlo.';
+        } elseif (!$coex) {
             $pin = (string) random_int(100000, 999999);
             $g = self::pedir('POST', '/' . $pnid . '/register', ['messaging_product' => 'whatsapp', 'pin' => $pin], $token);
             if (!$g['ok']) {
@@ -96,9 +116,8 @@ final class Registro
         }
 
         // 4. Datos del número y guardar
-        $info = self::pedir('GET', '/' . $pnid . '?fields=display_phone_number,verified_name,is_on_biz_app,platform_type', null, $token);
-        $numero = (string) ($info['datos']['display_phone_number'] ?? '');
-        $nombreMeta = (string) ($info['datos']['verified_name'] ?? '');
+        $numero = (string) ($info['datos']['display_phone_number'] ?? $infoNum['display_phone_number'] ?? '');
+        $nombreMeta = (string) ($info['datos']['verified_name'] ?? $infoNum['verified_name'] ?? '');
         $nombre = trim((string) ($d['nombre'] ?? '')) ?: ($nombreMeta !== '' ? $nombreMeta : 'WhatsApp');
         $tel = Telefono::normalizar($numero) ?? preg_replace('/\D+/', '', $numero);
         $ahora ??= new DateTimeImmutable();
@@ -150,6 +169,42 @@ final class Registro
         $db->prepare("UPDATE lineas SET $col = ?" . ($cual === 'historial' && $r['ok'] ? ", historial_estado = 'recibiendo'" : '') . ' WHERE id = ?')
            ->execute([$valor, $linea['id']]);
         return $r['ok'] ? ['ok' => true] : ['ok' => false, 'error' => (string) $r['error']];
+    }
+
+    /** La cuenta de WhatsApp Business a la que el negocio dio permiso (según el token). */
+    public static function wabaDelToken(string $token): string
+    {
+        $r = self::pedir('GET', '/debug_token?' . http_build_query([
+            'input_token' => $token, 'access_token' => self::appId() . '|' . (string) getenv('META_APP_SECRET'),
+        ]));
+        foreach ((array) ($r['datos']['data']['granular_scopes'] ?? []) as $g) {
+            if (in_array($g['scope'] ?? '', ['whatsapp_business_management', 'whatsapp_business_messaging'], true)) {
+                $ids = array_values(array_filter((array) ($g['target_ids'] ?? []), fn ($x) => preg_match('/^\d+$/', (string) $x)));
+                if ($ids) {
+                    return (string) end($ids);   // la última es la recién conectada
+                }
+            }
+        }
+        return '';
+    }
+
+    /**
+     * El número de la cuenta. Si hay varios, prefiere el que sigue en la app del celular (coexistencia).
+     * @return ?array{id:string, display_phone_number?:string, verified_name?:string, is_on_biz_app?:bool}
+     */
+    public static function numeroDeLaCuenta(string $waba, string $token): ?array
+    {
+        $r = self::pedir('GET', '/' . $waba . '/phone_numbers?fields=id,display_phone_number,verified_name,is_on_biz_app,platform_type', null, $token);
+        $lista = array_values(array_filter((array) ($r['datos']['data'] ?? []), fn ($n) => preg_match('/^\d+$/', (string) ($n['id'] ?? ''))));
+        if (!$lista) {
+            return null;
+        }
+        foreach ($lista as $n) {
+            if (($n['is_on_biz_app'] ?? false) === true) {
+                return $n;
+            }
+        }
+        return $lista[0];
     }
 
     /** Estado en palabras para la pantalla del número. */

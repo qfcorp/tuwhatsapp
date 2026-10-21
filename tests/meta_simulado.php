@@ -26,6 +26,24 @@ if (preg_match('#^/v[\d.]+/oauth/access_token$#', $ruta)) {   // botón QR: cód
     }
     sale(200, ['access_token' => 'EAAGnegocio' . substr(md5((string) $_GET['code']), 0, 20), 'token_type' => 'bearer']);
 }
+if (preg_match('#^/v[\d.]+/debug_token$#', $ruta)) {   // botón QR: qué cuenta autorizó el token
+    if (($_GET['access_token'] ?? '') !== '2592670637899782|secreto_de_prueba') {
+        sale(400, ['error' => ['message' => 'Invalid app token', 'code' => 190]]);
+    }
+    sale(200, ['data' => ['is_valid' => true, 'granular_scopes' => [
+        ['scope' => 'business_management', 'target_ids' => ['111']],
+        ['scope' => 'whatsapp_business_management', 'target_ids' => ['600']],
+    ]]]);
+}
+if (preg_match('#^/v[\d.]+/(\d+)/phone_numbers$#', $ruta, $m)) {
+    $nums = [
+        '500' => [['id' => '502', 'display_phone_number' => '+593 98 000 0502', 'is_on_biz_app' => false],
+                  ['id' => '501', 'display_phone_number' => '+593 99 640 8397', 'verified_name' => 'Tukán Software', 'is_on_biz_app' => true]],
+        '600' => [['id' => '601', 'display_phone_number' => '+593 99 640 8301', 'verified_name' => 'Tukán Software', 'is_on_biz_app' => true]],
+        '700' => [['id' => '701', 'display_phone_number' => '+593 99 640 8302', 'is_on_biz_app' => false]],
+    ];
+    sale(200, ['data' => $nums[$m[1]] ?? []]);
+}
 if (preg_match('#^/v[\d.]+/(\d+)/subscribed_apps$#', $ruta) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     sale(200, ['success' => true]);
 }
