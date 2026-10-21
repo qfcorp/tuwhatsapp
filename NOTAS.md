@@ -45,21 +45,23 @@ Recibir mensajes y enviar desde la app del celular es **gratis**. Con $12: unas 
 - 21 oct 2026: pruebas otra vez → lógica 123 bien, pantallas 62 bien.
 - 21 oct 2026: instalador probado en un servidor simulado (Ubuntu + nginx + PHP-FPM + PostgreSQL): RESULTADO correcto, crear usuario LISTO, entrar al panel muestra "Conectar número", verificación del webhook responde bien, y correrlo 2 veces no borra nada.
 - 21 oct 2026: el comando del Paso 1 ya no lleva tilde (se rompía al pegar desde el celular).
+- 21 oct 2026: **Pasos 1, 2 y 3 HECHOS.** Programa instalado en qfcorp, usuario creado, y ruta publicada en Cloudflare (túnel `servidorqf` → `whatsapp.tukanec.com` → `http://localhost:80`). https://whatsapp.tukanec.com ya muestra la pantalla de entrar.
+- **SIGUE: Paso 4 (Meta).**
 
-### ⬜ Paso 1. Instalar en el servidor qfcorp (por SSH)
+### ✅ Paso 1. Instalar en el servidor qfcorp (por SSH)
 Pegar esta línea completa (como usuario qf, NO como root; pedirá la contraseña de sudo):
 ```
 curl -fsSL https://raw.githubusercontent.com/qfcorp/tuwhatsapp/main/deploy/instalar.sh -o /tmp/instalar_tuwhatsapp.sh && bash /tmp/instalar_tuwhatsapp.sh
 ```
 Al final, el cuadro RESULTADO debe decir: Tablas 9 · Extensiones 4 · Página de entrar 200 · Webhook 403 · Clave secreta de Meta: FALTA (normal).
 
-### ⬜ Paso 2. Crear el usuario del programa (por SSH)
+### ✅ Paso 2. Crear el usuario del programa (por SSH)
 ```
 php /var/www/tuwhatsapp/bin/crear_usuario.php
 ```
 Pide correo, nombre y contraseña (mínimo 8). Debe decir `LISTO`.
 
-### ⬜ Paso 3. Publicarlo en Cloudflare (navegador)
+### ✅ Paso 3. Publicarlo en Cloudflare (navegador)
 1. https://dash.cloudflare.com → menú **Networking → Tunnels** → túnel de **qfcorp** → pestaña **Routes** → **Add route** → **Published application**.
    (En el panel viejo https://one.dash.cloudflare.com es: **Networks → Tunnels** → túnel → **Public Hostname** → **Add a public hostname**.)
 2. Subdomain `whatsapp` · Domain `tukanec.com` · Service URL `http://localhost:80` → **Add route** (o **Save hostname**).
