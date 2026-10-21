@@ -109,6 +109,11 @@ En **Automático**: revisa horario, palabras clave y el menú, prueba con el **p
 3. En el panel toca **Probar conexión**. Desde ahí entras con un toque (abre Clientes de Tukán) y ves las cifras: clientes en demo, activos, por vencer, vencidos, suspendidos, números, mensajes y gasto del mes.
 - Opcional: `TUKAN_SOLO_CENTRAL=1` en `config/.env` hace que el personal de Tukán solo entre desde el panel central (los clientes entran igual).
 
+## Términos y condiciones
+- Páginas públicas: `/terminos.php` (qué paga el cliente a Tukán y a Meta, reglas de uso, suspensión, ley de Ecuador) y `/tratamiento-datos.php` (acuerdo de encargado de tratamiento según la LOPDP).
+- El administrador de cada cliente los acepta al entrar la primera vez (se guarda quién, cuándo y desde qué IP). Si se cambian, se sube `Terminos::VERSION` y se vuelven a pedir. Tukán ve en la ficha del cliente si ya aceptó.
+- Son un borrador hecho con cuidado, pero conviene que los revise un abogado antes de vender en serio.
+
 ## API para otros programas
 Cabecera `Authorization: Bearer <token>`: el token de cada cliente (Mi cuenta → Crear token) o, para Tukán, `TUWA_API_TOKEN` de `/var/www/tuwhatsapp/config/.env`. Cuerpo JSON.
 ```

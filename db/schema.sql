@@ -257,4 +257,11 @@ CREATE TABLE IF NOT EXISTS tukan_central_pedidos (
     PRIMARY KEY (ip, minuto)
 );
 
+
+-- Términos y condiciones aceptados por el administrador del cliente (una vez por versión)
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS terminos_version      text NOT NULL DEFAULT '';
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS terminos_aceptados_en timestamptz;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS terminos_aceptado_por integer REFERENCES usuarios(id) ON DELETE SET NULL;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS terminos_ip           text NOT NULL DEFAULT '';
+
 COMMIT;

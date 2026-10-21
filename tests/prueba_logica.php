@@ -863,6 +863,16 @@ ok($okLim && !$tc->dentroDelLimite('9.9.9.9', $t0), 'límite de 30 por minuto');
 putenv('TUKAN_CENTRAL_ID=');
 putenv('TUKAN_CENTRAL_SECRET=');
 
+
+echo "== Términos y condiciones\n";
+use TuWhatsApp\Terminos;
+ok(Terminos::aceptados(['id' => 1, 'terminos_version' => '']), 'Tukán no necesita aceptar');
+ok(!Terminos::aceptados(['id' => 5, 'terminos_version' => '']), 'un cliente nuevo debe aceptar');
+ok(!Terminos::aceptados(['id' => 5, 'terminos_version' => '2020-01-01']), 'versión vieja: debe aceptar otra vez');
+Terminos::aceptar($db, $e2, (int) $u['id'], '1.2.3.4');
+$fila = Empresas::buscar($db, $e2);
+ok(Terminos::aceptados($fila) && $fila['terminos_ip'] === '1.2.3.4' && (int) $fila['terminos_aceptado_por'] === (int) $u['id'], 'queda guardado quién, cuándo y desde dónde');
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

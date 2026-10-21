@@ -16,3 +16,4 @@
         <button class="boton boton-grande">Entrar</button>
     </form>
 </section>
+<p class="suave pequeno" style="text-align:center"><a href="/terminos.php">Términos</a> · <a href="/privacidad.php">Privacidad</a> · <a href="/tratamiento-datos.php">Tratamiento de datos</a></p>

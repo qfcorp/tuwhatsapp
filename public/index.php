@@ -13,7 +13,7 @@ use TuWhatsApp\Pendientes;
 use TuWhatsApp\Registro;
 
 $rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr', 'plantillas',
-          'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan', 'campanias', 'respuestas'];
+          'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan', 'campanias', 'respuestas', 'aceptar'];
 $ruta = (string) ($_GET['r'] ?? 'bandeja');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
@@ -40,6 +40,10 @@ if (usuario()) {
     $empresaHoy = empresa_actual();
     if (!es_super() && !Empresas::alDia($empresaHoy) && !in_array($ruta, ['salir', 'bloqueada'], true)) {
         redirigir('bloqueada');
+    }
+    // El administrador del cliente acepta los términos una vez por versión (la cuenta de Tukán no)
+    if (!es_super() && !\TuWhatsApp\Terminos::aceptados($empresaHoy) && !in_array($ruta, ['salir', 'bloqueada', 'aceptar'], true)) {
+        redirigir('aceptar');
     }
 }
 if ($ruta === 'conectar_qr') {   // lo llama el botón "Conectar con WhatsApp Business" (responde JSON)
@@ -304,6 +308,24 @@ try {
             redirigir('bandeja');
         }
         vista('bloqueada', 'Cuenta no disponible', ['linea' => null, 'empresa' => $e]);
+
+    case 'aceptar':
+        $e = empresa_actual();
+        if (es_super() || \TuWhatsApp\Terminos::aceptados($e)) {
+            redirigir('bandeja');
+        }
+        if ($post) {
+            if (!es_admin()) {
+                throw new RuntimeException('Solo el administrador de la cuenta puede aceptar.');
+            }
+            if (empty($_POST['acepto'])) {
+                throw new RuntimeException('Marca la casilla para aceptar los términos.');
+            }
+            \TuWhatsApp\Terminos::aceptar(db(), (int) $e['id'], (int) usuario()['id'], ip_cliente());
+            aviso('¡Listo! Bienvenido a WhatsApp Tukán.');
+            redirigir('bandeja');
+        }
+        vista('aceptar', 'Términos y condiciones', ['linea' => null, 'empresa' => $e]);
 
     case 'cuenta':
         $e = empresa_actual();

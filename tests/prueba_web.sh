@@ -225,6 +225,8 @@ CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/privacidad.php")
 ok '[ "$CODIGO" = 200 ] && tiene "Política de privacidad" && tiene "info@tukansoftware.com" && tiene "Protección de Datos"' "política de privacidad sin entrar"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/eliminar-datos.php")
 ok '[ "$CODIGO" = 200 ] && tiene "Cómo eliminar tus datos" && tiene "15 días"' "eliminar datos sin entrar"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/terminos.php"); ok '[ "$CODIGO" = 200 ] && tiene "Términos y condiciones de WhatsApp Tukán" && tiene "Meta"' "términos públicos"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/tratamiento-datos.php"); ok '[ "$CODIGO" = 200 ] && tiene "Encargado del tratamiento" && tiene "LOPDP"' "acuerdo de datos público"
 
 echo "== Seguridad"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" -L -d "accion=tipo&tipo=personal" "$W/?r=chat&c=$C")
@@ -251,6 +253,12 @@ get "/?r=cliente&id=$EMP"; ok '! tiene "$CLAVE_BELLA"' "la contraseña se muestr
 
 entrar bella@salon.com "$CLAVE_BELLA"
 BELLA_J="$J"
+ok 'tiene "Antes de empezar" && tiene "terminos.php" && tiene "tratamiento-datos.php"' "el cliente debe aceptar los términos al entrar"
+get "/?r=contactos"; ok '[ "$CODIGO" = 302 ]' "sin aceptar no entra a nada"
+get "/?r=aceptar"
+post "/?r=aceptar"
+ok 'tiene "Marca la casilla"' "sin marcar la casilla no acepta"
+post "/?r=aceptar" --data-urlencode "acepto=1"
 ok 'tiene "Conectar número" && tiene "Primero conecta"' "el cliente entra y le pide conectar su número"
 ok '! tiene "r=clientes"' "el cliente no ve el panel de Tukán"
 get "/?r=clientes"; ok '[ "$CODIGO" = 302 ] || ! tiene "Clientes de Tukán"' "no puede abrir Clientes"
@@ -282,6 +290,7 @@ ok '[ "$CODIGO" = 404 ]' "API del cliente no puede usar el número de Tukán"
 
 J="$TUKAN_J"
 get "/?r=cliente&id=$EMP"
+ok 'tiene "Términos: aceptados el"' "Tukán ve cuándo aceptó los términos"
 post "/?r=cliente&id=$EMP" --data-urlencode "accion=datos" --data-urlencode "nombre=Salón Bella" --data-urlencode "estado=suspendida" --data-urlencode "vence=$VENCE" \
      --data-urlencode "motivo_suspension=Falta el pago de noviembre" --data-urlencode "max_numeros=1" --data-urlencode "max_usuarios=2"
 ok 'tiene "Datos del cliente guardados" && tiene "Falta el pago de noviembre"' "Tukán suspende al cliente"

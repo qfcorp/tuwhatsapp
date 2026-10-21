@@ -11,6 +11,7 @@ $esTukan = (int) $e['id'] === Empresas::TUKAN;
 </div>
 <?php require __DIR__ . '/_clave_nueva.php'; ?>
 
+<p class="suave pequeno">Términos: <?= $esTukan ? 'no aplica' : ($e['terminos_version'] !== '' ? 'aceptados el ' . e((new DateTimeImmutable((string) $e['terminos_aceptados_en']))->format('d/m/Y H:i')) . ' (versión ' . e($e['terminos_version']) . ')' : 'todavía no los acepta') ?></p>
 <form method="post" action="<?= e(url('ver_cuenta')) ?>">
     <?= csrf_campo() ?><input type="hidden" name="empresa_id" value="<?= (int) $e['id'] ?>">
     <button class="boton boton-grande"><?= $esTukan ? 'Ir a mi cuenta' : 'Entrar a su cuenta (soporte)' ?></button>
