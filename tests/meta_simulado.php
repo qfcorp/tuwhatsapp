@@ -1,0 +1,46 @@
+<?php
+// Meta (Graph API) y Telegram de mentira para las pruebas. Uso: SIM_LOG=archivo php -S 127.0.0.1:8097 tests/meta_simulado.php
+declare(strict_types=1);
+
+$log = getenv('SIM_LOG') ?: sys_get_temp_dir() . '/tuwa_sim.log';
+$ruta = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$cuerpo = (string) file_get_contents('php://input');
+$auth = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+file_put_contents($log, json_encode(['metodo' => $_SERVER['REQUEST_METHOD'], 'ruta' => $ruta, 'auth' => $auth, 'cuerpo' => json_decode($cuerpo, true) ?? $cuerpo]) . "\n", FILE_APPEND | LOCK_EX);
+header('Content-Type: application/json');
+
+function sale(int $c, array $d): never { http_response_code($c); echo json_encode($d); exit; }
+
+if (preg_match('#^/bot[^/]+/sendMessage$#', $ruta)) {
+    sale(200, ['ok' => true]);
+}
+if ($auth === 'Bearer token_malo_0000000000000000000') {
+    sale(401, ['error' => ['message' => 'Invalid OAuth access token', 'code' => 190]]);
+}
+if (preg_match('#^/v[\d.]+/(\d+)/messages$#', $ruta, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $d = json_decode($cuerpo, true);
+    if (($d['status'] ?? '') === 'read') {
+        sale(200, ['success' => true]);
+    }
+    if (str_ends_with((string) ($d['to'] ?? ''), '0000')) {
+        sale(400, ['error' => ['message' => 'Recipient not on WhatsApp', 'code' => 131026]]);
+    }
+    if (str_ends_with((string) ($d['to'] ?? ''), '4747')) {
+        sale(400, ['error' => ['message' => 'Re-engagement message', 'code' => 131047]]);
+    }
+    sale(200, ['messaging_product' => 'whatsapp', 'contacts' => [['input' => $d['to'], 'wa_id' => $d['to']]], 'messages' => [['id' => 'wamid.SIM' . bin2hex(random_bytes(6))]]]);
+}
+if (preg_match('#^/v[\d.]+/(\d+)/message_templates$#', $ruta)) {
+    sale(200, ['data' => [
+        ['name' => 'recordatorio_pago', 'language' => 'es', 'status' => 'APPROVED', 'category' => 'UTILITY',
+         'components' => [['type' => 'BODY', 'text' => 'Hola {{1}}, tu plan vence el {{2}}.']]],
+        ['name' => 'promo_octubre', 'language' => 'es', 'status' => 'APPROVED', 'category' => 'MARKETING',
+         'components' => [['type' => 'HEADER', 'format' => 'TEXT', 'text' => 'Oferta'], ['type' => 'BODY', 'text' => 'Este mes tenemos descuento en TuSalón.']]],
+        ['name' => 'en_revision', 'language' => 'es', 'status' => 'PENDING', 'category' => 'MARKETING',
+         'components' => [['type' => 'BODY', 'text' => 'No debe salir']]],
+    ]]);
+}
+if (preg_match('#^/v[\d.]+/(\d+)$#', $ruta, $m)) {
+    sale(200, ['display_phone_number' => '+593 99 640 8397', 'verified_name' => 'Tukán Software', 'quality_rating' => 'GREEN', 'id' => $m[1] ?? '']);
+}
+sale(404, ['error' => ['message' => 'ruta desconocida ' . $ruta, 'code' => 100]]);

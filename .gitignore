@@ -1,0 +1,5 @@
+config/.env
+config/*.env
+/vendor/
+*.log
+.DS_Store
