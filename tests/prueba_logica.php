@@ -961,6 +961,10 @@ $whB->procesar($entB('593997000001', ['type' => 'audio', 'audio' => ['id' => '77
 $fa = $db->query("SELECT * FROM mensajes WHERE wamid = 'wamid.BOTM2'")->fetch();
 igual($fa['tipo'], 'audio', 'nota de voz = audio');
 ok(empty($fa['media_ruta']) && str_contains((string) $fa['error'], 'No se pudo bajar'), 'si Meta no lo entrega queda el aviso');
+$db->exec("UPDATE mensajes SET media_id = '777888999' WHERE id = {$fa['id']}");   // después Meta sí lo entrega (token nuevo)
+$fa = $db->query("SELECT * FROM mensajes WHERE id = {$fa['id']}")->fetch();
+ok(Archivos::bajarDeMensaje($db, $fa, $lineaB) !== null, 'se vuelve a intentar al abrirlo');
+igual($db->query("SELECT error FROM mensajes WHERE id = {$fa['id']}")->fetchColumn(), null, 'y se quita el aviso de error');
 $whB->procesar($entB('593997000001', ['type' => 'document', 'document' => ['id' => '777222333', 'mime_type' => 'application/pdf', 'filename' => 'cotizacion.pdf']], 'wamid.BOTM3'));
 $fd = $db->query("SELECT * FROM mensajes WHERE wamid = 'wamid.BOTM3'")->fetch();
 ok($fd['tipo'] === 'documento' && $fd['media_nombre'] === 'cotizacion.pdf', 'documento con su nombre');

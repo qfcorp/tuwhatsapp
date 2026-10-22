@@ -146,7 +146,10 @@ final class Archivos
         }
         $mime = (string) ($msg['media_mime'] ?: $r['mime']);
         $ruta = self::guardarBytes($r['bytes'], $mime, (int) $linea['empresa_id']);
-        $db->prepare('UPDATE mensajes SET media_ruta = ?, media_bytes = ?, media_mime = ? WHERE id = ?')->execute([$ruta, strlen($r['bytes']), $mime, $msg['id']]);
+        // Si antes falló (por ejemplo, token vencido), se quita ese aviso al lograrlo
+        $db->prepare("UPDATE mensajes SET media_ruta = ?, media_bytes = ?, media_mime = ?,
+                      error = CASE WHEN error LIKE 'No se pudo bajar el archivo%' THEN NULL ELSE error END WHERE id = ?")
+           ->execute([$ruta, strlen($r['bytes']), $mime, $msg['id']]);
         return $ruta;
     }
 
