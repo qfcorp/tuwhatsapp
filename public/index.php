@@ -577,7 +577,7 @@ try {
         }
         vista('ia', 'Asistente con IA', [
             'linea' => $linea, 'disponible' => \TuWhatsApp\Asistente::disponible(),
-            'gastado' => \TuWhatsApp\Asistente::gastadoMes(db(), (int) $emp['id']), 'tope' => (float) ($emp['ia_tope'] ?? 5),
+            'gastado' => \TuWhatsApp\Asistente::gastadoMes(db(), (int) $emp['id']), 'tope' => (float) ($emp['ia_tope'] ?? 3),
         ]);
 
     case 'enlaces':

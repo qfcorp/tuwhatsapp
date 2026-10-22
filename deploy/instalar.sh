@@ -55,7 +55,7 @@ LLAVE="$(viejo TUWA_LLAVE)";        [ -n "$LLAVE" ]  || LLAVE="$(openssl rand -h
 VERIFY="$(viejo META_VERIFY_TOKEN)"; [ -n "$VERIFY" ] || VERIFY="tukan$(openssl rand -hex 12)"
 API="$(viejo TUWA_API_TOKEN)";       [ -n "$API" ]    || API="$(openssl rand -hex 24)"
 EXTRA=""
-[ -f "$ENVF" ] && EXTRA="$(grep -E '^(TUKAN_CENTRAL_ID|TUKAN_CENTRAL_SECRET|TUKAN_CENTRAL_URL|TUKAN_SOLO_CENTRAL|META_APP_SECRET|META_APP_ID|META_ES_CONFIG_ID|META_GRAPH_VERSION|META_GRAPH_URL|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID|TUWA_IA_CLAVE|TUWA_IA_MODELO|TUWA_IA_PRECIO_ENTRADA|TUWA_IA_PRECIO_SALIDA)=' "$ENVF" || true)"
+[ -f "$ENVF" ] && EXTRA="$(grep -E '^(TUKAN_CENTRAL_ID|TUKAN_CENTRAL_SECRET|TUKAN_CENTRAL_URL|TUKAN_SOLO_CENTRAL|META_APP_SECRET|META_APP_ID|META_ES_CONFIG_ID|META_GRAPH_VERSION|META_GRAPH_URL|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID)=' "$ENVF" || true)"
 {
   echo "TUWA_DB_HOST=127.0.0.1"
   echo "TUWA_DB_NAME=tuwhatsapp"
@@ -108,7 +108,7 @@ sudo touch /var/log/tuwhatsapp-campanias.log && sudo chown www-data:www-data /va
 
 echo
 echo "=========== RESULTADO ==========="
-echo "1) Tablas: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" < /dev/null) (deben ser 18)"
+echo "1) Tablas: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" < /dev/null) (deben ser 19)"
 echo "2) Extensiones de PHP: $(php -m | grep -E -c '^(pdo_pgsql|curl|mbstring|sodium)$') (deben ser 4)"
 curl -s -o /dev/null -w "3) Pagina de entrar: %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/?r=login"
 curl -s -o /dev/null -w "4) Webhook: %{http_code} (debe ser 403 hasta conectar Meta)\n" -H "Host: $DOMINIO" "http://127.0.0.1/webhook.php"
@@ -116,8 +116,7 @@ echo "5) Usuarios del panel: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsa
 grep -q '^META_APP_SECRET=.' "$ENVF" && echo "6) Clave secreta de Meta: guardada" || echo "6) Clave secreta de Meta: FALTA (paso de Meta)"
 grep -q '^META_ES_CONFIG_ID=.' "$ENVF" && grep -q '^META_APP_ID=.' "$ENVF" && echo "7) Boton QR de Meta: listo" || echo "7) Boton QR de Meta: FALTA (App ID y Configuration ID)"
 echo "8) Envio automatico (campanias y seguimientos): $(sudo crontab -u www-data -l 2>/dev/null | grep -c tuwhatsapp/bin/campanias) (debe ser 1)"
-grep -q '^TUWA_IA_CLAVE=.' "$ENVF" && echo "9) Asistente con IA: encendido" || echo "9) Asistente con IA: apagado (opcional: bash $APP/deploy/clave_ia.sh)"
+sudo grep -q '^TUKAN_IA_CLAVE=.' /etc/tukan-ia.env 2>/dev/null && echo "9) Asistente con IA: usa la clave compartida de Tukan" || echo "9) Asistente con IA: apagado (se enciende una vez para todos en el Panel Tukan Central)"
 echo "================================="
 echo "Crear tu usuario:          php $APP/bin/crear_usuario.php"
 echo "Guardar la clave de Meta:  bash $APP/deploy/clave_meta.sh"
-echo "Encender la IA (opcional): bash $APP/deploy/clave_ia.sh"

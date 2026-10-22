@@ -345,18 +345,33 @@ ALTER TABLE lineas ADD COLUMN IF NOT EXISTS aviso_error    text NOT NULL DEFAULT
 
 
 -- ---------------------------------------------------------------------
--- Módulo Asistente con IA: lo que sabe del negocio, tope del mes y lo gastado
+-- Módulo Asistente con IA: usa la IA COMPARTIDA de Tukán (src/tukan_ia.php, clave en /etc/tukan-ia.env,
+-- la configura tukan-central/deploy/configurar_ia.sh). Tablas estándar de la librería (gasto por cuenta y mes).
 -- ---------------------------------------------------------------------
 ALTER TABLE lineas ADD COLUMN IF NOT EXISTS ia_conocimiento text NOT NULL DEFAULT '';
-ALTER TABLE empresas ADD COLUMN IF NOT EXISTS ia_tope numeric(8,2) NOT NULL DEFAULT 5;
-CREATE TABLE IF NOT EXISTS ia_uso (
-    id          bigserial PRIMARY KEY,
-    empresa_id  integer NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-    usuario_id  integer REFERENCES usuarios(id) ON DELETE SET NULL,
-    que         text NOT NULL,                 -- sugerir | resumir
-    entrada     integer NOT NULL DEFAULT 0,    -- tokens
-    salida      integer NOT NULL DEFAULT 0,
-    costo       numeric(10,5) NOT NULL DEFAULT 0,
-    creado      timestamptz NOT NULL DEFAULT now()
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS ia_tope numeric(8,2) NOT NULL DEFAULT 3;   -- USD al mes por cuenta (el cliente no lo ve)
+DROP TABLE IF EXISTS ia_uso;   -- versión de prueba anterior (nunca se instaló)
+CREATE TABLE IF NOT EXISTS tukan_ia_faq (
+  id BIGSERIAL PRIMARY KEY,
+  pregunta VARCHAR(500) NOT NULL,
+  pregunta_normalizada VARCHAR(500) NOT NULL,
+  respuesta TEXT NOT NULL,
+  usos INTEGER NOT NULL DEFAULT 0,
+  origen VARCHAR(12) NOT NULL DEFAULT 'automatica',
+  aprobada SMALLINT NOT NULL DEFAULT 0,
+  fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS ia_uso_mes ON ia_uso (empresa_id, creado);
+CREATE INDEX IF NOT EXISTS tukan_ia_faq_norm ON tukan_ia_faq (pregunta_normalizada);
+CREATE TABLE IF NOT EXISTS tukan_ia_gasto (
+  negocio_id VARCHAR(64) NOT NULL,      -- id de la empresa (cliente)
+  mes CHAR(7) NOT NULL,                 -- '2026-10'
+  costo_usd DECIMAL(12,6) NOT NULL DEFAULT 0,
+  llamadas INTEGER NOT NULL DEFAULT 0,
+  fallidas INTEGER NOT NULL DEFAULT 0,
+  tokens_entrada BIGINT NOT NULL DEFAULT 0,
+  tokens_salida BIGINT NOT NULL DEFAULT 0,
+  ahorradas INTEGER NOT NULL DEFAULT 0,
+  ayudas_nuevas INTEGER NOT NULL DEFAULT 0,
+  actualizado TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (negocio_id, mes)
+);

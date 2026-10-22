@@ -56,18 +56,19 @@ Se investigaron 17 programas que venden lo mismo (Wati, Callbell, Kommo, Leadsal
 **Lo que más molesta a sus clientes:** cobro por cada usuario, recargo escondido de 15–80 % sobre lo que cobra Meta, límites de contactos, campañas o bot quitados del plan barato, pago de 3 a 6 meses por adelantado.
 **Nuestra propuesta:** precio fijo por negocio, mes a mes, contactos ilimitados, **0 % de recargo** (el cliente paga Meta directo), coexistencia, español y factura SRI.
 
-Hecho y probado (lógica 434, pantallas 188, instalador simulado con 18 tablas):
+Hecho y probado (lógica 441, pantallas 188, instalador simulado con 19 tablas):
 1. **Módulos por cliente**: se encienden o apagan en la ficha del cliente; **planes con un toque**: Básico $19, Negocio $35, Pro $55. Lo que no tiene sale en **Más** como "No incluido" con botón "Pedir a Tukán".
 2. **Fotos, audios, videos y documentos** en el chat (ver, escuchar, adjuntar, **notas de voz** desde el navegador).
 3. **Menú con botones de WhatsApp** (3 botones o lista de hasta 10) en la respuesta automática.
 4. **Embudo de ventas** (tablero con etapas y valor; los nuevos entran solos).
 5. **Seguimientos programados** (no se mandan si ya respondió; si pasaron 24 h van a Pendientes gratis).
 6. **Reportes** (mensajes por día, tiempo de respuesta, % atendidos, ventas, por persona).
-7. **Asistente con IA** (sugerir respuesta y resumir; nunca contesta solo; tope $5 al mes por cliente). Se enciende con `deploy/clave_ia.sh`.
+7. **Asistente con IA** (sugerir respuesta y resumir; nunca contesta solo). Usa la **IA compartida de Tukán** (`/etc/tukan-ia.env`, la misma clave de TuHospedaje): no necesita clave propia. Tope $3 al mes por cuenta.
 8. **Enlaces cortos con conteo de clics, QR y botón flotante para la página web**.
 9. **Integraciones**: descargar a Excel y aviso a Make/Zapier/n8n firmado.
 
-Pendiente de estas mejoras: crear la clave de IA en console.anthropic.com y guardarla (opcional); revisar precios de los planes en `src/Modulos.php` si quieres otros.
+Corrección (22 oct): al principio le puse a WhatsApp una clave de IA propia; estaba mal, porque ya existe la IA compartida de Tukán con la clave de TuHospedaje. Ya se cambió: **no hace falta crear otra clave**. La clave nueva que se creó en console.anthropic.com se puede borrar ahí (API Keys → la última → Delete) para no dejar claves sueltas.
+Pendiente de estas mejoras: si el instalador dice "9) Asistente con IA: apagado", correr en qfcorp `cd /var/www/tukan-central && git pull && bash deploy/configurar_ia.sh --usar-clave-tuhospedaje`; revisar precios de los planes en `src/Modulos.php` si quieres otros; más adelante, la acción `ia_uso` para ver el gasto de IA de WhatsApp en el Panel Tukán Central (hoy WhatsApp usa el conector v1).
 Ideas siguientes (lo que más ofrecen los competidores y aún no tenemos): Instagram y Messenger en la misma bandeja, app con notificaciones, Shopify/WooCommerce, catálogo de productos, pagos con Payphone/DeUna, constructor visual de flujos.
 
 ## 🔎 Revisión de la versión de GitHub (22 oct 2026)
@@ -77,7 +78,7 @@ Otra sesión subió 6 cambios el 21 oct en la tarde (+3.240 líneas): **plantill
 - Actualizar sobre la base actual **no borra nada**: usuarios, números, mensajes y pendientes se conservan; lo existente pasa a la empresa 1 "Tukán Software" y el primer usuario queda como **super**.
 - Instalador probado en servidor simulado: 15 tablas, página 200, envío de campañas programado (cada minuto).
 - Arreglado: el cuadro RESULTADO tenía dos "7)" y una "ñ"; ahora va del 1 al 8 sin tildes.
-- **Para tenerlo en el servidor:** pegar la línea de "Actualizar el programa" (abajo) en PuTTY **qf@qfcorp**. Ahora debe decir **Tablas 18** y "8) Envio automatico (campanias y seguimientos): 1".
+- **Para tenerlo en el servidor:** pegar la línea de "Actualizar el programa" (abajo) en PuTTY **qf@qfcorp**. Ahora debe decir **Tablas 19** y "8) Envio automatico (campanias y seguimientos): 1".
 
 ## ✅ Hecho (21 oct 2026)
 1. Programa instalado en qfcorp, usuario creado, publicado en Cloudflare.
@@ -144,9 +145,9 @@ Cambiar datos de Meta (Enter deja lo guardado):
 ```
 bash /var/www/tuwhatsapp/deploy/clave_meta.sh 2592670637899782 1865337081309109
 ```
-Encender la IA (opcional; pide pegar la clave sk-ant-...):
+Encender la IA compartida (una sola vez para todos los programas; usa la clave de TuHospedaje):
 ```
-bash /var/www/tuwhatsapp/deploy/clave_ia.sh
+cd /var/www/tukan-central && git pull && bash deploy/configurar_ia.sh --usar-clave-tuhospedaje
 ```
 Crear o cambiar usuario del panel:
 ```
@@ -156,8 +157,8 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 ## Datos técnicos
 - Respaldo diario 3:40 am en `/var/backups/tuwhatsapp` (14 días).
 - Archivos principales: `src/Registro.php` (botón QR), `src/Webhook.php`, `src/Reglas.php`, `src/Mensajeria.php`, `src/Gasto.php`, `deploy/instalar.sh`, `deploy/clave_meta.sh`.
-- Módulos nuevos: `src/Modulos.php` (módulos y planes), `src/Archivos.php`, `src/Embudo.php`, `src/Seguimientos.php`, `src/Reportes.php`, `src/Asistente.php`, `src/Enlaces.php`, `src/Integraciones.php`, `public/w.php`, `public/boton.js`. Fotos y audios en `/var/www/tuwhatsapp/archivos` (no se suben a GitHub).
-- Pruebas: `PGPORT=5432 PGUSER=postgres bash tests/correr.sh` → debe terminar en `TODO BIEN` (lógica 434, pantallas 188).
+- Módulos nuevos: `src/Modulos.php` (módulos y planes), `src/Archivos.php`, `src/Embudo.php`, `src/Seguimientos.php`, `src/Reportes.php`, `src/Asistente.php` + `src/tukan_ia.php` (IA compartida, copia sin cambios del Panel Central), `src/Enlaces.php`, `src/Integraciones.php`, `public/w.php`, `public/boton.js`. Fotos y audios en `/var/www/tuwhatsapp/archivos` (no se suben a GitHub).
+- Pruebas: `PGPORT=5432 PGUSER=postgres bash tests/correr.sh` → debe terminar en `TODO BIEN` (lógica 441, pantallas 188).
 - Cuidado: hay dos ventanas de PuTTY; la del programa es **qf@qfcorp** (no `root@vps-...`).
 
 ## 21 oct 2026 (tarde): cuentas por cliente

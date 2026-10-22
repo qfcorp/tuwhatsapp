@@ -19,7 +19,7 @@ if ($ruta === '/v1/messages' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $d = json_decode($cuerpo, true) ?: [];
     $sis = (string) ($d['system'] ?? '');
     $txt = str_contains($sis, 'resume') ? "Quiere el plan Pro.\nSiguiente paso: mandarle la cotización." : '¡Hola! El plan Pro cuesta $45 al mes. ¿Te lo activo?';
-    if (str_contains((string) ($d['messages'][0]['content'] ?? ''), 'ROMPER')) {
+    if (str_contains((string) json_encode($d['messages'] ?? []), 'ROMPER')) {
         sale(529, ['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]);
     }
     sale(200, ['id' => 'msg_1', 'type' => 'message', 'role' => 'assistant', 'model' => $d['model'] ?? '', 'content' => [['type' => 'text', 'text' => $txt]],

@@ -34,7 +34,7 @@ Lo básico (todo lo de arriba) siempre está. Lo demás son **módulos** que Tuk
 | **Embudo de ventas** | Tablero Nuevo → Interesado → Cotizado → Ganado / Perdido con el valor de cada venta. Quien escribe entra solo a Nuevo (los personales no) | Menú de abajo → Embudo, y en cada chat |
 | **Seguimientos** | "Si no responde en 2 días, escribirle": mensajes programados. Si ya respondió no se manda; si pasaron 24 h queda en Pendientes para mandarlo gratis desde el celular | Chat → Programar seguimiento; Más → Seguimientos |
 | **Reportes** | Personas que escribieron, contactos nuevos, mensajes por día, tiempo de respuesta del equipo, % atendidos, ventas ganadas, por persona del equipo | Más → Reportes |
-| **Asistente con IA** | ✨ Sugerir respuesta (deja un borrador, siempre lo manda una persona) y Resumir. Usa lo que el negocio escribe en "Lo que sabe la IA". Tope de gasto al mes (por defecto $5) | Chat; Más → Asistente con IA |
+| **Asistente con IA** | ✨ Sugerir respuesta (deja un borrador, siempre lo manda una persona) y Resumir. Usa lo que el negocio escribe en "Lo que sabe la IA" y la IA compartida de Tukán (tope $3 al mes por cuenta, el cliente no lo ve) | Chat; Más → Asistente con IA |
 | **Enlaces, QR y botón web** | Enlace corto por cada lugar (Instagram, volante…) que abre WhatsApp con un texto listo y **cuenta los clics**; su código QR para imprimir; botón flotante para la página web | Más → Enlaces y QR |
 | **Integraciones** | Descargar contactos y mensajes a Excel; avisar a otro programa (Make, Zapier, n8n) cuando llega un mensaje, firmado con clave | Más → Integraciones |
 
@@ -43,7 +43,7 @@ Lo básico (todo lo de arriba) siempre está. Lo demás son **módulos** que Tuk
 |---|---|---|---|---|
 | Básico | $19/mes | 1 | 3 | Lo básico + Enlaces y QR |
 | Negocio | $35/mes | 1 | 5 | + Campañas, Varios agentes, Embudo, Seguimientos, Reportes |
-| Pro | $55/mes | 2 | 10 | Todo, con IA (tope $5 al mes) e Integraciones |
+| Pro | $55/mes | 2 | 10 | Todo, con IA e Integraciones |
 Precios sin IVA, **mes a mes sin contrato**, **contactos ilimitados** y **0 % de recargo**: lo de Meta lo paga el cliente directo con su tarjeta en su cuenta de Meta. Los precios están en `src/Modulos.php` (PLANES) y se pueden cambiar.
 
 **Comparación (octubre 2026):** WhatChimp $40 (2 usuarios), Wati $69 (3 usuarios y recargo sobre Meta), Callbell $15–20 **por usuario**, Kommo $25–45 **por usuario** con pago de 6 meses, Leadsales $97, Whaticket $49, Respond.io $99 sin campañas en el plan barato. Lo que más reclaman sus clientes: cobro por usuario, recargo escondido sobre Meta, límites de contactos, funciones quitadas del plan barato y contratos largos. Nosotros no tenemos ninguno de esos.
@@ -151,11 +151,14 @@ POST https://whatsapp.tukanec.com/api.php?accion=contacto
 ```
 `linea` es opcional (por defecto el primer número). Respuestas: 200 `{"ok":true,...}`, 401 token malo, 422 dato malo.
 
-## Encender el Asistente con IA (opcional)
-1. Crea una clave en https://console.anthropic.com (API Keys). Empieza con `sk-ant-`.
-2. En el PuTTY de qfcorp pega esta línea, Enter, y pega la clave cuando la pida (no se ve en la pantalla del chat ni en GitHub):
-   `bash /var/www/tuwhatsapp/deploy/clave_ia.sh` → debe terminar en `LISTO`.
-3. Cada cliente con el módulo IA escribe en **Más → Asistente con IA** lo que sabe la IA de su negocio. Cada uso cuesta centavos; el tope por cliente se cambia en la base (`empresas.ia_tope`).
+## Asistente con IA (usa la IA compartida de Tukán)
+WhatsApp Tukán **no tiene clave propia**: usa la misma clave de Anthropic que todos los programas Tukán, guardada una sola vez en `/etc/tukan-ia.env` (la librería `src/tukan_ia.php` es copia exacta de `tukan-central/compartido/tukan_ia.php`).
+- Si ya se configuró en el Panel Tukán Central, no hay que hacer nada: el instalador dice `9) Asistente con IA: usa la clave compartida de Tukan`.
+- Si dice `apagado`, en el PuTTY de qfcorp (usuario qf) pega esta línea; toma la clave que ya está en TuHospedaje, sin pedirla ni mostrarla:
+  `cd /var/www/tukan-central && git pull && bash deploy/configurar_ia.sh --usar-clave-tuhospedaje` → debe decir `IA: FUNCIONA`.
+- Pausar toda la IA de todos los programas: `bash /var/www/tukan-central/deploy/configurar_ia.sh --pausar`. Tope para todo WhatsApp: `--tope tuwhatsapp 20`.
+- Tope por cuenta: `empresas.ia_tope` (por defecto $3 al mes). El cliente nunca ve "límite" ni "cupo": si no se puede, sale el mensaje neutro de la librería. Tukán ve el gasto de cada cuenta en Más → Asistente con IA (entrando como soporte).
+- Cada sugerencia cuesta unos $0,0002 (Haiku 5.5): $3 alcanzan para miles.
 
 ## Agregar QF Producciones después
 En el panel → ícono del celular arriba → **Conectar otro número** → botón **Conectar con WhatsApp Business** con el número de QF (la misma app de Meta). Arriba aparece un selector para cambiar de número.
@@ -170,7 +173,7 @@ Cada día a las 3:40 en `/var/backups/tuwhatsapp` (14 días). Restaurar: `sudo -
 ```
 PGPORT=5432 PGUSER=postgres bash tests/correr.sh
 ```
-Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`). Lógica 434 y pantallas 188, deben terminar en `TODO BIEN`.
+Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`). Lógica 441 y pantallas 188, deben terminar en `TODO BIEN`.
 
 ## Archivos
 - `public/index.php` panel · `public/webhook.php` lo que avisa Meta · `public/api.php` API
@@ -179,4 +182,4 @@ Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/m
 - `src/Reglas.php` decisión de responder · `src/Mensajeria.php` envíos con tope · `src/Gasto.php` precios y gasto · `src/Webhook.php` mensajes, estados y ecos · `src/Meta.php` conexión con Meta
 - `src/Modulos.php` módulos y planes · `src/Archivos.php` fotos, audios y documentos · `src/Embudo.php` · `src/Seguimientos.php` · `src/Reportes.php` · `src/Asistente.php` (IA) · `src/Enlaces.php` · `src/Integraciones.php`
 - `public/w.php` enlace corto · `public/boton.js` botón para páginas web · `public/assets/qrcode.js` códigos QR (MIT, Kazuhiko Arase)
-- `db/schema.sql` base (se puede correr muchas veces) · `deploy/instalar.sh` instalador · `deploy/clave_meta.sh` y `deploy/clave_ia.sh` claves
+- `db/schema.sql` base (se puede correr muchas veces) · `deploy/instalar.sh` instalador · `deploy/clave_meta.sh` clave de Meta · `src/tukan_ia.php` IA compartida (no editar: se copia del Panel Tukán Central)

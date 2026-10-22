@@ -20,7 +20,7 @@ final class Modulos
         'embudo'        => ['Embudo de ventas', 'Tablero con etapas (nuevo, interesado, cotizado, ganado, perdido) y valor de cada venta.', ['embudo']],
         'seguimientos'  => ['Seguimientos automáticos', 'Mensajes programados y recordatorios: escribir solo a quien no respondió.', ['seguimientos']],
         'reportes'      => ['Reportes', 'Mensajes por día, tiempo de respuesta, conversaciones por agente y ventas del embudo.', ['reportes']],
-        'ia'            => ['Asistente con IA', 'Respuestas sugeridas y contestar preguntas frecuentes con IA, con tope de gasto.', ['ia']],
+        'ia'            => ['Asistente con IA', 'Sugiere la respuesta y resume la conversación con IA (siempre la manda una persona).', ['ia']],
         'enlaces'       => ['Enlaces, QR y botón web', 'Enlace corto, código QR y botón flotante de WhatsApp para la página web.', ['enlaces']],
         'integraciones' => ['Integraciones', 'Avisar a otros programas (webhook), exportar contactos y conversaciones a Excel.', ['integraciones']],
     ];
@@ -30,9 +30,9 @@ final class Modulos
      * clave => [nombre, precio, números, usuarios, módulos, tope de IA en dólares]
      */
     public const PLANES = [
-        'basico'  => ['Básico', 19, 1, 3, ['enlaces'], 0],
-        'negocio' => ['Negocio', 35, 1, 5, ['enlaces', 'campanias', 'agentes', 'embudo', 'seguimientos', 'reportes'], 0],
-        'pro'     => ['Pro', 55, 2, 10, ['enlaces', 'campanias', 'agentes', 'embudo', 'seguimientos', 'reportes', 'ia', 'integraciones'], 5],
+        'basico'  => ['Básico', 19, 1, 3, ['enlaces'], 3],
+        'negocio' => ['Negocio', 35, 1, 5, ['enlaces', 'campanias', 'agentes', 'embudo', 'seguimientos', 'reportes'], 3],
+        'pro'     => ['Pro', 55, 2, 10, ['enlaces', 'campanias', 'agentes', 'embudo', 'seguimientos', 'reportes', 'ia', 'integraciones'], 3],
     ];
 
     /** Pone los módulos, números, usuarios y tope de IA de un plan. */
