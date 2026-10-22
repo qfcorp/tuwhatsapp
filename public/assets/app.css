@@ -363,3 +363,4 @@ textarea.codigo, pre.codigo { width: 100%; font: .8rem/1.4 ui-monospace, Menlo, 
 /* Avisos del navegador */
 .avisos-navegador { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
 .avisos-navegador .boton { min-height: 40px; padding: 8px 14px; font-size: .92rem; }
+.botones-envio.uno { grid-template-columns: 1fr; }

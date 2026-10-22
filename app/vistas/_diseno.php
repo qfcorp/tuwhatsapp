@@ -39,7 +39,7 @@ if ($u && $linea) {
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($titulo) ?> · WhatsApp Tukán</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314211F'/%3E%3Cpath d='M7 25l2-5a9 9 0 1 1 3.5 3.3z' fill='%23F28C28'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/assets/app.css?v=11">
+<link rel="stylesheet" href="/assets/app.css?v=12">
 </head>
 <body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?>">
 <?php if ($u): ?>

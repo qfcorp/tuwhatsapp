@@ -58,7 +58,10 @@ CODIGO=$(curl -s -o "$P" -w '%{http_code} %{content_type}' "$W/sw.js"); ok '[ "$
 get "/?r=bandeja"
 C=$(grep -o 'r=chat&amp;c=[0-9]*' "$P" | head -1 | grep -o '[0-9]*$')
 get "/?r=chat&c=$C"
-ok 'tiene "Respuestas automáticas apagadas" && tiene "wa.me/593991111111"' "chat con motivo y enlace gratis"
+ok 'tiene "Respuestas automáticas apagadas" && ! tiene "Enviar desde el celular" && ! tiene "Guardar en Pendientes"' "número solo API: sin botón del celular"
+PGPASSWORD="${PGPASSWORD:-}" psql -qc "UPDATE lineas SET coexistencia = true" -d tuwhatsapp_prueba
+get "/?r=chat&c=$C"
+ok 'tiene "wa.me/593991111111" && tiene "Enviar desde el celular"' "con la app del celular (coexistencia): enlace gratis"
 ok 'tiene "Enviar por el sistema"' "ventana abierta: se puede enviar"
 get "/?r=nuevos";   ok 'grep -q "\"sin_leer\":0" "$P"' "al abrir queda leído"
 get "/?r=chat&c=$C"

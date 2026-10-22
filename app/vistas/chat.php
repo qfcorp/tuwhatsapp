@@ -38,7 +38,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 <?php endif; ?>
 <?php endif; ?>
 <?php if ($c['tipo'] === 'personal'): ?>
-<p class="nota">Personal: el sistema <b>nunca</b> le contesta solo. Contéstale tú desde el celular (gratis).</p>
+<p class="nota">Personal: el sistema <b>nunca</b> le contesta solo.<?= !empty($linea['coexistencia']) ? ' Contéstale tú desde el celular (gratis).' : '' ?></p>
 <?php endif; ?>
 <?php if ($silencio): ?>
 <form method="post" class="nota nota-silencio">
@@ -117,10 +117,13 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         <span id="adjunto-nombre" class="suave pequeno" aria-live="polite"></span>
     </div>
     <?php endif; ?>
-    <div class="botones-envio">
+    <?php $celular = !empty($linea['coexistencia']); /* solo si el número también está en la app del celular */ ?>
+    <div class="botones-envio <?= $celular ? '' : 'uno' ?>">
+        <?php if ($celular): ?>
         <a class="boton boton-gratis" id="enviar-celular" href="<?= e(Telefono::enlace($c['telefono'])) ?>" data-tel="<?= e($c['telefono']) ?>" target="_blank" rel="noopener">
             Enviar desde el celular <small>gratis</small>
         </a>
+        <?php endif; ?>
         <?php if ($ventana): ?>
         <button class="boton boton-pago" name="accion" value="enviar">Enviar por el sistema <small><?= $precio > 0 ? e(dinero($precio, true)) : 'gratis' ?></small></button>
         <?php else: ?>
@@ -128,9 +131,9 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         <?php endif; ?>
     </div>
     <?php if (!$ventana): ?>
-    <p class="suave pequeno">Pasaron más de 24 horas desde su último mensaje: por el sistema solo se puede mandar una plantilla aprobada por Meta. Desde el celular puedes escribir lo que quieras, gratis.</p>
+    <p class="suave pequeno">Pasaron más de 24 horas desde su último mensaje: por el sistema solo se puede mandar una plantilla aprobada por Meta.<?= $celular ? ' Desde el celular puedes escribir lo que quieras, gratis.' : '' ?></p>
     <?php endif; ?>
-    <button class="enlace" name="accion" value="pendiente" formnovalidate>Guardar en Pendientes para enviarlo después</button>
+    <?php if ($celular): ?><button class="enlace" name="accion" value="pendiente" formnovalidate>Guardar en Pendientes para enviarlo después</button><?php endif; ?>
 </form>
 
 <?php if (modulo('embudo') && $c['tipo'] !== 'personal'): ?>
