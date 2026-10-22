@@ -1,5 +1,5 @@
 <?php
-/** @var list<array> $equipo @var list<array> $respuestas @var array $linea @var array $c @var list<array> $mensajes @var string $borrador @var bool $ventana @var float $precio */
+/** @var list<array> $equipo @var list<array> $respuestas @var array $linea @var array $c @var list<array> $mensajes @var string $borrador @var bool $ventana @var float $precio @var list<array> $seguimientos @var string $resumenIa */
 use TuWhatsApp\Contactos;
 use TuWhatsApp\Telefono;
 $origenes = ['cliente' => '', 'panel' => 'Por el sistema', 'auto' => 'Automático', 'celular' => 'Desde el celular', 'pendiente' => 'Pendiente'];
@@ -22,6 +22,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <?php endforeach; ?>
 </form>
 <?php if (count($equipo) > 1 && $c['tipo'] !== 'personal'): $yoId = (int) usuario()['id']; ?>
+<?php if (modulo('agentes')): ?>
 <form method="post" class="asignar">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="asignar">
     <label for="asignado">Atiende</label>
@@ -34,6 +35,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <?php if ((int) ($c['asignado_a'] ?? 0) !== $yoId): ?><button class="boton boton-claro" name="usuario_id" value="yo">Atender yo</button><?php endif; ?>
     <noscript><button class="boton boton-claro">Cambiar</button></noscript>
 </form>
+<?php endif; ?>
 <?php endif; ?>
 <?php if ($c['tipo'] === 'personal'): ?>
 <p class="nota">Personal: el sistema <b>nunca</b> le contesta solo. Contéstale tú desde el celular (gratis).</p>
@@ -52,7 +54,23 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <?php foreach ($mensajes as $m): ?>
     <li class="burbuja <?= $m['direccion'] === 'entra' ? 'entra' : 'sale origen-' . e($m['origen']) ?> <?= in_array($m['estado'], ['fallido', 'bloqueado'], true) ? 'fallo' : '' ?>">
         <?php if ($m['plantilla']): ?><span class="etiqueta">Plantilla <?= e($m['plantilla']) ?></span><?php endif; ?>
+        <?php if ($m['media_ruta'] || $m['media_id']):
+            $src = url('archivo', ['id' => $m['id']]);
+            $pie = trim((string) preg_replace('/^\[(Foto|Imagen|Video|Audio|Sticker|Documento)\]\s*/u', '', (string) $m['texto']));
+            if ($m['tipo'] === 'documento') { $pie = trim(str_replace((string) $m['media_nombre'], '', $pie)); } ?>
+        <?php if (in_array($m['tipo'], ['imagen', 'sticker'], true)): ?>
+        <a href="<?= e($src) ?>" target="_blank" rel="noopener" class="adjunto-foto"><img src="<?= e($src) ?>" alt="Foto" loading="lazy"></a>
+        <?php elseif ($m['tipo'] === 'audio'): ?>
+        <audio controls preload="none" src="<?= e($src) ?>"></audio>
+        <?php elseif ($m['tipo'] === 'video'): ?>
+        <video controls preload="none" src="<?= e($src) ?>"></video>
+        <?php else: ?>
+        <a class="adjunto-doc" href="<?= e(url('archivo', ['id' => $m['id'], 'bajar' => 1])) ?>">📄 <?= e($m['media_nombre'] ?: 'Documento') ?><?= $m['media_bytes'] ? ' · ' . e(\TuWhatsApp\Archivos::tamanio((int) $m['media_bytes'])) : '' ?></a>
+        <?php endif; ?>
+        <?php if ($pie !== ''): ?><p><?= nl2br(e($pie)) ?></p><?php endif; ?>
+        <?php else: ?>
         <p><?= nl2br(e($m['texto'])) ?></p>
+        <?php endif; ?>
         <span class="pie">
             <?php if ($m['direccion'] === 'sale'): ?><?= e($origenes[$m['origen']] ?? '') ?> · <?php endif; ?>
             <?= e(hora_corta($m['creado'])) ?>
@@ -67,7 +85,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <?php endforeach; ?>
 </ol>
 
-<form method="post" class="escribir" id="escribir">
+<form method="post" class="escribir" id="escribir" enctype="multipart/form-data">
     <?= csrf_campo() ?>
     <label class="oculto" for="texto">Mensaje</label>
     <?php if ($respuestas): ?>
@@ -82,7 +100,23 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <?php elseif (es_admin()): ?>
     <p class="suave pequeno"><a href="<?= e(url('respuestas')) ?>">Crear respuestas rápidas</a> para no escribir lo mismo cada vez.</p>
     <?php endif; ?>
+    <?php if ($resumenIa !== ''): ?><div class="aviso aviso-info resumen-ia"><b>Resumen (IA):</b><br><?= nl2br(e($resumenIa)) ?></div><?php endif; ?>
     <textarea id="texto" name="texto" rows="3" maxlength="4096" placeholder="Escribe tu respuesta…" required><?= e($borrador) ?></textarea>
+    <?php if (modulo('ia')): ?>
+    <div class="fila-botones ia-botones">
+        <button class="boton boton-claro" name="accion" value="ia_sugerir" formnovalidate>✨ Sugerir respuesta</button>
+        <button class="boton boton-claro" name="accion" value="ia_resumir" formnovalidate>Resumir</button>
+    </div>
+    <?php endif; ?>
+    <?php if ($ventana): ?>
+    <div class="adjuntar">
+        <label class="boton boton-claro" for="archivo" title="Foto, audio, video o documento">📎 Adjuntar</label>
+        <input type="file" id="archivo" name="archivo" class="oculto"
+               accept="image/jpeg,image/png,audio/*,video/mp4,video/3gpp,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip">
+        <button type="button" class="boton boton-claro" id="grabar" hidden>🎤 Nota de voz</button>
+        <span id="adjunto-nombre" class="suave pequeno" aria-live="polite"></span>
+    </div>
+    <?php endif; ?>
     <div class="botones-envio">
         <a class="boton boton-gratis" id="enviar-celular" href="<?= e(Telefono::enlace($c['telefono'])) ?>" data-tel="<?= e($c['telefono']) ?>" target="_blank" rel="noopener">
             Enviar desde el celular <small>gratis</small>
@@ -99,6 +133,43 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <button class="enlace" name="accion" value="pendiente" formnovalidate>Guardar en Pendientes para enviarlo después</button>
 </form>
 
+<?php if (modulo('embudo') && $c['tipo'] !== 'personal'): ?>
+<form method="post" class="tarjeta formulario embudo-chat">
+    <?= csrf_campo() ?><input type="hidden" name="accion" value="etapa">
+    <div class="fila-doble">
+        <label>Etapa de la venta<select name="etapa">
+            <option value="" <?= $c['etapa'] === null ? 'selected' : '' ?>>Fuera del embudo</option>
+            <?php foreach (\TuWhatsApp\Embudo::ETAPAS as $k => $n): ?><option value="<?= e($k) ?>" <?= $c['etapa'] === $k ? 'selected' : '' ?>><?= e($n) ?></option><?php endforeach; ?>
+        </select></label>
+        <label>Valor ($)<input name="valor" inputmode="decimal" maxlength="15" value="<?= (float) $c['valor'] > 0 ? e(number_format((float) $c['valor'], 2, ',', '.')) : '' ?>" placeholder="0"></label>
+    </div>
+    <button class="boton boton-claro">Guardar etapa</button> <a class="pequeno" href="<?= e(url('embudo')) ?>">Ver embudo</a>
+</form>
+<?php endif; ?>
+<?php if (modulo('seguimientos') && $c['tipo'] !== 'personal'): ?>
+<details class="tarjeta plegable" <?= $seguimientos ? 'open' : '' ?>>
+    <summary>Programar seguimiento<?= $seguimientos ? ' (' . count(array_filter($seguimientos, fn ($s) => $s['estado'] === 'programado')) . ' programados)' : '' ?></summary>
+    <?php foreach ($seguimientos as $s): ?>
+    <form method="post" class="seguimiento-item">
+        <?= csrf_campo() ?><input type="hidden" name="accion" value="cancelar_seguimiento"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
+        <span><b><?= e((new DateTimeImmutable($s['cuando']))->format('d/m H:i')) ?></b> · <?= e(\TuWhatsApp\Seguimientos::ESTADOS[$s['estado']] ?? $s['estado']) ?><br>
+        <span class="suave pequeno"><?= e(mb_strimwidth($s['texto'], 0, 90, '…')) ?></span></span>
+        <?php if ($s['estado'] === 'programado'): ?><button class="enlace enlace-rojo">Cancelar</button><?php endif; ?>
+    </form>
+    <?php endforeach; ?>
+    <form method="post" class="formulario">
+        <?= csrf_campo() ?><input type="hidden" name="accion" value="seguimiento">
+        <label>Mensaje<textarea name="texto_seguimiento" rows="3" maxlength="4000" required placeholder="Hola <?= e(Contactos::nombre($c)) ?>, ¿pudiste revisar la cotización?"></textarea></label>
+        <label>Cuándo<select name="cuando" class="seg-cuando">
+            <?php foreach (\TuWhatsApp\Seguimientos::ATAJOS as $k => $n): ?><option value="<?= e($k) ?>" <?= $k === '2d' ? 'selected' : '' ?>><?= e($n) ?><?= str_ends_with($k, 'd') ? ' a las 9:00' : '' ?></option><?php endforeach; ?>
+            <option value="fecha">Elegir fecha y hora…</option>
+        </select></label>
+        <label class="seg-fecha">Fecha y hora (si elegiste "Elegir fecha")<input type="datetime-local" name="fecha"></label>
+        <label class="check"><input type="checkbox" name="solo_sin_respuesta" value="1" checked> Mandarlo solo si no responde antes</label>
+        <button class="boton boton-claro">Programar</button>
+    </form>
+</details>
+<?php endif; ?>
 <details class="tarjeta plegable">
     <summary>Datos y notas de este contacto</summary>
     <form method="post" class="formulario">

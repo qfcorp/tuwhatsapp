@@ -2,6 +2,9 @@
 /** @var array $linea @var string $filtro @var string $buscar @var list<array> $conversaciones */
 use TuWhatsApp\Contactos;
 $filtros = ['todos' => 'Todos', 'sin_leer' => 'Sin leer', 'mios' => 'Míos', 'sin_asignar' => 'Sin asignar', 'cliente' => 'Clientes', 'desconocido' => 'Desconocidos', 'personal' => 'Personales'];
+if (!modulo('agentes')) {
+    unset($filtros['mios'], $filtros['sin_asignar']);
+}
 ?>
 <div class="cabeza">
     <h1>Bandeja</h1>

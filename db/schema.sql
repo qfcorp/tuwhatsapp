@@ -265,3 +265,98 @@ ALTER TABLE empresas ADD COLUMN IF NOT EXISTS terminos_aceptado_por integer REFE
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS terminos_ip           text NOT NULL DEFAULT '';
 
 COMMIT;
+
+
+-- ---------------------------------------------------------------------
+-- Módulos por cliente (se encienden o apagan desde Clientes de Tukán).
+-- Las cuentas que ya existían quedan con todo encendido (no se les quita nada).
+-- ---------------------------------------------------------------------
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS modulos text NOT NULL
+    DEFAULT 'campanias,agentes,embudo,seguimientos,reportes,ia,enlaces,integraciones';
+
+
+-- ---------------------------------------------------------------------
+-- Fotos, audios, videos y documentos en los chats, y mensajes con botones
+-- ---------------------------------------------------------------------
+ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS media_id     text;      -- id de Meta (lo que llega)
+ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS media_mime   text;
+ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS media_nombre text;
+ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS media_ruta   text;      -- dónde quedó guardado (carpeta archivos)
+ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS media_bytes  integer;
+ALTER TABLE mensajes DROP CONSTRAINT IF EXISTS mensajes_tipo_check;
+ALTER TABLE mensajes ADD CONSTRAINT mensajes_tipo_check
+    CHECK (tipo IN ('texto', 'plantilla', 'otro', 'imagen', 'audio', 'video', 'documento', 'sticker', 'botones', 'ubicacion'));
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS menu_botones boolean NOT NULL DEFAULT true;   -- menú con botones de WhatsApp
+
+
+-- ---------------------------------------------------------------------
+-- Módulo Embudo de ventas: cada conversación puede estar en una etapa y tener un valor
+-- ---------------------------------------------------------------------
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS etapa        text;          -- null = fuera del embudo
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS valor        numeric(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS etapa_cambio timestamptz;
+ALTER TABLE contactos DROP CONSTRAINT IF EXISTS contactos_etapa_check;
+ALTER TABLE contactos ADD CONSTRAINT contactos_etapa_check
+    CHECK (etapa IS NULL OR etapa IN ('nuevo', 'interesado', 'cotizado', 'ganado', 'perdido'));
+CREATE INDEX IF NOT EXISTS contactos_etapa ON contactos (linea_id, etapa) WHERE etapa IS NOT NULL;
+
+
+-- ---------------------------------------------------------------------
+-- Módulo Seguimientos: mensajes programados (los manda bin/campanias.php cada minuto)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS seguimientos (
+    id            serial PRIMARY KEY,
+    linea_id      integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    contacto_id   integer NOT NULL REFERENCES contactos(id) ON DELETE CASCADE,
+    usuario_id    integer REFERENCES usuarios(id) ON DELETE SET NULL,
+    texto         text NOT NULL,
+    cuando        timestamptz NOT NULL,
+    solo_sin_respuesta boolean NOT NULL DEFAULT true,   -- si la persona escribió después de programarlo, no se manda
+    estado        text NOT NULL DEFAULT 'programado'
+                  CHECK (estado IN ('programado', 'enviado', 'pendiente', 'omitido', 'cancelado', 'fallido')),
+    resultado     text NOT NULL DEFAULT '',
+    creado        timestamptz NOT NULL DEFAULT now(),
+    hecho_en      timestamptz
+);
+CREATE INDEX IF NOT EXISTS seguimientos_por_mandar ON seguimientos (cuando) WHERE estado = 'programado';
+
+
+-- ---------------------------------------------------------------------
+-- Módulo Enlaces: enlace corto (cuenta los clics) que abre WhatsApp con un texto listo
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS enlaces (
+    id        serial PRIMARY KEY,
+    linea_id  integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    codigo    text NOT NULL UNIQUE,
+    nombre    text NOT NULL,
+    texto     text NOT NULL DEFAULT '',
+    clics     integer NOT NULL DEFAULT 0,
+    activo    boolean NOT NULL DEFAULT true,
+    creado    timestamptz NOT NULL DEFAULT now()
+);
+
+
+-- ---------------------------------------------------------------------
+-- Módulo Integraciones: avisar a otro programa cuando llega un mensaje (webhook de salida firmado)
+-- ---------------------------------------------------------------------
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS aviso_url      text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS aviso_secreto  text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS aviso_error    text NOT NULL DEFAULT '';   -- último error al avisar
+
+
+-- ---------------------------------------------------------------------
+-- Módulo Asistente con IA: lo que sabe del negocio, tope del mes y lo gastado
+-- ---------------------------------------------------------------------
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS ia_conocimiento text NOT NULL DEFAULT '';
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS ia_tope numeric(8,2) NOT NULL DEFAULT 5;
+CREATE TABLE IF NOT EXISTS ia_uso (
+    id          bigserial PRIMARY KEY,
+    empresa_id  integer NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    usuario_id  integer REFERENCES usuarios(id) ON DELETE SET NULL,
+    que         text NOT NULL,                 -- sugerir | resumir
+    entrada     integer NOT NULL DEFAULT 0,    -- tokens
+    salida      integer NOT NULL DEFAULT 0,
+    costo       numeric(10,5) NOT NULL DEFAULT 0,
+    creado      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ia_uso_mes ON ia_uso (empresa_id, creado);

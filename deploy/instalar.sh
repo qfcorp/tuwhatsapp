@@ -23,7 +23,7 @@ if [ -z "${PHPV:-}" ]; then
 fi
 
 echo "== 1. Programas (PHP $PHPV, PostgreSQL, nginx)"
-sudo apt-get install -y "php$PHPV-fpm" "php$PHPV-pgsql" "php$PHPV-curl" "php$PHPV-mbstring" postgresql nginx git curl openssl < /dev/null > /dev/null \
+sudo apt-get install -y "php$PHPV-fpm" "php$PHPV-pgsql" "php$PHPV-curl" "php$PHPV-mbstring" postgresql nginx git curl openssl ffmpeg < /dev/null > /dev/null \
   && echo "   listo" || echo "   AVISO: no se pudieron instalar algunos programas (revisa el mensaje de arriba)"
 
 echo "== 2. Bajar o actualizar el programa"
@@ -33,8 +33,9 @@ if [ -d "$APP/.git" ]; then
 else
   sudo git clone -q "$REPO" "$APP" && echo "   bajado"
 fi
-sudo mkdir -p "$APP/config"
+sudo mkdir -p "$APP/config" "$APP/archivos"
 sudo chown -R "$YO":www-data "$APP"
+sudo chmod 2770 "$APP/archivos"   # fotos y audios de los chats: los escribe el programa (www-data)
 
 echo "== 3. Base de datos"
 ENVF="$APP/config/.env"
@@ -54,7 +55,7 @@ LLAVE="$(viejo TUWA_LLAVE)";        [ -n "$LLAVE" ]  || LLAVE="$(openssl rand -h
 VERIFY="$(viejo META_VERIFY_TOKEN)"; [ -n "$VERIFY" ] || VERIFY="tukan$(openssl rand -hex 12)"
 API="$(viejo TUWA_API_TOKEN)";       [ -n "$API" ]    || API="$(openssl rand -hex 24)"
 EXTRA=""
-[ -f "$ENVF" ] && EXTRA="$(grep -E '^(TUKAN_CENTRAL_ID|TUKAN_CENTRAL_SECRET|TUKAN_CENTRAL_URL|TUKAN_SOLO_CENTRAL|META_APP_SECRET|META_APP_ID|META_ES_CONFIG_ID|META_GRAPH_VERSION|META_GRAPH_URL|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID)=' "$ENVF" || true)"
+[ -f "$ENVF" ] && EXTRA="$(grep -E '^(TUKAN_CENTRAL_ID|TUKAN_CENTRAL_SECRET|TUKAN_CENTRAL_URL|TUKAN_SOLO_CENTRAL|META_APP_SECRET|META_APP_ID|META_ES_CONFIG_ID|META_GRAPH_VERSION|META_GRAPH_URL|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID|TUWA_IA_CLAVE|TUWA_IA_MODELO|TUWA_IA_PRECIO_ENTRADA|TUWA_IA_PRECIO_SALIDA)=' "$ENVF" || true)"
 {
   echo "TUWA_DB_HOST=127.0.0.1"
   echo "TUWA_DB_NAME=tuwhatsapp"
@@ -101,20 +102,22 @@ sudo mkdir -p /var/backups/tuwhatsapp && sudo chmod 700 /var/backups/tuwhatsapp
 LINEA="40 3 * * * sudo -u postgres pg_dump -Fc tuwhatsapp > /var/backups/tuwhatsapp/tuwhatsapp_\$(date +\\%F).dump && find /var/backups/tuwhatsapp -name '*.dump' -mtime +14 -delete"
 (sudo crontab -l 2>/dev/null | grep -v "backups/tuwhatsapp"; echo "$LINEA") | sudo crontab - && echo "   listo"
 
-echo "== 7. Envio de campanias (cada minuto, como www-data)"
+echo "== 7. Envio automatico: campanias y seguimientos (cada minuto, como www-data)"
 sudo touch /var/log/tuwhatsapp-campanias.log && sudo chown www-data:www-data /var/log/tuwhatsapp-campanias.log
 (sudo crontab -u www-data -l 2>/dev/null | grep -v "tuwhatsapp/bin/campanias"; echo "* * * * * php $APP/bin/campanias.php >> /var/log/tuwhatsapp-campanias.log 2>&1") | sudo crontab -u www-data - && echo "   listo"
 
 echo
 echo "=========== RESULTADO ==========="
-echo "1) Tablas: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" < /dev/null) (deben ser 15)"
+echo "1) Tablas: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" < /dev/null) (deben ser 18)"
 echo "2) Extensiones de PHP: $(php -m | grep -E -c '^(pdo_pgsql|curl|mbstring|sodium)$') (deben ser 4)"
 curl -s -o /dev/null -w "3) Pagina de entrar: %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/?r=login"
 curl -s -o /dev/null -w "4) Webhook: %{http_code} (debe ser 403 hasta conectar Meta)\n" -H "Host: $DOMINIO" "http://127.0.0.1/webhook.php"
 echo "5) Usuarios del panel: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM usuarios" < /dev/null)"
 grep -q '^META_APP_SECRET=.' "$ENVF" && echo "6) Clave secreta de Meta: guardada" || echo "6) Clave secreta de Meta: FALTA (paso de Meta)"
 grep -q '^META_ES_CONFIG_ID=.' "$ENVF" && grep -q '^META_APP_ID=.' "$ENVF" && echo "7) Boton QR de Meta: listo" || echo "7) Boton QR de Meta: FALTA (App ID y Configuration ID)"
-echo "8) Envio de campanias: $(sudo crontab -u www-data -l 2>/dev/null | grep -c tuwhatsapp/bin/campanias) (debe ser 1)"
+echo "8) Envio automatico (campanias y seguimientos): $(sudo crontab -u www-data -l 2>/dev/null | grep -c tuwhatsapp/bin/campanias) (debe ser 1)"
+grep -q '^TUWA_IA_CLAVE=.' "$ENVF" && echo "9) Asistente con IA: encendido" || echo "9) Asistente con IA: apagado (opcional: bash $APP/deploy/clave_ia.sh)"
 echo "================================="
 echo "Crear tu usuario:          php $APP/bin/crear_usuario.php"
 echo "Guardar la clave de Meta:  bash $APP/deploy/clave_meta.sh"
+echo "Encender la IA (opcional): bash $APP/deploy/clave_ia.sh"

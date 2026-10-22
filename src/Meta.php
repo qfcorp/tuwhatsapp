@@ -68,6 +68,97 @@ final class Meta
         return $this->enviar(['messaging_product' => 'whatsapp', 'to' => $para, 'type' => 'template', 'template' => $plantilla]);
     }
 
+    /**
+     * Foto, audio, video o documento ya subido a Meta (media id).
+     * @param string $tipo imagen | audio | video | documento
+     */
+    public function enviarMedio(string $para, string $tipo, string $mediaId, string $pie = '', string $nombreArchivo = ''): array
+    {
+        $t = Archivos::A_META[$tipo] ?? 'document';
+        $obj = ['id' => $mediaId];
+        if ($pie !== '' && in_array($t, ['image', 'video', 'document'], true)) {
+            $obj['caption'] = mb_substr($pie, 0, 1024);
+        }
+        if ($t === 'document' && $nombreArchivo !== '') {
+            $obj['filename'] = $nombreArchivo;
+        }
+        return $this->enviar(['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $para, 'type' => $t, $t => $obj]);
+    }
+
+    /**
+     * Mensaje con botones (hasta 3) o con lista (hasta 10 opciones). El cliente toca y llega como "interactive".
+     * @param list<array{id:string,titulo:string}> $opciones
+     */
+    public function enviarBotones(string $para, string $texto, array $opciones, string $textoBotonLista = 'Ver opciones'): array
+    {
+        $opciones = array_slice(array_values($opciones), 0, 10);
+        if (count($opciones) <= 3) {
+            $interactivo = ['type' => 'button', 'body' => ['text' => mb_substr($texto, 0, 1024)], 'action' => ['buttons' => array_map(
+                fn ($o) => ['type' => 'reply', 'reply' => ['id' => mb_substr($o['id'], 0, 256), 'title' => mb_substr($o['titulo'], 0, 20)]], $opciones)]];
+        } else {
+            $interactivo = ['type' => 'list', 'body' => ['text' => mb_substr($texto, 0, 1024)], 'action' => [
+                'button' => mb_substr($textoBotonLista, 0, 20),
+                'sections' => [['title' => 'Opciones', 'rows' => array_map(
+                    fn ($o) => ['id' => mb_substr($o['id'], 0, 200), 'title' => mb_substr($o['titulo'], 0, 24)], $opciones)]],
+            ]];
+        }
+        return $this->enviar(['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $para, 'type' => 'interactive', 'interactive' => $interactivo]);
+    }
+
+    /** Sube un archivo a Meta y devuelve su id (sirve 30 días para enviarlo). */
+    public function subirMedio(string $rutaCompleta, string $mime, string $nombre): array
+    {
+        if ($this->token === '' || $this->phoneNumberId === '') {
+            return ['ok' => false, 'error' => 'Este número no tiene token o Phone number ID. Complétalo en Números.'];
+        }
+        $ch = curl_init(self::base() . '/' . $this->phoneNumberId . '/media');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_TIMEOUT => 90, CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $this->token, 'Accept: application/json'],
+            CURLOPT_POSTFIELDS => ['messaging_product' => 'whatsapp', 'type' => $mime, 'file' => new \CURLFile($rutaCompleta, $mime, $nombre)],
+        ]);
+        $resp = curl_exec($ch);
+        $codigo = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $falla = curl_error($ch);
+        curl_close($ch);
+        if ($resp === false) {
+            return ['ok' => false, 'error' => 'No se pudo subir el archivo a Meta (' . $falla . ').'];
+        }
+        $d = json_decode((string) $resp, true);
+        if ($codigo >= 200 && $codigo < 300 && !empty($d['id'])) {
+            return ['ok' => true, 'id' => (string) $d['id']];
+        }
+        return ['ok' => false, 'error' => self::explicar(is_array($d) ? $d : [], $codigo)];
+    }
+
+    /** Baja un archivo que llegó: primero se pide su dirección (dura 5 minutos) y luego los bytes, siempre con el token. */
+    public function bajarMedio(string $mediaId): array
+    {
+        $r = $this->pedir('GET', '/' . rawurlencode($mediaId));
+        if (!$r['ok']) {
+            return $r;
+        }
+        $url = (string) ($r['datos']['url'] ?? '');
+        if (!preg_match('#^https://#', $url) && !str_starts_with($url, rtrim((string) getenv('META_GRAPH_URL'), '/'))) {
+            return ['ok' => false, 'error' => 'Meta no devolvió la dirección del archivo.'];
+        }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_TIMEOUT => 90, CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $this->token, 'User-Agent: TukanWhatsApp/1.0'],
+        ]);
+        $bytes = curl_exec($ch);
+        $codigo = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+        if (!is_string($bytes) || $codigo < 200 || $codigo >= 300 || $bytes === '') {
+            return ['ok' => false, 'error' => 'Meta no entregó el archivo (HTTP ' . $codigo . ').'];
+        }
+        if (strlen($bytes) > 100 * 1024 * 1024) {
+            return ['ok' => false, 'error' => 'El archivo es demasiado grande.'];
+        }
+        return ['ok' => true, 'bytes' => $bytes, 'mime' => (string) ($r['datos']['mime_type'] ?? 'application/octet-stream')];
+    }
+
     /** Marca como leído (las dos palomitas azules) el mensaje que llegó. */
     public function marcarLeido(string $wamid): array
     {

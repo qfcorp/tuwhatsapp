@@ -5,14 +5,20 @@ $menu = [
     'bandeja'    => ['Bandeja',    'M4 5h16v11H8l-4 4z'],
     'pendientes' => ['Pendientes', 'M9 11l3 3 8-8M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h11'],
     'contactos'  => ['Contactos',  'M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 19v-1a4 4 0 0 0-3-3.9M15 4.1a3 3 0 0 1 0 5.8'],
-    'campanias'  => ['Campañas',   'M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM15 9a3 3 0 0 1 0 6M18 6a7 7 0 0 1 0 12'],
+    'embudo'     => ['Embudo',     'M3 4h18l-7 8v6l-4 2v-8z'],
     'reglas'     => ['Automático', 'M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5 6.8 15M17.2 9l2.6-1.5M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
-    'gasto'      => ['Gasto',      'M12 3v18M17 7.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2.2 2.6 5 3.3 5 1.5 5 3.5-2.2 3.2-5 3.2-5-1.3-5-3.2'],
+    'mas'        => ['Más',        'M4 6h16M4 12h16M4 18h16'],
 ];
 if ($u && !es_admin()) {
-    unset($menu['reglas'], $menu['campanias']);
+    unset($menu['reglas']);
+}
+if ($u && !modulo('embudo')) {
+    unset($menu['embudo']);
 }
 $activo = $rutaActual === 'chat' || $rutaActual === 'plantilla' ? 'bandeja' : $rutaActual;
+if (!isset($menu[$activo]) && $activo !== 'bandeja') {
+    $activo = in_array($activo, ['campanias', 'campania', 'gasto', 'reportes', 'seguimientos', 'ia', 'enlaces', 'integraciones', 'respuestas', 'plantillas'], true) ? 'mas' : $activo;
+}
 $avisos = tomar_avisos();
 $empresaVista = $u ? empresa_actual() : null;
 $lineas = $empresaVista ? \TuWhatsApp\Lineas::todas(db(), (int) $empresaVista['id']) : [];
@@ -33,7 +39,7 @@ if ($u && $linea) {
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($titulo) ?> · WhatsApp Tukán</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314211F'/%3E%3Cpath d='M7 25l2-5a9 9 0 1 1 3.5 3.3z' fill='%23F28C28'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/assets/app.css?v=8">
+<link rel="stylesheet" href="/assets/app.css?v=10">
 </head>
 <body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?>">
 <?php if ($u): ?>
@@ -97,6 +103,6 @@ if ($u && $linea) {
     <?php endforeach; ?>
 </nav>
 <?php endif; ?>
-<script src="/assets/app.js?v=5" defer></script>
+<script src="/assets/app.js?v=7" defer></script>
 </body>
 </html>

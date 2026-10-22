@@ -120,6 +120,12 @@ function usuario(): ?array
 }
 
 /** Personal de Tukán: ve el panel de Clientes y puede entrar a cualquier cuenta para dar soporte. */
+/** ¿La cuenta que se está mirando tiene encendido este módulo? (ver src/Modulos.php) */
+function modulo(string $clave): bool
+{
+    return \TuWhatsApp\Modulos::activo(empresa_actual(), $clave);
+}
+
 function es_super(): bool
 {
     return (bool) (usuario()['super'] ?? false);

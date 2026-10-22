@@ -40,6 +40,51 @@ final class Mensajeria
             fn (Meta $m) => $m->enviarTexto((string) $contacto['telefono'], $texto));
     }
 
+    /**
+     * Foto, audio, video o documento (ya guardado con Archivos::deSubida). El pie de foto es opcional.
+     * @param array{tipo:string, mime:string, nombre:string, bytes:int, ruta:string} $archivo
+     */
+    public function medio(array $linea, array $contacto, array $archivo, string $pie, string $origen, ?int $usuarioId = null): array
+    {
+        if (!Gasto::ventanaAbierta($contacto, $this->ahora())) {
+            return ['ok' => false, 'ventana' => true,
+                    'error' => 'Pasaron más de 24 horas desde el último mensaje de esta persona: por el sistema solo se puede mandar una plantilla. Mándalo gratis desde el celular.'];
+        }
+        $pie = trim($pie);
+        $etiqueta = ['imagen' => '[Foto]', 'audio' => '[Audio]', 'video' => '[Video]', 'documento' => '[Documento] ' . $archivo['nombre']][$archivo['tipo']] ?? '[Archivo]';
+        $texto = $pie !== '' && $archivo['tipo'] !== 'audio' ? $pie : $etiqueta;
+        $media = ['media_mime' => $archivo['mime'], 'media_nombre' => $archivo['nombre'], 'media_ruta' => $archivo['ruta'], 'media_bytes' => $archivo['bytes']];
+        return $this->enviar($linea, $contacto, 'servicio', ['tipo' => $archivo['tipo'], 'texto' => $texto, 'plantilla' => null] + $media, $origen, $usuarioId,
+            function (Meta $m) use ($contacto, $archivo, $pie) {
+                $completa = Archivos::ruta($archivo['ruta']);
+                if ($completa === null) {
+                    return ['ok' => false, 'error' => 'No se encontró el archivo en el servidor.'];
+                }
+                $sub = $m->subirMedio($completa, $archivo['mime'], $archivo['nombre']);
+                if (!$sub['ok']) {
+                    return $sub;
+                }
+                return $m->enviarMedio((string) $contacto['telefono'], $archivo['tipo'], $sub['id'], $archivo['tipo'] === 'audio' ? '' : $pie, $archivo['nombre']);
+            });
+    }
+
+    /**
+     * Mensaje con botones (hasta 3) o lista (hasta 10). Lo usan las respuestas automáticas.
+     * @param list<array{id:string,titulo:string}> $opciones
+     */
+    public function botones(array $linea, array $contacto, string $texto, array $opciones, string $origen, ?int $usuarioId = null): array
+    {
+        if (!$opciones) {
+            return $this->texto($linea, $contacto, $texto, $origen, $usuarioId);
+        }
+        if (!Gasto::ventanaAbierta($contacto, $this->ahora())) {
+            return ['ok' => false, 'ventana' => true, 'error' => 'La ventana de 24 horas está cerrada.'];
+        }
+        $resumen = $texto . "\n" . implode("\n", array_map(fn ($o) => '▸ ' . $o['titulo'], $opciones));
+        return $this->enviar($linea, $contacto, 'servicio', ['tipo' => 'botones', 'texto' => mb_substr($resumen, 0, 4096), 'plantilla' => null], $origen, $usuarioId,
+            fn (Meta $m) => $m->enviarBotones((string) $contacto['telefono'], $texto, $opciones));
+    }
+
     /** @param array{nombre:string,idioma:string,categoria:string,cuerpo:string} $p */
     public function plantilla(array $linea, array $contacto, array $p, array $datos, string $origen, ?int $usuarioId = null): array
     {
@@ -68,13 +113,15 @@ final class Mensajeria
             $gastado = Gasto::delMes($this->db, (int) $linea['id'], $ahora);
             $tope = (float) $linea['tope_mensual'];
             $bloqueado = $costo > 0 && ($gastado + $costo) > $tope + 1e-9;
-            $st = $this->db->prepare("INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, tipo, texto, plantilla, estado, error, categoria, costo, usuario_id, creado)
-                                      VALUES (?, ?, 'sale', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id");
+            $st = $this->db->prepare("INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, tipo, texto, plantilla, estado, error, categoria, costo, usuario_id, creado,
+                                          media_mime, media_nombre, media_ruta, media_bytes)
+                                      VALUES (?, ?, 'sale', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id");
             $st->execute([
                 $linea['id'], $contacto['id'], $origen, $msg['tipo'], $msg['texto'], $msg['plantilla'],
                 $bloqueado ? 'bloqueado' : 'enviando',
                 $bloqueado ? 'Tope del mes alcanzado (' . self::d($gastado) . ' de ' . self::d($tope) . ')' : null,
                 $categoria, $bloqueado ? 0 : $costo, $usuarioId, $ahora->format('c'),
+                $msg['media_mime'] ?? null, $msg['media_nombre'] ?? null, $msg['media_ruta'] ?? null, $msg['media_bytes'] ?? null,
             ]);
             $id = (int) $st->fetchColumn();
             $this->db->commit();

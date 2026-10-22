@@ -15,6 +15,7 @@ foreach ([
     'TELEGRAM_BOT_TOKEN' => '123:abc',
     'TELEGRAM_CHAT_ID' => '999',
     'TELEGRAM_API_URL' => $sim,
+    'TUWA_ARCHIVOS' => getenv('TUWA_ARCHIVOS') ?: sys_get_temp_dir() . '/tuwa_archivos_prueba',
 ] as $k => $v) {
     putenv("$k=$v");
 }
@@ -214,7 +215,7 @@ igual($nuevo['tipo'], 'desconocido', 'se crea como desconocido');
 
 echo "== Foto: no se contesta\n";
 $wh->procesar(cuerpoMeta(['metadata' => ['phone_number_id' => '100'], 'messages' => [['from' => '593991111112', 'id' => 'wamid.F1', 'timestamp' => (string) $martes20->getTimestamp(), 'type' => 'image', 'image' => ['caption' => 'mi logo']]]]));
-igual($db->query("SELECT texto FROM mensajes WHERE wamid = 'wamid.F1'")->fetchColumn(), '[Imagen] mi logo', 'texto de la imagen');
+igual($db->query("SELECT texto FROM mensajes WHERE wamid = 'wamid.F1'")->fetchColumn(), '[Foto] mi logo', 'texto de la imagen');
 
 echo "== Anuncio: 72 horas gratis\n";
 Contactos::guardar($db, $lid, '0994444444', 'Luis', 'cliente');
@@ -863,6 +864,274 @@ ok($okLim && !$tc->dentroDelLimite('9.9.9.9', $t0), 'límite de 30 por minuto');
 putenv('TUKAN_CENTRAL_ID=');
 putenv('TUKAN_CENTRAL_SECRET=');
 
+
+echo "== Módulos por cliente\n";
+use TuWhatsApp\{Archivos, Modulos};
+igual(Modulos::deEmpresa(['id' => 1, 'modulos' => '']), Modulos::todos(), 'Tukán tiene todos');
+$eMod = ['id' => 5, 'modulos' => 'embudo,ia'];
+ok(Modulos::activo($eMod, 'embudo') && !Modulos::activo($eMod, 'campanias'), 'solo lo de su plan');
+ok(Modulos::rutaBloqueada($eMod, 'campanias') !== null, 'campañas bloqueadas sin el módulo');
+igual(Modulos::rutaBloqueada($eMod, 'bandeja'), null, 'la bandeja nunca se bloquea');
+igual(Modulos::rutaBloqueada($eMod, 'embudo'), null, 'embudo abierto con el módulo');
+igual(Modulos::limpiar('embudo, inventado,ia,embudo'), ['embudo', 'ia'], 'limpia claves raras y repetidas');
+Modulos::guardar($db, $e2, ['reportes', 'enlaces', 'otra']);
+igual(Modulos::deEmpresa(Empresas::buscar($db, $e2)), ['reportes', 'enlaces'], 'se guardan los módulos del cliente');
+$pl = Modulos::aplicarPlan($db, $e2, 'negocio');
+$fe2 = Empresas::buscar($db, $e2);
+ok($pl[1] === 35 && Modulos::activo($fe2, 'embudo') && !Modulos::activo($fe2, 'ia') && (int) $fe2['max_usuarios'] >= 5, 'plan Negocio');
+try { Modulos::aplicarPlan($db, $e2, 'gratis'); ok(false, 'plan inventado'); } catch (RuntimeException $e) { ok(true, 'plan inventado'); }
+Modulos::guardar($db, $e2, []);
+igual(Modulos::deEmpresa(Empresas::buscar($db, $e2)), [], 'se pueden quitar todos');
+
+echo "== Menú con botones de WhatsApp\n";
+$lb = Lineas::guardarConexion($db, null, ['nombre' => 'Botones', 'telefono' => '0996400000', 'phone_number_id' => '300', 'waba_id' => '200', 'token' => 'EAAGtokenBotones1234567890']);
+Lineas::guardarReglas($db, $lb, array_merge($form, ['menu_botones' => '1']));
+$lineaB = Lineas::buscar($db, $lb);
+ok($lineaB['menu_botones'] === true, 'botones encendidos');
+$entB = function (string $de, array $mensaje, string $wamid) use ($martes20) {
+    return cuerpoMeta(['messaging_product' => 'whatsapp', 'metadata' => ['phone_number_id' => '300'],
+        'contacts' => [['profile' => ['name' => 'Cli'], 'wa_id' => $de]],
+        'messages' => [array_merge(['from' => $de, 'id' => $wamid, 'timestamp' => (string) $martes20->getTimestamp()], $mensaje)]]);
+};
+Contactos::guardar($db, $lb, '0997000001', 'Carla', 'cliente');
+limpiarSim();
+$whB = new Webhook($db, $martes20);
+$whB->procesar($entB('593997000001', ['type' => 'text', 'text' => ['body' => 'Quiero el precio']], 'wamid.BOTB1'));
+$env = array_values(array_filter(sim(), fn ($r) => $r['ruta'] === '/v24.0/300/messages'));
+igual(count($env), 1, 'se manda 1 mensaje');
+igual($env[0]['cuerpo']['type'] ?? null, 'interactive', 'es interactivo');
+igual($env[0]['cuerpo']['interactive']['type'] ?? null, 'button', '3 opciones = botones');
+igual(array_map(fn ($b) => $b['reply']['id'], $env[0]['cuerpo']['interactive']['action']['buttons'] ?? []), ['op1', 'op2', 'op3'], 'ids op1..op3');
+igual($env[0]['cuerpo']['interactive']['action']['buttons'][0]['reply']['title'] ?? null, 'Precios', 'título del botón');
+igual($env[0]['cuerpo']['interactive']['body']['text'] ?? null, 'Hola, soy Tukán:', 'el saludo va arriba de los botones');
+$carla = Contactos::porTelefono($db, $lb, '593997000001');
+igual($db->query("SELECT tipo FROM mensajes WHERE contacto_id = {$carla['id']} AND direccion = 'sale'")->fetchColumn(), 'botones', 'queda guardado como botones');
+limpiarSim();
+$whB->procesar($entB('593997000001', ['type' => 'interactive', 'interactive' => ['type' => 'button_reply', 'button_reply' => ['id' => 'op2', 'title' => 'Demo']]], 'wamid.BOTB2'));
+$env = array_values(array_filter(sim(), fn ($r) => $r['ruta'] === '/v24.0/300/messages'));
+igual($env[0]['cuerpo']['text']['body'] ?? null, 'Te armamos la demo.', 'tocó el botón 2 -> respuesta 2');
+igual($db->query("SELECT texto FROM mensajes WHERE wamid = 'wamid.BOTB2'")->fetchColumn(), 'Demo', 'se ve lo que tocó');
+// Escribir el nombre de la opción también sirve
+Contactos::guardar($db, $lb, '0997000002', 'Diego', 'cliente');
+$whB->procesar($entB('593997000002', ['type' => 'text', 'text' => ['body' => 'precio']], 'wamid.BOTB3'));
+limpiarSim();
+$whB->procesar($entB('593997000002', ['type' => 'text', 'text' => ['body' => 'persona']], 'wamid.BOTB4'));
+$env = array_values(array_filter(sim(), fn ($r) => $r['ruta'] === '/v24.0/300/messages'));
+igual($env[0]['cuerpo']['text']['body'] ?? null, 'Ya te atiende alguien.', 'escribió el nombre de la opción');
+// 4 opciones -> lista
+Lineas::guardarReglas($db, $lb, array_merge($form, ['menu_botones' => '1',
+    'op_titulo' => ['Precios', 'Demo', 'Horarios de atención al público', 'Persona'], 'op_respuesta' => ['a', 'b', 'c', 'd'], 'op_humano' => [3 => '1']]));
+Contactos::guardar($db, $lb, '0997000003', 'Eva', 'cliente');
+limpiarSim();
+$whB->procesar($entB('593997000003', ['type' => 'text', 'text' => ['body' => 'info por favor']], 'wamid.BOTB5'));
+$env = array_values(array_filter(sim(), fn ($r) => $r['ruta'] === '/v24.0/300/messages'));
+igual($env[0]['cuerpo']['interactive']['type'] ?? null, 'list', '4 opciones = lista');
+$filas = $env[0]['cuerpo']['interactive']['action']['sections'][0]['rows'] ?? [];
+igual(count($filas), 4, '4 filas');
+ok(mb_strlen($filas[2]['title'] ?? '') <= 24, 'título de la lista recortado a 24');
+limpiarSim();
+$whB->procesar($entB('593997000003', ['type' => 'interactive', 'interactive' => ['type' => 'list_reply', 'list_reply' => ['id' => 'op4', 'title' => 'Persona']]], 'wamid.BOTB6'));
+$env = array_values(array_filter(sim(), fn ($r) => $r['ruta'] === '/v24.0/300/messages'));
+igual($env[0]['cuerpo']['text']['body'] ?? null, 'd', 'eligió de la lista la 4');
+ok(!empty(Contactos::porTelefono($db, $lb, '593997000003')['silencio_hasta']), 'opción persona -> silencio');
+// Apagado: el menú va en texto como antes
+Lineas::guardarReglas($db, $lb, $form);
+Contactos::guardar($db, $lb, '0997000004', 'Fito', 'cliente');
+limpiarSim();
+$whB->procesar($entB('593997000004', ['type' => 'text', 'text' => ['body' => 'precio']], 'wamid.BOTB7'));
+$env = array_values(array_filter(sim(), fn ($r) => $r['ruta'] === '/v24.0/300/messages'));
+igual($env[0]['cuerpo']['type'] ?? null, 'text', 'sin botones: menú en texto');
+
+echo "== Fotos, audios y documentos\n";
+igual(Archivos::tipoDeMime('image/jpeg; charset=x'), 'imagen', 'tipo de una foto');
+igual(Archivos::tipoDeMime('application/x-msdownload'), null, 'un .exe no se acepta');
+igual(Archivos::ruta('../config/.env'), null, 'no deja salir de la carpeta');
+igual(Archivos::nombreLimpio('../../mi <factura>.pdf'), 'mi factura.pdf', 'nombre de archivo limpio');
+igual(Archivos::tamanio(1572864), '1,5 MB', 'tamaño legible');
+$whB->procesar($entB('593997000001', ['type' => 'image', 'image' => ['id' => '777123456', 'mime_type' => 'image/jpeg', 'caption' => 'mi logo']], 'wamid.BOTM1'));
+$fm = $db->query("SELECT * FROM mensajes WHERE wamid = 'wamid.BOTM1'")->fetch();
+igual($fm['tipo'], 'imagen', 'llega como imagen');
+igual($fm['media_id'], '777123456', 'se guarda el id de Meta');
+igual($fm['texto'], '[Foto] mi logo', 'texto con el pie de foto');
+$rutaFoto = Archivos::ruta((string) $fm['media_ruta']);
+ok($rutaFoto !== null && str_starts_with((string) file_get_contents($rutaFoto), "\xFF\xD8") && str_ends_with($rutaFoto, '.jpg'), 'la foto se bajó a la carpeta');
+igual((int) $fm['media_bytes'], strlen((string) @file_get_contents((string) $rutaFoto)), 'tamaño guardado');
+ok(str_starts_with((string) $fm['media_ruta'], Empresas::TUKAN . '/'), 'en la carpeta de su cuenta');
+$whB->procesar($entB('593997000001', ['type' => 'audio', 'audio' => ['id' => '7770000', 'mime_type' => 'audio/ogg; codecs=opus', 'voice' => true]], 'wamid.BOTM2'));
+$fa = $db->query("SELECT * FROM mensajes WHERE wamid = 'wamid.BOTM2'")->fetch();
+igual($fa['tipo'], 'audio', 'nota de voz = audio');
+ok(empty($fa['media_ruta']) && str_contains((string) $fa['error'], 'No se pudo bajar'), 'si Meta no lo entrega queda el aviso');
+$whB->procesar($entB('593997000001', ['type' => 'document', 'document' => ['id' => '777222333', 'mime_type' => 'application/pdf', 'filename' => 'cotizacion.pdf']], 'wamid.BOTM3'));
+$fd = $db->query("SELECT * FROM mensajes WHERE wamid = 'wamid.BOTM3'")->fetch();
+ok($fd['tipo'] === 'documento' && $fd['media_nombre'] === 'cotizacion.pdf', 'documento con su nombre');
+// Enviar una foto desde el panel
+$mB = new Mensajeria($db, $martes20);
+$carla = Contactos::porTelefono($db, $lb, '593997000001');
+$jpg = "\xFF\xD8\xFF\xE0" . str_repeat('x', 100);
+$arch = ['tipo' => 'imagen', 'mime' => 'image/jpeg', 'nombre' => 'promo.jpg', 'bytes' => strlen($jpg), 'ruta' => Archivos::guardarBytes($jpg, 'image/jpeg', Empresas::TUKAN)];
+limpiarSim();
+$r = $mB->medio($lineaB, $carla, $arch, 'Mira la promo', 'panel');
+ok($r['ok'], 'foto enviada: ' . ($r['error'] ?? ''));
+$sub = array_values(array_filter(sim(), fn ($x) => $x['ruta'] === '/subido'));
+ok(count($sub) === 1 && $sub[0]['subido']['tipo'] === 'image/jpeg' && $sub[0]['subido']['bytes'] === strlen($jpg), 'se subió a Meta');
+$env = array_values(array_filter(sim(), fn ($x) => $x['ruta'] === '/v24.0/300/messages'));
+igual($env[0]['cuerpo']['type'] ?? null, 'image', 'se mandó como foto');
+ok(str_starts_with((string) ($env[0]['cuerpo']['image']['id'] ?? ''), '777'), 'con el id que dio Meta');
+igual($env[0]['cuerpo']['image']['caption'] ?? null, 'Mira la promo', 'con pie de foto');
+$fs = $db->query("SELECT * FROM mensajes WHERE contacto_id = {$carla['id']} AND direccion = 'sale' ORDER BY id DESC LIMIT 1")->fetch();
+ok($fs['tipo'] === 'imagen' && $fs['texto'] === 'Mira la promo' && $fs['media_ruta'] === $arch['ruta'], 'queda en el chat con la foto');
+$aud = ['tipo' => 'audio', 'mime' => 'audio/ogg', 'nombre' => 'nota-de-voz.ogg', 'bytes' => 4, 'ruta' => Archivos::guardarBytes('OggS', 'audio/ogg', Empresas::TUKAN)];
+limpiarSim();
+$r = $mB->medio($lineaB, $carla, $aud, 'esto no va', 'panel');
+$env = array_values(array_filter(sim(), fn ($x) => $x['ruta'] === '/v24.0/300/messages'));
+ok($r['ok'] && ($env[0]['cuerpo']['type'] ?? '') === 'audio' && !isset($env[0]['cuerpo']['audio']['caption']), 'audio sin pie (WhatsApp no lo permite)');
+$r = $mB->medio($lineaB, Contactos::guardar($db, $lb, '0997000009', 'Nadie', 'cliente'), $arch, '', 'panel');
+ok(!$r['ok'] && !empty($r['ventana']), 'foto fuera de las 24 horas: no se puede');
+
+echo "== Embudo de ventas\n";
+use TuWhatsApp\{Asistente, Embudo, Enlaces, Integraciones, Reportes, Seguimientos};
+foreach (['1.250,50' => 1250.5, '1250.50' => 1250.5, '$ 300' => 300.0, '1,250' => 1250.0, '12,5' => 12.5, '1.250' => 1250.0, '' => 0.0, '1,250.75' => 1250.75] as $t => $v) {
+    igual(Embudo::valor((string) $t), $v, "valor \"$t\"");
+}
+$carla = Contactos::porTelefono($db, $lb, '593997000001');
+igual($carla['etapa'], 'nuevo', 'quien escribe entra solo a Nuevo');
+Contactos::guardar($db, $lb, '0997000010', 'Tía', 'personal');
+$whB->procesar($entB('593997000010', ['type' => 'text', 'text' => ['body' => 'hola']], 'wamid.EMB1'));
+igual(Contactos::porTelefono($db, $lb, '593997000010')['etapa'], null, 'un contacto personal no entra al embudo');
+Embudo::mover($db, $lb, (int) $carla['id'], 'cotizado', '1.500');
+$carla = Contactos::porTelefono($db, $lb, '593997000001');
+ok($carla['etapa'] === 'cotizado' && (float) $carla['valor'] === 1500.0 && $carla['etapa_cambio'] !== null, 'mover a Cotizado con su valor');
+$tab = Embudo::tablero($db, $lb);
+ok(in_array((int) $carla['id'], array_map(fn ($x) => (int) $x['id'], $tab['cotizado']), true), 'aparece en la columna Cotizado');
+igual(Embudo::totales($db, $lb)['cotizado'], ['n' => 1, 'valor' => 1500.0], 'total de la columna');
+igual(count(Embudo::tablero($db, $lb, 'Carla')['cotizado']), 1, 'buscar en el embudo');
+igual(count(Embudo::tablero($db, $lb, 'nadie-asi')['cotizado']), 0, 'buscar sin resultados');
+try { Embudo::mover($db, $lb, (int) $carla['id'], 'inventada'); ok(false, 'etapa inventada'); } catch (RuntimeException $e) { ok(true, 'etapa inventada'); }
+try { Embudo::mover($db, $lid, (int) $carla['id'], 'ganado'); ok(false, 'no mueve contactos de otro número'); } catch (RuntimeException $e) { ok(true, 'no mueve contactos de otro número'); }
+Embudo::mover($db, $lb, (int) $carla['id'], 'ganado');
+igual((float) Contactos::porTelefono($db, $lb, '593997000001')['valor'], 1500.0, 'sin valor nuevo, se mantiene el valor');
+
+echo "== Seguimientos\n";
+igual(Seguimientos::cuando('2h', $martes20)->format('Y-m-d H:i'), '2026-10-20 22:00', 'en 2 horas');
+igual(Seguimientos::cuando('2d', $martes20)->format('Y-m-d H:i'), '2026-10-22 09:00', 'en 2 días a las 9');
+igual(Seguimientos::cuando('2026-10-21T15:30', $martes20)->format('Y-m-d H:i'), '2026-10-21 15:30', 'fecha elegida');
+try { Seguimientos::cuando('2026-10-19T10:00', $martes20); ok(false, 'fecha pasada'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'pasó'), 'fecha pasada'); }
+try { Seguimientos::programar($db, $lb, (int) $carla['id'], null, '  ', $martes20); ok(false, 'sin texto'); } catch (RuntimeException $e) { ok(true, 'sin texto'); }
+$s1 = Seguimientos::programar($db, $lb, (int) $carla['id'], null, '¿Pudiste ver la cotización?', $martes20->modify('+1 hour'));
+$diego = Contactos::porTelefono($db, $lb, '593997000002');
+$s2 = Seguimientos::programar($db, $lb, (int) $diego['id'], null, 'Hola Diego, ¿seguimos?', $martes20->modify('+1 hour'));
+$db->exec("UPDATE seguimientos SET creado = '2026-10-20 19:00' WHERE id = $s2");   // Diego escribió (20:00) después de programarlo
+$nadie = Contactos::porTelefono($db, $lb, '593997000009');
+$s3 = Seguimientos::programar($db, $lb, (int) $nadie['id'], null, 'Te escribo de nuevo', $martes20->modify('+1 hour'));
+$s4 = Seguimientos::programar($db, $lb, (int) $carla['id'], null, 'Para la próxima semana', $martes20->modify('+7 days'));
+$s5 = Seguimientos::programar($db, $lb, (int) $carla['id'], null, 'Este se cancela', $martes20->modify('+1 hour'));
+ok(Seguimientos::cancelar($db, $lb, $s5) && !Seguimientos::cancelar($db, $lb, $s5), 'cancelar (y no dos veces)');
+ok(!Seguimientos::cancelar($db, $lid, $s4), 'no se cancela desde otro número');
+limpiarSim();
+$res = Seguimientos::procesar($db, $martes20->modify('+2 hours'));
+igual($res, ['enviado' => 1, 'pendiente' => 1, 'omitido' => 1, 'fallido' => 0], 'resultado del cron');
+$est = fn (int $id) => $db->query("SELECT estado FROM seguimientos WHERE id = $id")->fetchColumn();
+igual([$est($s1), $est($s2), $est($s3), $est($s4), $est($s5)], ['enviado', 'omitido', 'pendiente', 'programado', 'cancelado'], 'estado de cada uno');
+$env = array_values(array_filter(sim(), fn ($x) => $x['ruta'] === '/v24.0/300/messages'));
+igual($env[0]['cuerpo']['text']['body'] ?? null, '¿Pudiste ver la cotización?', 'se mandó el seguimiento');
+igual($db->query("SELECT origen FROM pendientes WHERE texto = 'Te escribo de nuevo'")->fetchColumn(), 'seguimiento', 'ventana cerrada: quedó en Pendientes');
+igual(Seguimientos::procesar($db, $martes20->modify('+2 hours')), ['enviado' => 0, 'pendiente' => 0, 'omitido' => 0, 'fallido' => 0], 'no se manda dos veces');
+igual(count(Seguimientos::lista($db, $lb, true)), 1, 'lista de programados');
+igual(count(Seguimientos::deContacto($db, (int) $carla['id'])), 3, 'seguimientos de Carla (programado, enviado y cancelado)');
+
+echo "== Reportes\n";
+$db->exec("UPDATE contactos SET etapa_cambio = '" . $martes20->format('c') . "' WHERE id = {$carla['id']}");
+$rep = Reportes::resumen($db, $lb, 7, $martes20->modify('+3 hours'));
+igual(count($rep['por_dia']), 7, '7 días en las barras');
+ok($rep['totales']['entran'] >= 10 && $rep['totales']['salen'] >= 5, 'cuenta mensajes que entran y salen');
+ok($rep['totales']['automaticos'] >= 3, 'cuenta las automáticas');
+ok($rep['respuesta']['total'] >= 1 && $rep['respuesta']['contestados'] >= 1 && $rep['respuesta']['mediana'] !== null, 'tiempo de respuesta del equipo');
+igual($rep['ventas']['ganados'], 1, 'una venta ganada');
+igual($rep['ventas']['vendido'], 1500.0, 'valor vendido');
+igual(Reportes::resumen($db, $lb, 999)['dias'], 7, 'período raro -> 7 días');
+igual([Reportes::duracion(40), Reportes::duracion(75), Reportes::duracion(5400), Reportes::duracion(200000), Reportes::duracion(null)], ['40 s', '1 min', '1 h 30 min', '2 días', '—'], 'duraciones legibles');
+
+echo "== Enlaces y QR\n";
+putenv('TUWA_URL=https://whatsapp.ejemplo.com');
+$en = Enlaces::crear($db, $lb, 'Instagram', 'Hola, vi su anuncio');
+ok(preg_match('/^[a-z2-9]{6}$/', $en['codigo']) === 1, 'código corto');
+igual(Enlaces::url($en['codigo']), 'https://whatsapp.ejemplo.com/w.php?c=' . $en['codigo'], 'dirección del enlace');
+igual(Enlaces::abrir($db, $en['codigo']), 'https://wa.me/593996400000?text=Hola%2C%20vi%20su%20anuncio', 'abre WhatsApp con el texto');
+Enlaces::abrir($db, $en['codigo']);
+igual((int) $db->query("SELECT clics FROM enlaces WHERE id = {$en['id']}")->fetchColumn(), 2, 'cuenta los clics');
+igual(Enlaces::abrir($db, 'zzzzzz'), null, 'código que no existe');
+igual(Enlaces::abrir($db, "x' OR 1=1"), null, 'código raro');
+try { Enlaces::crear($db, $lb, ' ', ''); ok(false, 'sin nombre'); } catch (RuntimeException $e) { ok(true, 'sin nombre'); }
+ok(str_contains(Enlaces::codigoBoton(Enlaces::url($en['codigo'])), 'boton.js" data-enlace="https://whatsapp.ejemplo.com/w.php?c='), 'código del botón para la web');
+Enlaces::borrar($db, $lid, (int) $en['id']);
+igual(count(Enlaces::lista($db, $lb)), 1, 'no se borra desde otro número');
+
+echo "== Integraciones\n";
+foreach (['http://hook.ejemplo.com/x' => 'https', 'https://127.0.0.1/x' => 'interna', 'https://10.1.2.3/x' => 'interna', 'https://169.254.169.254/latest' => 'interna', 'ftp://x.com' => 'https'] as $dir => $palabra) {
+    try { Integraciones::revisarUrl($dir); ok(false, "rechaza $dir"); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), $palabra), "rechaza $dir"); }
+}
+putenv('TUWA_AVISO_PERMITIR_LOCAL=1');
+$secreto = Integraciones::guardarAviso($db, $lb, $sim . '/aviso');
+ok(preg_match('/^[0-9a-f]{40}$/', $secreto) === 1, 'clave secreta creada');
+igual(Integraciones::guardarAviso($db, $lb, $sim . '/aviso'), $secreto, 'guardar otra vez no cambia la clave');
+$lineaB = Lineas::buscar($db, $lb);
+$whB = new Webhook($db, $martes20);
+limpiarSim();
+$whB->procesar($entB('593997000001', ['type' => 'text', 'text' => ['body' => 'Ya pagué']], 'wamid.AV1'));
+$av = array_values(array_filter(sim(), fn ($x) => ($x['metodo'] ?? '') === 'AVISO'));
+igual(count($av), 1, 'se avisó al otro programa');
+igual($av[0]['cuerpo']['evento'] ?? null, 'mensaje_recibido', 'evento');
+igual($av[0]['cuerpo']['mensaje']['texto'] ?? null, 'Ya pagué', 'con el texto');
+igual($av[0]['cuerpo']['contacto']['telefono'] ?? null, '593997000001', 'con el teléfono');
+igual($av[0]['firma'] ?? null, 'sha256=' . hash_hmac('sha256', (string) $av[0]['crudo'], $secreto), 'firmado con la clave');
+igual(Integraciones::probar($lineaB), '', 'aviso de prueba');
+Integraciones::guardarAviso($db, $lb, $sim . '/aviso_malo');
+$whB = new Webhook($db, $martes20);
+$whB->procesar($entB('593997000001', ['type' => 'text', 'text' => ['body' => 'otro']], 'wamid.AV2'));
+ok(str_contains((string) Lineas::buscar($db, $lb)['aviso_error'], 'error 500'), 'si el otro programa falla, queda el error');
+igual((int) $db->query("SELECT count(*) FROM mensajes WHERE wamid = 'wamid.AV2'")->fetchColumn(), 1, 'el mensaje igual se guarda');
+Integraciones::guardarAviso($db, $lb, '');
+limpiarSim();
+(new Webhook($db, $martes20))->procesar($entB('593997000001', ['type' => 'text', 'text' => ['body' => 'sin aviso']], 'wamid.AV3'));
+igual(count(array_filter(sim(), fn ($x) => ($x['metodo'] ?? '') === 'AVISO')), 0, 'apagado: no avisa');
+putenv('TUWA_AVISO_PERMITIR_LOCAL=');
+$csv = Integraciones::csv([['Nombre', 'Fórmula'], ['Ana', '=1+1'], ['Luis', 'normal']]);
+ok(str_starts_with($csv, "\xEF\xBB\xBF") && str_contains($csv, "Nombre;Fórmula") && str_contains($csv, "Ana;'=1+1"), 'CSV para Excel sin fórmulas');
+$filas = Integraciones::filas($db, $lb, 'contactos');
+ok($filas[0][0] === 'Teléfono' && count($filas) >= 5, 'exportar contactos');
+$filasM = Integraciones::filas($db, $lb, 'mensajes', 3650);
+ok($filasM[0][0] === 'Fecha' && count($filasM) > 10, 'exportar mensajes');
+
+echo "== Asistente con IA\n";
+putenv('TUWA_IA_CLAVE=');
+$r = Asistente::sugerir($db, $lineaB, $carla, null);
+ok(!$r['ok'] && str_contains($r['error'], 'configurada'), 'sin clave: avisa que falta configurar');
+putenv('TUWA_IA_CLAVE=sk-ant-prueba');
+putenv('TUWA_IA_URL=' . $sim);
+Asistente::guardarConocimiento($db, $lb, 'Plan Pro: $45 al mes. Sin contrato.');
+$lineaB = Lineas::buscar($db, $lb);
+limpiarSim();
+$r = Asistente::sugerir($db, $lineaB, $carla, null);
+ok($r['ok'] && str_contains($r['texto'], 'plan Pro'), 'sugiere una respuesta');
+igual($r['costo'], 0.002, 'calcula lo que costó');
+$pedido = array_values(array_filter(sim(), fn ($x) => $x['ruta'] === '/v1/messages'))[0]['cuerpo'] ?? [];
+ok(str_contains($pedido['system'] ?? '', 'Plan Pro: $45') && str_contains($pedido['messages'][0]['content'] ?? '', 'Cliente: Ya pagué'), 'manda lo que sabe y la conversación');
+igual($pedido['model'] ?? null, 'claude-haiku-5-5', 'modelo por defecto');
+$r = Asistente::resumir($db, $lineaB, $carla, null);
+ok($r['ok'] && str_contains($r['texto'], 'Siguiente paso'), 'resume la conversación');
+igual(round(Asistente::gastadoMes($db, Empresas::TUKAN), 4), 0.004, 'suma el gasto del mes');
+$db->exec('UPDATE empresas SET ia_tope = 0.003 WHERE id = 1');
+$r = Asistente::sugerir($db, $lineaB, $carla, null);
+ok(!$r['ok'] && str_contains($r['error'], 'tope'), 'al llegar al tope se detiene');
+$db->exec('UPDATE empresas SET ia_tope = 5 WHERE id = 1');
+$rompe = Contactos::guardar($db, $lb, '0997000011', 'Rompe', 'cliente');
+$whB->procesar($entB('593997000011', ['type' => 'text', 'text' => ['body' => 'ROMPER']], 'wamid.IA1'));
+$r = Asistente::sugerir($db, $lineaB, $rompe, null);
+ok(!$r['ok'] && str_contains($r['error'], 'ocupada'), 'IA ocupada: mensaje claro');
+$r = Asistente::sugerir($db, $lineaB, Contactos::guardar($db, $lb, '0997000012', 'Mudo', 'cliente'), null);
+ok(!$r['ok'] && str_contains($r['error'], 'no hay mensajes'), 'sin mensajes no gasta');
+try { Asistente::guardarConocimiento($db, $lb, str_repeat('x', 8001)); ok(false, 'muy largo'); } catch (RuntimeException $e) { ok(true, 'muy largo'); }
+putenv('TUWA_IA_CLAVE=');
 
 echo "== Términos y condiciones\n";
 use TuWhatsApp\Terminos;

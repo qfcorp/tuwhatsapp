@@ -264,6 +264,42 @@
         });
     }
 
+    // Chat: adjuntar archivo o grabar nota de voz (se envía con "Enviar por el sistema")
+    var archivo = $('#archivo'), nombreAdj = $('#adjunto-nombre'), grabar = $('#grabar');
+    if (archivo && texto) {
+        var alCambiar = function () {
+            var f = archivo.files[0];
+            texto.required = !f;
+            texto.placeholder = f ? 'Texto debajo del archivo (opcional)…' : 'Escribe tu respuesta…';
+            nombreAdj.textContent = f ? f.name + ' · ' + Math.max(1, Math.round(f.size / 1024)) + ' KB (toca "Enviar por el sistema")' : '';
+        };
+        archivo.addEventListener('change', alCambiar);
+        if (grabar && window.MediaRecorder && navigator.mediaDevices && window.DataTransfer) {
+            grabar.hidden = false;
+            var rec = null, partes = [];
+            grabar.addEventListener('click', function () {
+                if (rec && rec.state === 'recording') { rec.stop(); return; }
+                navigator.mediaDevices.getUserMedia({ audio: true }).then(function (flujo) {
+                    var tipo = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus' : 'audio/webm;codecs=opus';
+                    rec = new MediaRecorder(flujo, { mimeType: tipo });
+                    partes = [];
+                    rec.ondataavailable = function (e) { if (e.data.size) { partes.push(e.data); } };
+                    rec.onstop = function () {
+                        flujo.getTracks().forEach(function (t) { t.stop(); });
+                        var ext = tipo.indexOf('ogg') >= 0 ? 'ogg' : 'webm';
+                        var f = new File(partes, 'nota-de-voz.' + ext, { type: tipo.split(';')[0] });
+                        var dt = new DataTransfer(); dt.items.add(f); archivo.files = dt.files;
+                        grabar.textContent = '🎤 Nota de voz'; grabar.classList.remove('grabando');
+                        alCambiar();
+                    };
+                    rec.start();
+                    grabar.textContent = '⏹ Detener'; grabar.classList.add('grabando');
+                    nombreAdj.textContent = 'Grabando… toca "Detener" cuando termines.';
+                }).catch(function () { nombreAdj.textContent = 'No se pudo usar el micrófono. Revisa el permiso del navegador.'; });
+            });
+        }
+    }
+
     // Botones "Copiar"
     $$('.btn-copiar').forEach(function (b) {
         b.addEventListener('click', function () {
@@ -274,4 +310,46 @@
             setTimeout(function () { b.textContent = 'Copiar'; }, 1500);
         });
     });
+    // Formularios que se mandan solos al elegir (embudo); sin JavaScript queda el botón
+    $$('select.auto-enviar').forEach(function (sel) {
+        var b = sel.form.querySelector('.sin-js');
+        if (b) { b.hidden = true; }
+        sel.addEventListener('change', function () { sel.form.submit(); });
+    });
+
+    // Seguimientos: la fecha solo cuando se elige "Elegir fecha y hora"
+    $$('select.seg-cuando').forEach(function (sel) {
+        var caja = sel.form.querySelector('.seg-fecha');
+        var ver = function () { caja.hidden = sel.value !== 'fecha'; caja.querySelector('input').required = sel.value === 'fecha'; };
+        sel.addEventListener('change', ver);
+        ver();
+    });
+
+    // Copiar un enlace y código para la web
+    $$('button.copiar').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var t = b.dataset.copiar, txt = b.textContent;
+            (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () {
+                b.textContent = '¡Copiado!';
+            }, function () { b.textContent = 'Mantén presionado el enlace para copiarlo'; });
+            setTimeout(function () { b.textContent = txt; }, 1800);
+        });
+    });
+    $$('textarea.codigo').forEach(function (t) { t.addEventListener('focus', function () { t.select(); }); });
+
+    // Códigos QR de los enlaces (librería qrcode.js, MIT)
+    if (window.qrcode) {
+        $$('.qr[data-qr]').forEach(function (caja) {
+            var q = window.qrcode(0, 'M');
+            q.addData(caja.dataset.qr);
+            q.make();
+            caja.innerHTML = q.createSvgTag({ cellSize: 6, margin: 4, scalable: true });
+            var bajar = caja.parentNode.querySelector('.bajar-qr');
+            if (bajar) {
+                bajar.href = q.createDataURL(12, 4);
+                bajar.download = (caja.dataset.nombre || 'qr') + '.gif';
+                bajar.hidden = false;
+            }
+        });
+    }
 })();

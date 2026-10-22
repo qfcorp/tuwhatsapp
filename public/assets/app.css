@@ -305,3 +305,57 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--n
 .chip-asignado { background: #EDE7F6; color: #4B2E83; }
 .rapidas { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
 .rapidas select { margin: 0; flex: 1; min-height: 40px; padding: 6px 10px; }
+
+/* Pantalla "Más" y módulos */
+.mosaico { list-style: none; padding: 0; margin: 0 0 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.mosaico li > a, .mosaico li > div { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 12px; background: var(--tarjeta, #fff); border: 1px solid rgba(0,0,0,.08); color: inherit; text-decoration: none; height: 100%; }
+.mosaico li > a:hover { border-color: var(--naranja); }
+.mosaico span { font-size: .85rem; opacity: .75; }
+.mosaico .bloqueado > div { opacity: .7; background: transparent; border-style: dashed; }
+.casilla { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; font-weight: normal; }
+.casilla input { margin-top: 4px; width: auto; }
+
+/* Archivos en el chat */
+.adjunto-foto img { display: block; max-width: min(280px, 100%); max-height: 320px; border-radius: 10px; margin-bottom: 4px; }
+.burbuja audio { width: min(260px, 100%); display: block; }
+.burbuja video { max-width: min(300px, 100%); border-radius: 10px; display: block; }
+.adjunto-doc { display: inline-block; padding: 8px 10px; border-radius: 8px; background: rgba(0,0,0,.05); text-decoration: none; color: inherit; word-break: break-all; }
+.adjuntar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+.adjuntar .boton { cursor: pointer; }
+.grabando { background: #c0392b !important; color: #fff !important; }
+
+/* Embudo de ventas (tablero que se desliza de lado en el celular) */
+.tablero { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(240px, 82vw); gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 12px; scroll-snap-type: x mandatory; }
+@media (min-width: 760px) { .tablero { grid-auto-columns: minmax(230px, 1fr); } .principal:has(.tablero) { max-width: 1280px; } }
+.columna { scroll-snap-align: start; background: #E8EBE5; border-radius: var(--radio); padding: 10px; min-height: 160px; }
+.columna h2 { font-size: .95rem; display: flex; justify-content: space-between; gap: 6px; border-top: 4px solid var(--linea); padding-top: 6px; }
+.etapa-nuevo h2 { border-color: #3B78A8; } .etapa-interesado h2 { border-color: var(--naranja); } .etapa-cotizado h2 { border-color: #8A5BD6; }
+.etapa-ganado h2 { border-color: var(--verde); } .etapa-perdido h2 { border-color: var(--rojo); }
+.ficha { background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+.ficha-nombre { font-weight: 700; color: var(--tinta); text-decoration: none; display: block; }
+.ficha-valor { display: inline-block; color: #13603E; font-size: .9rem; margin: 2px 0; }
+.ficha p { margin: 4px 0 6px; }
+.ficha-mover { display: flex; gap: 6px; }
+.ficha-mover select { flex: 1; padding: 6px 8px; min-height: 36px; font-size: .85rem; }
+/* Reportes */
+.cifras { list-style: none; padding: 0; margin: 0 0 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.cifras li { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio); padding: 12px; display: flex; flex-direction: column; }
+.cifras b { font-size: 1.45rem; line-height: 1.1; }
+.cifras span { font-size: .8rem; color: var(--tinta-suave); }
+.barras { display: flex; align-items: flex-end; gap: 3px; height: 150px; padding-bottom: 18px; overflow-x: auto; }
+.barra-dia { flex: 1 0 8px; height: 100%; display: flex; align-items: flex-end; gap: 1px; position: relative; }
+.barra-dia span { flex: 1; min-height: 1px; border-radius: 3px 3px 0 0; }
+.barra-dia small { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: .65rem; color: var(--tinta-suave); white-space: nowrap; }
+.b-entra, .punto-entra { background: #3B78A8; } .b-sale, .punto-sale { background: var(--naranja); }
+.punto { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; }
+/* Enlaces y QR */
+.qr { width: 180px; max-width: 60vw; margin: 6px 0 10px; background: #fff; }
+.qr svg { display: block; width: 100%; height: auto; }
+textarea.codigo, pre.codigo { width: 100%; font: .8rem/1.4 ui-monospace, Menlo, Consolas, monospace; background: var(--fondo); border: 1px solid var(--linea); border-radius: 8px; padding: 8px; white-space: pre-wrap; word-break: break-all; }
+.derecha { text-align: right; }
+/* Chat: embudo, seguimientos e IA */
+.embudo-chat .boton { min-height: 40px; padding: 8px 14px; }
+.seguimiento-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--linea); }
+.ia-botones { margin: -4px 0 8px; }
+.ia-botones .boton { min-height: 38px; padding: 7px 12px; font-size: .9rem; }
+.resumen-ia { font-size: .92rem; }

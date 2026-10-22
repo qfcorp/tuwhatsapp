@@ -3,3 +3,4 @@ config/*.env
 /vendor/
 *.log
 .DS_Store
+archivos/

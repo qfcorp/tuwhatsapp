@@ -9,6 +9,7 @@ SIM_PUERTO="${SIM_PUERTO:-8097}"
 WEB_PUERTO="${WEB_PUERTO:-8096}"
 export SIM_LOG="$(mktemp)"
 export SIM_URL="http://127.0.0.1:$SIM_PUERTO"
+export TUWA_ARCHIVOS="$(mktemp -d)"
 
 dropdb --if-exists "$DB" && createdb "$DB" || { echo "No se pudo crear la base de prueba"; exit 1; }
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null || exit 1
@@ -16,7 +17,7 @@ psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null 2>&1 || { echo 
 
 php -S "127.0.0.1:$SIM_PUERTO" tests/meta_simulado.php > /dev/null 2>&1 &
 SIM=$!
-trap 'kill $SIM ${WEB:-} 2>/dev/null' EXIT
+trap 'kill $SIM ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS"' EXIT
 sleep 0.5
 
 export TUWA_DB_HOST="$PGHOST" TUWA_DB_PORT="$PGPORT" TUWA_DB_NAME="$DB" TUWA_DB_USER="$PGUSER" TUWA_DB_PASS="${PGPASSWORD:-}"
@@ -39,6 +40,8 @@ META_ES_CONFIG_ID=1112223334445
 TUKAN_CENTRAL_ID=tuwhatsapp
 TUKAN_CENTRAL_SECRET=$(printf 'a1%.0s' $(seq 32))
 TUKAN_CENTRAL_URL=https://panel.ejemplo.com
+TUWA_IA_CLAVE=sk-ant-prueba
+TUWA_IA_URL=$SIM_URL
 EOF
 TUWA_ENV="$ENVF" php -d display_errors=0 -d log_errors=1 -d error_log="$ENVF.log" -S "127.0.0.1:$WEB_PUERTO" -t public > /dev/null 2>&1 &
 WEB=$!

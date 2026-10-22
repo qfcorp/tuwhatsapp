@@ -63,10 +63,12 @@ if (isset($_GET['p_texto'])) {
     <h2 class="separador">Menú que se envía</h2>
     <div class="tarjeta">
         <label>Saludo<textarea name="mensaje_menu" rows="3" maxlength="1000" required><?= e($linea['mensaje_menu']) ?></textarea></label>
+        <label class="check"><input type="checkbox" name="menu_botones" value="1" <?= ($linea['menu_botones'] ?? true) ? 'checked' : '' ?>>
+            Mostrar las opciones como <b>botones de WhatsApp</b> (el cliente toca en vez de escribir el número; con más de 3 opciones sale una lista)</label>
         <?php for ($i = 0; $i < Lineas::MAX_OPCIONES; $i++): $o = $opciones[$i] ?? ['titulo' => '', 'respuesta' => '', 'humano' => false]; ?>
         <fieldset class="opcion-menu">
             <legend>Opción <?= $i + 1 ?></legend>
-            <label>Título<input name="op_titulo[<?= $i ?>]" maxlength="60" value="<?= e($o['titulo']) ?>" placeholder="<?= $i < 3 ? '' : '(vacío = no se usa)' ?>"></label>
+            <label>Título <small class="suave">(en botón se ven 20 letras)</small><input name="op_titulo[<?= $i ?>]" maxlength="60" value="<?= e($o['titulo']) ?>" placeholder="<?= $i < 3 ? '' : '(vacío = no se usa)' ?>"></label>
             <label>Respuesta<textarea name="op_respuesta[<?= $i ?>]" rows="2" maxlength="1000"><?= e($o['respuesta']) ?></textarea></label>
             <label class="check"><input type="checkbox" name="op_humano[<?= $i ?>]" value="1" <?= $o['humano'] ? 'checked' : '' ?>> Después de esta respuesta, pasa a una persona (deja de contestar solo)</label>
         </fieldset>

@@ -11,6 +11,25 @@ header('Content-Type: application/json');
 
 function sale(int $c, array $d): never { http_response_code($c); echo json_encode($d); exit; }
 
+// IA (Anthropic Messages API de mentira)
+if ($ruta === '/v1/messages' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (($_SERVER['HTTP_X_API_KEY'] ?? '') === '' || ($_SERVER['HTTP_ANTHROPIC_VERSION'] ?? '') === '') {
+        sale(401, ['type' => 'error', 'error' => ['type' => 'authentication_error', 'message' => 'invalid x-api-key']]);
+    }
+    $d = json_decode($cuerpo, true) ?: [];
+    $sis = (string) ($d['system'] ?? '');
+    $txt = str_contains($sis, 'resume') ? "Quiere el plan Pro.\nSiguiente paso: mandarle la cotización." : '¡Hola! El plan Pro cuesta $45 al mes. ¿Te lo activo?';
+    if (str_contains((string) ($d['messages'][0]['content'] ?? ''), 'ROMPER')) {
+        sale(529, ['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]);
+    }
+    sale(200, ['id' => 'msg_1', 'type' => 'message', 'role' => 'assistant', 'model' => $d['model'] ?? '', 'content' => [['type' => 'text', 'text' => $txt]],
+               'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 1000, 'output_tokens' => 200]]);
+}
+// Otro programa que recibe los avisos (webhook de salida)
+if ($ruta === '/aviso' || $ruta === '/aviso_malo') {
+    file_put_contents($log, json_encode(['metodo' => 'AVISO', 'ruta' => $ruta, 'firma' => $_SERVER['HTTP_X_TUKAN_FIRMA'] ?? '', 'crudo' => $cuerpo, 'cuerpo' => json_decode($cuerpo, true)]) . "\n", FILE_APPEND | LOCK_EX);
+    sale($ruta === '/aviso' ? 200 : 500, ['ok' => $ruta === '/aviso']);
+}
 if (preg_match('#^/bot[^/]+/sendMessage$#', $ruta)) {
     sale(200, ['ok' => true]);
 }
@@ -56,6 +75,31 @@ if (preg_match('#^/v[\d.]+/(\d+)/smb_app_data$#', $ruta, $m) && $_SERVER['REQUES
         sale(400, ['error' => ['message' => 'Sync window expired', 'code' => 100]]);
     }
     sale(200, ['messaging_product' => 'whatsapp', 'request_id' => 'REQ' . bin2hex(random_bytes(4))]);
+}
+// Archivos: subir (multipart), pedir dirección y bajar bytes. Los ids de archivo de prueba empiezan con 777.
+if (preg_match('#^/v[\d.]+/(\d+)/media$#', $ruta) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $f = $_FILES['file'] ?? null;
+    if (!$f || ($_POST['messaging_product'] ?? '') !== 'whatsapp' || ($_POST['type'] ?? '') === '') {
+        sale(400, ['error' => ['message' => 'Falta el archivo', 'code' => 100]]);
+    }
+    file_put_contents($log, json_encode(['metodo' => 'SUBIDO', 'ruta' => '/subido', 'subido' => ['nombre' => $f['name'], 'tipo' => $_POST['type'], 'bytes' => $f['size']]]) . "\n", FILE_APPEND | LOCK_EX);
+    sale(200, ['id' => '777' . random_int(100000, 999999)]);
+}
+if (preg_match('#^/v[\d.]+/(777\d+)$#', $ruta, $m)) {
+    if ($m[1] === '7770000') {
+        sale(404, ['error' => ['message' => 'Media not found', 'code' => 100]]);
+    }
+    $sim = 'http://' . $_SERVER['HTTP_HOST'];
+    sale(200, ['url' => $sim . '/descarga/' . $m[1], 'mime_type' => 'image/jpeg', 'file_size' => 4, 'id' => $m[1]]);
+}
+if (preg_match('#^/descarga/(777\d+)$#', $ruta, $m)) {
+    if ($auth === '') {
+        http_response_code(401);
+        exit;
+    }
+    header('Content-Type: image/jpeg');
+    echo "\xFF\xD8\xFF\xE0" . 'JPEGPRUEBA' . $m[1];
+    exit;
 }
 if (preg_match('#^/v[\d.]+/(\d+)/messages$#', $ruta, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $d = json_decode($cuerpo, true);

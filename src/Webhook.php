@@ -119,7 +119,7 @@ final class Webhook
             'text' => (string) ($m['text']['body'] ?? ''),
             'interactive' => (string) ($m['interactive']['button_reply']['title'] ?? $m['interactive']['list_reply']['title'] ?? '[Respuesta]'),
             'button' => (string) ($m['button']['text'] ?? '[Botón]'),
-            'image' => '[Imagen]' . ($pie('image') !== '' ? ' ' . $pie('image') : ''),
+            'image' => '[Foto]' . ($pie('image') !== '' ? ' ' . $pie('image') : ''),
             'video' => '[Video]' . ($pie('video') !== '' ? ' ' . $pie('video') : ''),
             'document' => '[Documento] ' . trim((string) ($m['document']['filename'] ?? '') . ' ' . $pie('document')),
             'audio' => '[Audio]',
@@ -130,6 +130,44 @@ final class Webhook
             'media_placeholder' => '[Archivo del historial]',
             default => '[Mensaje no compatible]',
         };
+    }
+
+    /** Nuestro tipo de mensaje (texto, imagen, audio, video, documento, sticker, ubicacion, otro). */
+    public static function tipoDe(array $m): string
+    {
+        $t = (string) ($m['type'] ?? '');
+        return match (true) {
+            $t === 'text' => 'texto',
+            isset(Archivos::DE_META[$t]) => Archivos::DE_META[$t],
+            $t === 'location' => 'ubicacion',
+            default => 'otro',
+        };
+    }
+
+    /** @return array{0:?string,1:?string,2:?string} media id, tipo MIME y nombre del archivo (si trae) */
+    public static function mediaDe(array $m): array
+    {
+        $t = (string) ($m['type'] ?? '');
+        if (!isset(Archivos::DE_META[$t]) || empty($m[$t]['id'])) {
+            return [null, null, null];
+        }
+        $o = (array) $m[$t];
+        $nombre = isset($o['filename']) ? Archivos::nombreLimpio((string) $o['filename']) : null;
+        return [(string) $o['id'], isset($o['mime_type']) ? (string) $o['mime_type'] : null, $nombre];
+    }
+
+    private function bajarArchivo(array $linea, int $mensajeId): void
+    {
+        $st = $this->db->prepare('SELECT * FROM mensajes WHERE id = ?');
+        $st->execute([$mensajeId]);
+        $msg = $st->fetch();
+        if ($msg && $msg['media_id']) {
+            try {
+                Archivos::bajarDeMensaje($this->db, $msg, $linea);
+            } catch (\Throwable $e) {
+                error_log('tuwhatsapp archivo: ' . $e->getMessage());   // se reintenta al abrirlo en el chat
+            }
+        }
     }
 
     private function entrante(array $linea, array $m, string $nombre): void
@@ -146,12 +184,16 @@ final class Webhook
         }
         $contacto = Contactos::obtener($this->db, (int) $linea['id'], $tel, $nombre);
         $texto = self::textoDe($m);
-        $st = $this->db->prepare("INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, tipo, texto, wamid, estado, leido, creado)
-                                  VALUES (?, ?, 'entra', 'cliente', ?, ?, ?, 'recibido', false, ?) ON CONFLICT (wamid) DO NOTHING RETURNING id");
-        $st->execute([$linea['id'], $contacto['id'], ($m['type'] ?? '') === 'text' ? 'texto' : 'otro', mb_substr($texto, 0, 4096), $wamid, $cuando->format('c')]);
+        [$mediaId, $mediaMime, $mediaNombre] = self::mediaDe($m);
+        $st = $this->db->prepare("INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, tipo, texto, wamid, estado, leido, creado, media_id, media_mime, media_nombre)
+                                  VALUES (?, ?, 'entra', 'cliente', ?, ?, ?, 'recibido', false, ?, ?, ?, ?) ON CONFLICT (wamid) DO NOTHING RETURNING id");
+        $st->execute([$linea['id'], $contacto['id'], self::tipoDe($m), mb_substr($texto, 0, 4096), $wamid, $cuando->format('c'), $mediaId, $mediaMime, $mediaNombre]);
         $id = $st->fetchColumn();
         if ($id === false) {
             return;   // Meta lo mandó dos veces
+        }
+        if ($mediaId !== null) {
+            $this->bajarArchivo($linea, (int) $id);
         }
         $this->db->prepare('UPDATE contactos SET ultimo_entrante = GREATEST(COALESCE(ultimo_entrante, ?), ?) WHERE id = ?')
            ->execute([$cuando->format('c'), $cuando->format('c'), $contacto['id']]);
@@ -159,7 +201,12 @@ final class Webhook
             $this->db->prepare('UPDATE contactos SET gratis_hasta = ? WHERE id = ?')
                ->execute([$cuando->modify('+72 hours')->format('c'), $contacto['id']]);
         }
+        Embudo::entrar($this->db, (int) $contacto['id']);   // conversación nueva -> etapa "Nuevo" (los personales no)
         $contacto = Contactos::buscar($this->db, (int) $linea['id'], (int) $contacto['id']);
+        Integraciones::avisar($this->db, $linea, $contacto, [
+            'id' => (int) $id, 'wamid' => $wamid, 'tipo' => self::tipoDe($m), 'texto' => mb_substr($texto, 0, 4096), 'creado' => $cuando->format('c'),
+            'archivo' => $mediaId !== null ? ['mime' => $mediaMime, 'nombre' => $mediaNombre] : null,
+        ]);
 
         if (!in_array((string) ($m['type'] ?? ''), self::CON_RESPUESTA, true)) {
             $this->motivo((int) $id, 'No es texto: contestas tú');
@@ -172,14 +219,23 @@ final class Webhook
         }
         $st = $this->db->prepare("SELECT count(*) FROM mensajes WHERE contacto_id = ? AND origen = 'auto' AND estado NOT IN ('fallido', 'bloqueado') AND creado > ?");
         $st->execute([$contacto['id'], $ahora->modify('-' . (int) $linea['horas_silencio'] . ' hours')->format('c')]);
+        // Si tocó un botón del menú (id op1, op2…), se decide con el número de la opción
+        $paraDecidir = $texto;
+        $idBoton = (string) ($m['interactive']['button_reply']['id'] ?? $m['interactive']['list_reply']['id'] ?? '');
+        if (preg_match('/^op(\d{1,2})$/', $idBoton, $mb)) {
+            $paraDecidir = $mb[1];
+        }
         $d = Empresas::alDiaPorLinea($this->db, $linea)
-            ? Reglas::decidir($linea, $contacto, $texto, $ahora, (int) $st->fetchColumn())
+            ? Reglas::decidir($linea, $contacto, $paraDecidir, $ahora, (int) $st->fetchColumn())
             : ['responder' => false, 'motivo' => 'La cuenta no está al día: no se contesta solo', 'texto' => null, 'humano' => false];
         if (!$d['responder']) {
             $this->motivo((int) $id, $d['motivo']);
             return;
         }
-        $r = (new Mensajeria($this->db, $this->ahora))->texto($linea, $contacto, (string) $d['texto'], 'auto');
+        $mens = new Mensajeria($this->db, $this->ahora);
+        $r = !empty($d['botones'])
+            ? $mens->botones($linea, $contacto, (string) ($d['saludo'] ?: 'Elige una opción:'), $d['botones'], 'auto')
+            : $mens->texto($linea, $contacto, (string) $d['texto'], 'auto');
         if ($r['ok']) {
             $this->motivo((int) $id, 'Contestado solo: ' . $d['motivo'] . ($r['costo'] > 0 ? ' (' . '$' . number_format($r['costo'], 4, ',', '.') . ')' : ' (gratis)'));
             if ($d['humano']) {
@@ -239,11 +295,16 @@ final class Webhook
         $cuando = isset($m['timestamp']) ? (new DateTimeImmutable('@' . (int) $m['timestamp']))->setTimezone($ahora->getTimezone()) : $ahora;
         $contacto = Contactos::obtener($this->db, (int) $linea['id'], $tel);
         $texto = self::textoDe($m);
-        $st = $this->db->prepare("INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, tipo, texto, wamid, estado, costo, creado)
-                                  VALUES (?, ?, 'sale', 'celular', ?, ?, ?, 'enviado', 0, ?) ON CONFLICT (wamid) DO NOTHING RETURNING id");
-        $st->execute([$linea['id'], $contacto['id'], ($m['type'] ?? '') === 'text' ? 'texto' : 'otro', mb_substr($texto, 0, 4096), $wamid, $cuando->format('c')]);
-        if ($st->fetchColumn() !== false) {
+        [$mediaId, $mediaMime, $mediaNombre] = self::mediaDe($m);
+        $st = $this->db->prepare("INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, tipo, texto, wamid, estado, costo, creado, media_id, media_mime, media_nombre)
+                                  VALUES (?, ?, 'sale', 'celular', ?, ?, ?, 'enviado', 0, ?, ?, ?, ?) ON CONFLICT (wamid) DO NOTHING RETURNING id");
+        $st->execute([$linea['id'], $contacto['id'], self::tipoDe($m), mb_substr($texto, 0, 4096), $wamid, $cuando->format('c'), $mediaId, $mediaMime, $mediaNombre]);
+        $id = $st->fetchColumn();
+        if ($id !== false) {
             Pendientes::marcarPorEco($this->db, (int) $linea['id'], $tel, $texto);
+            if ($mediaId !== null) {
+                $this->bajarArchivo($linea, (int) $id);
+            }
         }
     }
 

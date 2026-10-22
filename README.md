@@ -1,6 +1,6 @@
 # WhatsApp Tukán
 
-Bandeja propia de WhatsApp (como WhatChimp, pero nuestra y sin mensualidad) conectada a la **API oficial de Meta**.
+Bandeja propia de WhatsApp (como WhatChimp o Wati, pero nuestra, más barata y por módulos) conectada a la **API oficial de Meta**.
 Sirve para el número de ventas de Tukán y, después, para QF Producciones en el mismo programa (cada número con sus propias reglas, contactos y tope).
 
 Dirección: **whatsapp.tukanec.com** (servidor qfcorp, por el túnel de Cloudflare).
@@ -20,7 +20,33 @@ Dirección: **whatsapp.tukanec.com** (servidor qfcorp, por el túnel de Cloudfla
 - **Pendientes**: lista de mensajes para mandar gratis desde el celular, uno por uno. Si el número está también en la app del celular (coexistencia), al enviarlo desde el celular se marca solo.
 - **Gratis automático**: si el cliente llegó desde un anuncio "Enviar WhatsApp", 72 horas sin cobro; las plantillas de utilidad con la ventana abierta tampoco se cobran.
 - **Conectar con WhatsApp Business (código QR)**: el número sigue en la app del celular y además aparece aquí, con contactos e historial (hasta 6 meses).
+- **Fotos, audios, videos y documentos** en el chat: se ven y se escuchan en el panel; se envían con **📎 Adjuntar** y se graban **🎤 notas de voz** desde el navegador (se pasan solas al formato de WhatsApp con ffmpeg).
+- **Menú con botones de WhatsApp**: las opciones de la respuesta automática salen como botones (hasta 3) o como lista (hasta 10). El cliente toca en lugar de escribir el número.
 - **API** para otros programas (TuSalón, Panel Tukán Central): agregar pendientes y registrar clientes.
+
+## Módulos (se encienden o apagan por cliente)
+Lo básico (todo lo de arriba) siempre está. Lo demás son **módulos** que Tukán enciende en **Clientes de Tukán → ficha del cliente → Módulos del plan** (o con un toque en un plan). Lo que el cliente no tiene se ve en **Más** con la etiqueta *No incluido* y el botón **Pedir a Tukán**.
+
+| Módulo | Qué hace | Dónde |
+|---|---|---|
+| Campañas masivas | Plantilla a muchos contactos, por etiqueta, con costo antes de enviar | Más → Campañas |
+| Varios agentes | Asignar conversaciones, filtros Míos / Sin asignar | Chat → Atiende |
+| **Embudo de ventas** | Tablero Nuevo → Interesado → Cotizado → Ganado / Perdido con el valor de cada venta. Quien escribe entra solo a Nuevo (los personales no) | Menú de abajo → Embudo, y en cada chat |
+| **Seguimientos** | "Si no responde en 2 días, escribirle": mensajes programados. Si ya respondió no se manda; si pasaron 24 h queda en Pendientes para mandarlo gratis desde el celular | Chat → Programar seguimiento; Más → Seguimientos |
+| **Reportes** | Personas que escribieron, contactos nuevos, mensajes por día, tiempo de respuesta del equipo, % atendidos, ventas ganadas, por persona del equipo | Más → Reportes |
+| **Asistente con IA** | ✨ Sugerir respuesta (deja un borrador, siempre lo manda una persona) y Resumir. Usa lo que el negocio escribe en "Lo que sabe la IA". Tope de gasto al mes (por defecto $5) | Chat; Más → Asistente con IA |
+| **Enlaces, QR y botón web** | Enlace corto por cada lugar (Instagram, volante…) que abre WhatsApp con un texto listo y **cuenta los clics**; su código QR para imprimir; botón flotante para la página web | Más → Enlaces y QR |
+| **Integraciones** | Descargar contactos y mensajes a Excel; avisar a otro programa (Make, Zapier, n8n) cuando llega un mensaje, firmado con clave | Más → Integraciones |
+
+### Planes sugeridos (un toque en la ficha del cliente)
+| Plan | Precio | Números | Usuarios | Módulos |
+|---|---|---|---|---|
+| Básico | $19/mes | 1 | 3 | Lo básico + Enlaces y QR |
+| Negocio | $35/mes | 1 | 5 | + Campañas, Varios agentes, Embudo, Seguimientos, Reportes |
+| Pro | $55/mes | 2 | 10 | Todo, con IA (tope $5 al mes) e Integraciones |
+Precios sin IVA, **mes a mes sin contrato**, **contactos ilimitados** y **0 % de recargo**: lo de Meta lo paga el cliente directo con su tarjeta en su cuenta de Meta. Los precios están en `src/Modulos.php` (PLANES) y se pueden cambiar.
+
+**Comparación (octubre 2026):** WhatChimp $40 (2 usuarios), Wati $69 (3 usuarios y recargo sobre Meta), Callbell $15–20 **por usuario**, Kommo $25–45 **por usuario** con pago de 6 meses, Leadsales $97, Whaticket $49, Respond.io $99 sin campañas en el plan barato. Lo que más reclaman sus clientes: cobro por usuario, recargo escondido sobre Meta, límites de contactos, funciones quitadas del plan barato y contratos largos. Nosotros no tenemos ninguno de esos.
 
 ## Costos (Ecuador, editables en Gasto → Precios de Meta)
 | Tipo | Precio por mensaje |
@@ -86,7 +112,7 @@ En **Automático**: revisa horario, palabras clave y el menú, prueba con el **p
 - Cada **empresa** (cliente) tiene sus usuarios y sus números; solo ve lo suyo (contactos, mensajes, pendientes, reglas, plantillas y gasto).
 - **Personal de Tukán** (usuarios creados en el servidor con `bin/crear_usuario.php`): ícono del **edificio** arriba → **Clientes de Tukán**: crear cliente (demo con fecha o activa), su primer usuario (la contraseña se muestra una sola vez), números y usuarios permitidos, suspender con motivo, notas internas y **Entrar a su cuenta (soporte)**.
 - **Administrador** del cliente: configura todo y en **Mi cuenta** (ícono de la persona) agrega a su equipo (administradores o agentes) y crea su token de API.
-- **Agente**: solo atiende Bandeja, Pendientes y Contactos.
+- **Agente**: atiende Bandeja, Pendientes, Contactos, Embudo y Seguimientos (no ve Reportes, Integraciones, IA ni configuración).
 - Cuenta **suspendida o vencida**: no entra al panel, no contesta sola y no envía; los mensajes que llegan se siguen guardando.
 - Un número no se puede conectar en dos cuentas, y se respeta el máximo de números del plan (también con el botón QR).
 
@@ -125,6 +151,12 @@ POST https://whatsapp.tukanec.com/api.php?accion=contacto
 ```
 `linea` es opcional (por defecto el primer número). Respuestas: 200 `{"ok":true,...}`, 401 token malo, 422 dato malo.
 
+## Encender el Asistente con IA (opcional)
+1. Crea una clave en https://console.anthropic.com (API Keys). Empieza con `sk-ant-`.
+2. En el PuTTY de qfcorp pega esta línea, Enter, y pega la clave cuando la pida (no se ve en la pantalla del chat ni en GitHub):
+   `bash /var/www/tuwhatsapp/deploy/clave_ia.sh` → debe terminar en `LISTO`.
+3. Cada cliente con el módulo IA escribe en **Más → Asistente con IA** lo que sabe la IA de su negocio. Cada uso cuesta centavos; el tope por cliente se cambia en la base (`empresas.ia_tope`).
+
 ## Agregar QF Producciones después
 En el panel → ícono del celular arriba → **Conectar otro número** → botón **Conectar con WhatsApp Business** con el número de QF (la misma app de Meta). Arriba aparece un selector para cambiar de número.
 
@@ -138,11 +170,13 @@ Cada día a las 3:40 en `/var/backups/tuwhatsapp` (14 días). Restaurar: `sudo -
 ```
 PGPORT=5432 PGUSER=postgres bash tests/correr.sh
 ```
-Meta y Telegram simulados (`tests/meta_simulado.php`). Lógica 162 y pantallas 77, deben terminar en `TODO BIEN`.
+Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`). Lógica 434 y pantallas 188, deben terminar en `TODO BIEN`.
 
 ## Archivos
 - `public/index.php` panel · `public/webhook.php` lo que avisa Meta · `public/api.php` API
 - `src/Registro.php` botón QR (Embedded Signup: código → token, webhook, PIN, contactos e historial)
 - `public/privacidad.php` y `public/eliminar-datos.php` páginas públicas para Meta
 - `src/Reglas.php` decisión de responder · `src/Mensajeria.php` envíos con tope · `src/Gasto.php` precios y gasto · `src/Webhook.php` mensajes, estados y ecos · `src/Meta.php` conexión con Meta
-- `db/schema.sql` base (se puede correr muchas veces) · `deploy/instalar.sh` instalador
+- `src/Modulos.php` módulos y planes · `src/Archivos.php` fotos, audios y documentos · `src/Embudo.php` · `src/Seguimientos.php` · `src/Reportes.php` · `src/Asistente.php` (IA) · `src/Enlaces.php` · `src/Integraciones.php`
+- `public/w.php` enlace corto · `public/boton.js` botón para páginas web · `public/assets/qrcode.js` códigos QR (MIT, Kazuhiko Arase)
+- `db/schema.sql` base (se puede correr muchas veces) · `deploy/instalar.sh` instalador · `deploy/clave_meta.sh` y `deploy/clave_ia.sh` claves

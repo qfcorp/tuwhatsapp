@@ -45,7 +45,7 @@ final class Reglas
             return $no('Estás en horario de atención: contestas tú');
         }
         $opciones = Lineas::opciones($linea);
-        $opcion = self::opcionElegida($texto, count($opciones));
+        $opcion = self::opcionElegida($texto, count($opciones), $opciones);
         if ($opcion === null && self::si($linea['regla_palabras'] ?? false)
             && !self::tienePalabra($texto, self::listaPalabras((string) ($linea['palabras'] ?? '')))) {
             return $no('No habla de negocio (sin palabras clave)');
@@ -63,7 +63,19 @@ final class Reglas
             $o = $opciones[$opcion - 1];
             return ['responder' => true, 'motivo' => 'Eligió la opción ' . $opcion . ': ' . $o['titulo'], 'texto' => $o['respuesta'], 'humano' => $o['humano']];
         }
-        return ['responder' => true, 'motivo' => 'Se le envió el menú', 'texto' => self::textoMenu($linea), 'humano' => false];
+        $botones = self::si($linea['menu_botones'] ?? true) && $opciones;
+        return ['responder' => true, 'motivo' => 'Se le envió el menú' . ($botones ? ' con botones' : ''), 'texto' => self::textoMenu($linea), 'humano' => false,
+                'botones' => $botones ? self::botonesMenu($linea) : null, 'saludo' => trim((string) $linea['mensaje_menu'])];
+    }
+
+    /** Las opciones del menú como botones de WhatsApp (id op1, op2… para reconocer cuál tocó). */
+    public static function botonesMenu(array $linea): array
+    {
+        $r = [];
+        foreach (Lineas::opciones($linea) as $i => $o) {
+            $r[] = ['id' => 'op' . ($i + 1), 'titulo' => $o['titulo']];
+        }
+        return $r;
     }
 
     public static function textoMenu(array $linea): string
@@ -86,10 +98,25 @@ final class Reglas
         return $hora >= $h[0] && $hora < $h[1];
     }
 
-    /** "1", "2." o " 3 " -> número de opción; cualquier otra cosa -> null. */
-    public static function opcionElegida(string $texto, int $cuantas): ?int
+    /**
+     * "1", "2." o " 3 " -> número de opción. Si se pasan las opciones, también reconoce el nombre de la opción
+     * (lo que llega cuando el cliente toca un botón, o si lo escribe). Cualquier otra cosa -> null.
+     */
+    public static function opcionElegida(string $texto, int $cuantas, array $opciones = []): ?int
     {
-        if ($cuantas < 1 || !preg_match('/^\s*(\d)\s*[.)]?\s*$/u', $texto, $m)) {
+        if ($cuantas < 1) {
+            return null;
+        }
+        if ($opciones && !preg_match('/^\s*\d/', $texto)) {
+            $t = self::simple($texto);
+            foreach (array_values($opciones) as $i => $o) {
+                $titulo = self::simple((string) $o['titulo']);
+                if ($t !== '' && ($t === $titulo || $t === self::simple(mb_substr((string) $o['titulo'], 0, 20)))) {   // exacto (o como se ve en el botón)
+                    return $i + 1;
+                }
+            }
+        }
+        if (!preg_match('/^\s*(\d)\s*[.)]?\s*$/u', $texto, $m)) {
             return null;
         }
         $n = (int) $m[1];
