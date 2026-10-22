@@ -7,6 +7,7 @@ Dirección: **whatsapp.tukanec.com** (servidor qfcorp, por el túnel de Cloudfla
 
 ## Qué hace
 - **Bandeja**: todas las conversaciones del número, con sin leer, filtros (clientes, desconocidos, personales) y búsqueda. Se actualiza sola.
+- **Avisos de mensaje nuevo**: número en la pestaña del navegador, círculo rojo en el ícono, sonido y aviso del navegador (botón 🔔 en la Bandeja; al tocarlo abre el chat).
 - **Chat** con dos botones: **Enviar desde el celular (gratis)** abre WhatsApp con el texto listo; **Enviar por el sistema** (pagado, se ve el costo). Pasadas 24 horas del último mensaje del cliente, Meta solo deja enviar **plantillas aprobadas**.
 - **Respuestas automáticas** con reglas (la primera que dice "no" gana):
   1. **Personal: nunca** (siempre activa).
@@ -173,7 +174,7 @@ Cada día a las 3:40 en `/var/backups/tuwhatsapp` (14 días). Restaurar: `sudo -
 ```
 PGPORT=5432 PGUSER=postgres bash tests/correr.sh
 ```
-Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`). Lógica 441 y pantallas 188, deben terminar en `TODO BIEN`.
+Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`). Lógica 441 y pantallas 192, deben terminar en `TODO BIEN`.
 
 ## Archivos
 - `public/index.php` panel · `public/webhook.php` lo que avisa Meta · `public/api.php` API

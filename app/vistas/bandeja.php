@@ -10,6 +10,10 @@ if (!modulo('agentes')) {
     <h1>Bandeja</h1>
     <span class="estado-auto <?= $linea['auto_activo'] ? 'si' : 'no' ?>"><?php if (es_admin()): ?><a href="<?= e(url('reglas')) ?>">Automático: <?= $linea['auto_activo'] ? 'encendido' : 'apagado' ?></a><?php else: ?><a>Automático: <?= $linea['auto_activo'] ? 'encendido' : 'apagado' ?></a><?php endif; ?></span>
 </div>
+<div class="avisos-navegador" id="avisos-navegador" hidden>
+    <button type="button" class="boton boton-claro" id="activar-avisos">🔔 Avisarme cuando llegue un mensaje</button>
+    <span class="suave pequeno" id="avisos-estado"></span>
+</div>
 <form class="buscar" method="get">
     <input type="hidden" name="r" value="bandeja"><input type="hidden" name="f" value="<?= e($filtro) ?>">
     <input type="search" name="b" value="<?= e($buscar) ?>" placeholder="Buscar nombre o número" aria-label="Buscar">

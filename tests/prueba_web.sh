@@ -50,9 +50,11 @@ ok '[ "$(webhook "$MSG")" = 200 ]' "mensaje firmado aceptado"
 sleep 0.3
 
 echo "== Bandeja y chat"
-get "/?r=bandeja";  ok 'tiene "Peluquería Ana" && tiene "Automático: apagado"' "aparece en la bandeja"
+get "/?r=bandeja";  ok 'tiene "Peluquería Ana" && tiene "Automático: apagado" && tiene "id=\"activar-avisos\""' "aparece en la bandeja (con botón de avisos)"
 ok '! tiene "<b>precios</b>" && tiene "&lt;b&gt;precios"' "el texto del cliente se escapa"
 get "/?r=nuevos";   ok 'grep -q "\"sin_leer\":1" "$P"' "1 sin leer"
+ok 'grep -q "\"aviso\":{\"id\":[0-9]*,\"nombre\":\"Peluquería Ana\",\"texto\":\"Hola, quiero <b>precios</b>\"" "$P" && grep -q "r=chat" "$P"' "datos para el aviso del navegador"
+CODIGO=$(curl -s -o "$P" -w '%{http_code} %{content_type}' "$W/sw.js"); ok '[ "${CODIGO%% *}" = 200 ] && tiene "notificationclick"' "service worker de los avisos"
 get "/?r=bandeja"
 C=$(grep -o 'r=chat&amp;c=[0-9]*' "$P" | head -1 | grep -o '[0-9]*$')
 get "/?r=chat&c=$C"

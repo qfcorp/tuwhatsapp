@@ -165,7 +165,16 @@ try {
         [$n, $ultimo] = $st->fetch(PDO::FETCH_NUM);
         $st = db()->prepare('SELECT COALESCE(max(id), 0) FROM mensajes WHERE linea_id = ?' . (isset($_GET['c']) ? ' AND contacto_id = ' . (int) $_GET['c'] : ''));
         $st->execute([$lid]);
-        echo json_encode(['sin_leer' => (int) $n, 'ultimo' => (int) $st->fetchColumn()]);
+        $ultimoChat = (int) $st->fetchColumn();
+        // El último mensaje sin leer que llegó (para el aviso del navegador)
+        $st = db()->prepare("SELECT m.id, m.contacto_id, m.texto, c.nombre, c.nombre_whatsapp, c.telefono FROM mensajes m JOIN contactos c ON c.id = m.contacto_id
+                             WHERE m.linea_id = ? AND m.direccion = 'entra' AND NOT m.leido ORDER BY m.id DESC LIMIT 1");
+        $st->execute([$lid]);
+        $ult = $st->fetch();
+        echo json_encode(['sin_leer' => (int) $n, 'ultimo' => $ultimoChat, 'aviso' => $ult ? [
+            'id' => (int) $ult['id'], 'nombre' => Contactos::nombre($ult), 'texto' => mb_strimwidth((string) $ult['texto'], 0, 90, '…'),
+            'url' => url('chat', ['c' => $ult['contacto_id']]),
+        ] : null], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
 
     case 'bandeja':

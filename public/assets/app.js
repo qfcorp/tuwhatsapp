@@ -16,16 +16,100 @@
     var lista = $('#mensajes');
     if (lista) { window.scrollTo(0, document.body.scrollHeight); }
 
-    // Revisa cada 10 segundos si llegó algo nuevo
+    // Revisa cada 10 segundos si llegó algo nuevo (también con la pestaña en segundo plano, para avisar)
     var globo = $('#globo-bandeja');
     var conv = $('#conversaciones');
     var ultimoVisto = lista ? +lista.dataset.ultimo : null;
+    var tituloBase = document.title.replace(/^\(\d+\)\s*/, '');
+    var iconoBase = null, avisado = null;
+    try { avisado = +sessionStorage.getItem('tuwa_avisado') || null; } catch (e) {}
+
+    // Ícono de la pestaña con un círculo rojo y el número de mensajes sin leer
+    function ponerIcono(n) {
+        var link = document.querySelector('link[rel="icon"]');
+        if (!link) { return; }
+        if (iconoBase === null) { iconoBase = link.href; }
+        if (!n) { link.href = iconoBase; return; }
+        var img = new Image();
+        img.onload = function () {
+            var c = document.createElement('canvas'); c.width = 64; c.height = 64;
+            var x = c.getContext('2d');
+            x.drawImage(img, 0, 0, 64, 64);
+            x.fillStyle = '#E02424'; x.beginPath(); x.arc(46, 18, 18, 0, 2 * Math.PI); x.fill();
+            x.fillStyle = '#fff'; x.font = 'bold 26px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+            x.fillText(n > 9 ? '9+' : String(n), 46, 19);
+            link.href = c.toDataURL('image/png');
+        };
+        img.src = iconoBase;
+    }
+
+    // Sonido corto (sin archivos): dos tonos suaves
+    var audio = null;
+    function sonar() {
+        try { if (localStorage.getItem('tuwa_sonido') === 'no') { return; } } catch (e) {}
+        try {
+            audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+            [880, 1320].forEach(function (f, i) {
+                var o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + i * 0.16;
+                o.frequency.value = f; o.type = 'sine';
+                g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+                o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + 0.16);
+            });
+        } catch (e) {}
+    }
+
+    // Aviso del navegador (en Android Chrome tiene que ir por el service worker)
+    var registro = null;
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').then(function (r) { registro = r; }).catch(function () {});
+    }
+    function avisarNavegador(a) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') { return; }
+        var op = { body: a.texto || 'Mensaje nuevo', tag: 'tuwa-' + a.id, icon: iconoBase || undefined, data: { url: a.url } };
+        try {
+            if (registro && registro.showNotification) { registro.showNotification(a.nombre, op); return; }
+            var n = new Notification(a.nombre, op);
+            n.onclick = function () { window.focus(); location.href = a.url; };
+        } catch (e) {}
+    }
+
+    // Botón "Avisarme" en la Bandeja
+    var cajaAvisos = $('#avisos-navegador'), botonAvisos = $('#activar-avisos'), estadoAvisos = $('#avisos-estado');
+    function pintarAvisos() {
+        if (!cajaAvisos || !('Notification' in window)) { return; }
+        var p = Notification.permission;
+        cajaAvisos.hidden = p === 'granted';
+        if (p === 'denied') {
+            botonAvisos.hidden = true;
+            estadoAvisos.textContent = 'Los avisos están bloqueados: actívalos en el candado junto a la dirección (Notificaciones → Permitir).';
+        }
+    }
+    if (botonAvisos) {
+        botonAvisos.addEventListener('click', function () {
+            sonar();   // el primer toque habilita el sonido
+            Notification.requestPermission().then(function () { pintarAvisos(); if (Notification.permission === 'granted') { estadoAvisos.textContent = ''; } });
+        });
+        pintarAvisos();
+    }
+
     function revisar() {
-        if (document.hidden) { return; }
         var u = '/?r=nuevos' + (lista ? '&c=' + lista.dataset.contacto : '');
         fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
             if (!d) { return; }
             if (globo) { globo.hidden = d.sin_leer < 1; globo.textContent = d.sin_leer; }
+            document.title = (d.sin_leer > 0 ? '(' + d.sin_leer + ') ' : '') + tituloBase;
+            ponerIcono(d.sin_leer);
+            if (d.aviso && avisado !== null && d.aviso.id > avisado) {
+                sonar();
+                if (document.hidden || !document.hasFocus()) { avisarNavegador(d.aviso); }
+            }
+            if (d.aviso && (avisado === null || d.aviso.id > avisado)) {
+                avisado = d.aviso.id;
+                try { sessionStorage.setItem('tuwa_avisado', String(avisado)); } catch (e) {}
+            } else if (avisado === null) {
+                avisado = 0;
+            }
+            if (document.hidden) { return; }   // lo de abajo cambia la página: solo si se está mirando
             if (lista && d.ultimo > ultimoVisto) {
                 if (!texto || texto.value.trim() === '') { location.reload(); return; }
                 if (!$('#hay-nuevos')) {

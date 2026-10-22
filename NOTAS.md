@@ -76,6 +76,8 @@ Ideas siguientes (lo que más ofrecen los competidores y aún no tenemos): Insta
 - El mensaje no llegaba: **la cuenta de prueba (WABA 2501989233621271) no tenía suscrita la app Tukan Mensajes**. Se suscribió desde el Explorador de la API Graph (POST subscribed_apps → success).
 - **Resultado: FUNCIONA.** Llega el mensaje (Bandeja y Embudo → Nuevo), Enviar por el sistema sale ✓✓.
 - IA: la clave compartida vieja daba 401 (no válida). Se creó una clave nueva y se guardó con `tukan-central/deploy/configurar_ia.sh` (modelo rápido claude-haiku-5-5) → "IA: FUNCIONA". Sugerir respuesta probado en el chat: funciona. Revisar si TuHospedaje usa la clave compartida.
+- Fotos, notas de voz y PDF probados en las dos direcciones: funcionan.
+- Nuevo (pedido de Dimi): **avisos de mensaje nuevo** → número en la pestaña "(2) Bandeja", círculo rojo en el ícono de la pestaña, sonido corto y aviso del navegador (botón "🔔 Avisarme cuando llegue un mensaje" en la Bandeja; al tocar el aviso abre el chat). Archivo public/sw.js. Siguiente paso posible: avisos con el navegador cerrado (Web Push / app instalable).
 - Arreglo en el programa: al guardar un número a mano ahora suscribe la app solo (antes solo lo hacía el botón QR) y los avisos con firma mala quedan anotados en webhook_log. Pruebas: lógica 441, pantallas 190.
 
 ## 🔎 Revisión de la versión de GitHub (22 oct 2026)
@@ -165,7 +167,7 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 - Respaldo diario 3:40 am en `/var/backups/tuwhatsapp` (14 días).
 - Archivos principales: `src/Registro.php` (botón QR), `src/Webhook.php`, `src/Reglas.php`, `src/Mensajeria.php`, `src/Gasto.php`, `deploy/instalar.sh`, `deploy/clave_meta.sh`.
 - Módulos nuevos: `src/Modulos.php` (módulos y planes), `src/Archivos.php`, `src/Embudo.php`, `src/Seguimientos.php`, `src/Reportes.php`, `src/Asistente.php` + `src/tukan_ia.php` (IA compartida, copia sin cambios del Panel Central), `src/Enlaces.php`, `src/Integraciones.php`, `public/w.php`, `public/boton.js`. Fotos y audios en `/var/www/tuwhatsapp/archivos` (no se suben a GitHub).
-- Pruebas: `PGPORT=5432 PGUSER=postgres bash tests/correr.sh` → debe terminar en `TODO BIEN` (lógica 441, pantallas 188).
+- Pruebas: `PGPORT=5432 PGUSER=postgres bash tests/correr.sh` → debe terminar en `TODO BIEN` (lógica 441, pantallas 192).
 - Cuidado: hay dos ventanas de PuTTY; la del programa es **qf@qfcorp** (no `root@vps-...`).
 
 ## 21 oct 2026 (tarde): cuentas por cliente
