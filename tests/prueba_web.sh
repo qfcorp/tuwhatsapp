@@ -44,6 +44,7 @@ T=$(date +%s)
 MSG='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593996408397","phone_number_id":"100"},"contacts":[{"profile":{"name":"Peluquería Ana"},"wa_id":"593991111111"}],"messages":[{"from":"593991111111","id":"wamid.WEB1","timestamp":"'$T'","type":"text","text":{"body":"Hola, quiero <b>precios</b>"}}]}}]}]}'
 CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -H "X-Hub-Signature-256: sha256=000" --data-binary "$MSG" "$W/webhook.php")
 ok '[ "$CODIGO" = 401 ]' "sin firma correcta se rechaza"
+ok '[ "$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT count(*) FROM webhook_log WHERE error LIKE '"'"'Firma no valida%'"'"'" -d tuwhatsapp_prueba)" = 1 ]' "la firma mala queda anotada para revisar"
 ok '[ "$(webhook "$MSG")" = 200 ]' "mensaje firmado aceptado"
 sleep 0.3
 
