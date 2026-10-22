@@ -57,7 +57,7 @@ if ($ruta === 'conectar_qr') {   // lo llama el botón "Conectar con WhatsApp Bu
     header('Cache-Control: no-store');
     if (!$post || !csrf_ok()) {
         http_response_code(400);
-        echo json_encode(['ok' => false, 'error' => 'La página estaba abierta hace mucho. Recárgala e intenta de nuevo.']);
+        echo json_encode(['ok' => false, 'error' => tukan_tr('La página estaba abierta hace mucho. Recárgala e intenta de nuevo.')], JSON_UNESCAPED_UNICODE);
         exit;
     }
     try {
@@ -78,6 +78,9 @@ if ($ruta === 'conectar_qr') {   // lo llama el botón "Conectar con WhatsApp Bu
         $r['ir'] = url('linea', ['id' => $r['linea_id']]);
     }
     unset($r['pin']);
+    if (isset($r['error'])) {
+        $r['error'] = tukan_tr((string) $r['error']);   // en el idioma del botón 🌐
+    }
     echo json_encode($r, JSON_UNESCAPED_UNICODE);
     exit;
 }

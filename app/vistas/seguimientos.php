@@ -14,8 +14,8 @@ Si ya pasaron 24 horas desde su último mensaje, queda en <a href="<?= e(url('pe
 <ul class="lista-simple">
     <?php foreach ($programados as $s): ?>
     <li>
-        <span><b><a href="<?= e(url('chat', ['c' => $s['contacto_id']])) ?>"><?= e(Contactos::nombre($s)) ?></a></b> · <?= e($fecha($s['cuando'])) ?><?= $s['solo_sin_respuesta'] ? ' · solo si no responde' : '' ?><br>
-            <span class="suave"><?= e(mb_strimwidth($s['texto'], 0, 100, '…')) ?></span></span>
+        <span><b><a href="<?= e(url('chat', ['c' => $s['contacto_id']])) ?>"><?= u(Contactos::nombre($s)) ?></a></b> · <?= e($fecha($s['cuando'])) ?><?= $s['solo_sin_respuesta'] ? ' · solo si no responde' : '' ?><br>
+            <span class="suave"><?= u(mb_strimwidth($s['texto'], 0, 100, '…')) ?></span></span>
         <form method="post"><?= csrf_campo() ?><input type="hidden" name="id" value="<?= (int) $s['id'] ?>"><button class="enlace enlace-rojo">Cancelar</button></form>
     </li>
     <?php endforeach; ?>
@@ -26,8 +26,8 @@ Si ya pasaron 24 horas desde su último mensaje, queda en <a href="<?= e(url('pe
 <h2 class="separador">Últimos</h2>
 <ul class="lista-simple">
     <?php foreach ($hechos as $s): ?>
-    <li><span><b><?= e(Contactos::nombre($s)) ?></b> · <?= e(Seguimientos::ESTADOS[$s['estado']] ?? $s['estado']) ?> · <?= e($fecha($s['hecho_en'])) ?><br>
-        <span class="suave"><?= e($s['resultado'] !== '' ? $s['resultado'] : mb_strimwidth($s['texto'], 0, 100, '…')) ?></span></span></li>
+    <li><span><b><?= u(Contactos::nombre($s)) ?></b> · <?= e(Seguimientos::ESTADOS[$s['estado']] ?? $s['estado']) ?> · <?= e($fecha($s['hecho_en'])) ?><br>
+        <span class="suave"><?= u($s['resultado'] !== '' ? $s['resultado'] : mb_strimwidth($s['texto'], 0, 100, '…')) ?></span></span></li>
     <?php endforeach; ?>
 </ul>
 <?php endif; ?>

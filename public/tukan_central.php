@@ -14,6 +14,7 @@ use TuWhatsApp\TukanCentral;
 $accion = (string) ($_GET['accion'] ?? '');
 if ($accion !== 'sso') {
     define('TUWA_SIN_SESION', true);
+    define('TUWA_SIN_IDIOMA', true);
 }
 require dirname(__DIR__) . '/app/bootstrap.php';
 header('Cache-Control: no-store');

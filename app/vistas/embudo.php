@@ -17,9 +17,9 @@ $abiertos = $totales['nuevo']['valor'] + $totales['interesado']['valor'] + $tota
         <?php if (!$tablero[$k]): ?><p class="suave pequeno">Nadie aquí.</p><?php endif; ?>
         <?php foreach ($tablero[$k] as $c): ?>
         <article class="ficha">
-            <a href="<?= e(url('chat', ['c' => $c['id']])) ?>" class="ficha-nombre"><?= e(Contactos::nombre($c)) ?></a>
+            <a href="<?= e(url('chat', ['c' => $c['id']])) ?>" class="ficha-nombre"><?= u(Contactos::nombre($c)) ?></a>
             <?php if ((float) $c['valor'] > 0): ?><b class="ficha-valor"><?= e(dinero($c['valor'])) ?></b><?php endif; ?>
-            <p class="suave pequeno"><?= e(mb_strimwidth((string) $c['ultimo_texto'], 0, 70, '…')) ?></p>
+            <p class="suave pequeno"><?= u(mb_strimwidth((string) $c['ultimo_texto'], 0, 70, '…')) ?></p>
             <form method="post" class="ficha-mover" action="<?= e(url('embudo', array_filter(['b' => $buscar]))) ?>">
                 <?= csrf_campo() ?><input type="hidden" name="c" value="<?= (int) $c['id'] ?>">
                 <select name="etapa" aria-label="Mover a" class="auto-enviar">

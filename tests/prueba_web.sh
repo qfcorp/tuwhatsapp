@@ -490,6 +490,18 @@ ok 'tiene "Clientes de Tukán" && tiene "← Panel Tukán" && tiene "Entraste de
 seguir "/tukan_central.php?accion=sso&t=$T"
 ok 'tiene "No se pudo entrar" && tiene "ya se usó"' "enlace de entrada repetido"
 
+echo "== Idiomas (botón 🌐)"
+get "/?r=bandeja&lang=en"
+ok 'tiene "<html lang=\"en\"" && tiene ">Inbox<" && tiene "tukan-idioma" && tiene "r=bandeja&amp;lang=fr"' "la bandeja en inglés con el botón 🌐"
+ok 'tiene "window.TUKAN_TR=" && tiene "\"Copiar\":\"Copy\""' "los textos del JavaScript también van en inglés"
+ok '[ "$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT count(*) FROM usuarios WHERE idioma = '"'"'en'"'"'" -d tuwhatsapp_prueba)" -ge 1 ]' "el idioma queda guardado en la cuenta del usuario"
+get "/?r=bandeja";  ok 'tiene ">Inbox<"' "sin ?lang sigue en inglés (se recuerda)"
+get "/?r=nuevos";   ok 'grep -q "\"sin_leer\"" "$P" && ! tiene "<html"' "las respuestas JSON no se tocan"
+get "/?r=bandeja&lang=fr"; ok 'tiene "<html lang=\"fr\"" && tiene ">Boîte de réception<"' "en francés"
+get "/?r=bandeja&lang=es"; ok 'tiene "<html lang=\"es\"" && tiene ">Bandeja<" && ! tiene "window.TUKAN_TR={\""' "de vuelta en español, sin traducción"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/privacidad.php?lang=pt"); ok '[ "$CODIGO" = 200 ] && tiene "tukan-idioma" && tiene "<html lang=\"pt\""' "páginas públicas con el botón 🌐"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/?r=login&lang=it"); ok '[ "$CODIGO" = 200 ] || [ "$CODIGO" = 302 ]' "entrar con otro idioma no falla"
+
 echo
 echo "Resultado: $BIEN bien, $MAL mal"
 [ "$MAL" = 0 ] && echo "TODO BIEN" || echo "HAY FALLAS"

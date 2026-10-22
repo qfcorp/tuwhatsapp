@@ -12,10 +12,10 @@ use TuWhatsApp\Telefono;
     <?php foreach ($abiertos as $p): ?>
     <li class="tarjeta pendiente" data-id="<?= (int) $p['id'] ?>">
         <div class="pend-cabeza">
-            <b><?= e($p['nombre'] !== '' ? $p['nombre'] : Telefono::bonito($p['telefono'])) ?></b>
+            <b><?= u($p['nombre'] !== '' ? $p['nombre'] : Telefono::bonito($p['telefono'])) ?></b>
             <span class="suave"><?= e(Telefono::bonito($p['telefono'])) ?><?= $p['origen'] !== 'manual' ? ' · ' . e($p['origen']) : '' ?></span>
         </div>
-        <p class="pend-texto"><?= nl2br(e($p['texto'])) ?></p>
+        <p class="pend-texto"><?= '<!--notr-->' . nl2br(e($p['texto'])) . '<!--/notr-->' ?></p>
         <a class="boton boton-gratis boton-grande abrir-wa" href="<?= e(Telefono::enlace($p['telefono'], $p['texto'])) ?>" target="_blank" rel="noopener">Abrir en WhatsApp</a>
         <div class="pend-pregunta" hidden>
             <span>¿Lo enviaste?</span>
@@ -48,8 +48,8 @@ use TuWhatsApp\Telefono;
 <ul class="lista-simple">
     <?php foreach ($recientes as $p): ?>
     <li>
-        <span><b><?= e($p['nombre'] !== '' ? $p['nombre'] : Telefono::bonito($p['telefono'])) ?></b> · <?= $p['estado'] === 'enviado' ? 'enviado' : 'descartado' ?> <?= e(hora_corta($p['hecho_en'])) ?><br>
-        <span class="suave"><?= e(mb_strimwidth($p['texto'], 0, 90, '…')) ?></span></span>
+        <span><b><?= u($p['nombre'] !== '' ? $p['nombre'] : Telefono::bonito($p['telefono'])) ?></b> · <?= $p['estado'] === 'enviado' ? 'enviado' : 'descartado' ?> <?= e(hora_corta($p['hecho_en'])) ?><br>
+        <span class="suave"><?= u(mb_strimwidth($p['texto'], 0, 90, '…')) ?></span></span>
         <form method="post"><?= csrf_campo() ?><input type="hidden" name="id" value="<?= (int) $p['id'] ?>"><button class="enlace" name="accion" value="pendiente">Volver a pendientes</button></form>
     </li>
     <?php endforeach; ?>

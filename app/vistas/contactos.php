@@ -103,7 +103,7 @@ use TuWhatsApp\Telefono;
     <?php foreach ($contactos as $c): ?>
     <li>
         <a href="<?= e(url('chat', ['c' => $c['id']])) ?>" class="lc-nombre">
-            <b><?= e(Contactos::nombre($c)) ?></b>
+            <b><?= u(Contactos::nombre($c)) ?></b>
             <span class="suave"><?= e(Telefono::bonito($c['telefono'])) ?></span>
         </a>
         <form method="post" class="lc-tipo">

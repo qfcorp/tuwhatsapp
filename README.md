@@ -49,6 +49,18 @@ Precios sin IVA, **mes a mes sin contrato**, **contactos ilimitados** y **0 % de
 
 **Comparación (octubre 2026):** WhatChimp $40 (2 usuarios), Wati $69 (3 usuarios y recargo sobre Meta), Callbell $15–20 **por usuario**, Kommo $25–45 **por usuario** con pago de 6 meses, Leadsales $97, Whaticket $49, Respond.io $99 sin campañas en el plan barato. Lo que más reclaman sus clientes: cobro por usuario, recargo escondido sobre Meta, límites de contactos, funciones quitadas del plan barato y contratos largos. Nosotros no tenemos ninguno de esos.
 
+## Idiomas (botón 🌐)
+
+Arriba a la derecha está el botón **🌐**: el programa se usa en **español, inglés, francés, portugués o italiano**.
+También aparece en la pantalla de entrar y en las páginas públicas.
+
+- Cada persona elige su idioma. Queda guardado en su cuenta y en ese navegador.
+- **Lo que escriben los clientes no se traduce**: mensajes, nombres, notas y plantillas se ven tal como se escribieron.
+- El botón **✨ Sugerir respuesta** de la IA contesta **en el idioma en que escribe el cliente**. El **Resumen** sale en el idioma del panel.
+- Funciona con la pieza compartida **Tukán Idiomas** (`src/tukan_idiomas.php`, copia de `tukan-central/compartido/tukan_idiomas.php`).
+  Los diccionarios están en `idiomas/en.php`, `fr.php`, `pt.php` e `it.php`. Lo que no tenga traducción se queda en español.
+- Las páginas legales (términos, privacidad, tratamiento de datos) siguen en español: falta una traducción revisada por un abogado.
+
 ## Costos (Ecuador, editables en Gasto → Precios de Meta)
 | Tipo | Precio por mensaje |
 |---|---|
@@ -171,6 +183,10 @@ La misma línea del Paso 1 (no borra nada).
 Cada día a las 3:40 en `/var/backups/tuwhatsapp` (14 días). Restaurar: `sudo -u postgres pg_restore -d tuwhatsapp --clean archivo.dump`.
 
 ## Pruebas (para programar)
+
+Idiomas: `php tests/prueba_idiomas.php` (motor + diccionarios). Para encontrar textos sin traducir: correr las pruebas con
+`TUWA_IDIOMA_PRUEBA=en TUWA_IDIOMA_FALTANTES=/tmp/faltan.txt` y revisar ese archivo.
+
 ```
 PGPORT=5432 PGUSER=postgres bash tests/correr.sh
 ```

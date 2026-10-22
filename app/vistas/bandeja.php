@@ -33,10 +33,10 @@ if (!modulo('agentes')) {
     <?php foreach ($conversaciones as $c): ?>
     <li>
         <a href="<?= e(url('chat', ['c' => $c['id']])) ?>" class="<?= $c['sin_leer'] > 0 ? 'nuevo' : '' ?>">
-            <span class="avatar tipo-<?= e($c['tipo']) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr(Contactos::nombre($c), 0, 1))) ?></span>
+            <span class="avatar tipo-<?= e($c['tipo']) ?>" aria-hidden="true"><?= u(mb_strtoupper(mb_substr(Contactos::nombre($c), 0, 1))) ?></span>
             <span class="conv-centro">
-                <span class="conv-nombre"><?= e(Contactos::nombre($c)) ?> <small class="chip chip-<?= e($c['tipo']) ?>"><?= e(tipo_contacto($c['tipo'])) ?></small><?php if (!empty($c['asignado_nombre'])): ?> <small class="chip chip-asignado"><?= e(explode(' ', (string) $c['asignado_nombre'])[0]) ?></small><?php endif; ?></span>
-                <span class="conv-ultimo"><?= $c['ultima_direccion'] === 'sale' ? '<span class="tu">Tú:</span> ' : '' ?><?= e(mb_strimwidth((string) $c['ultimo_texto'], 0, 80, '…')) ?></span>
+                <span class="conv-nombre"><?= u(Contactos::nombre($c)) ?> <small class="chip chip-<?= e($c['tipo']) ?>"><?= e(tipo_contacto($c['tipo'])) ?></small><?php if (!empty($c['asignado_nombre'])): ?> <small class="chip chip-asignado"><?= u(explode(' ', (string) $c['asignado_nombre'])[0]) ?></small><?php endif; ?></span>
+                <span class="conv-ultimo"><?= $c['ultima_direccion'] === 'sale' ? '<span class="tu">Tú:</span> ' : '' ?><?= u(mb_strimwidth((string) $c['ultimo_texto'], 0, 80, '…')) ?></span>
             </span>
             <span class="conv-lado">
                 <time><?= e(hora_corta($c['ultimo_en'])) ?></time>

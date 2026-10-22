@@ -7,7 +7,7 @@ $esTukan = (int) $e['id'] === Empresas::TUKAN;
 ?>
 <div class="chat-cabeza">
     <a href="<?= e(url('clientes')) ?>" class="volver" aria-label="Volver a clientes">‹</a>
-    <div><h1><?= e($e['nombre']) ?></h1><p class="suave"><?= Empresas::alDia($e) ? 'Al día' : e(Empresas::motivoBloqueo($e)) ?> · creado <?= e((new DateTimeImmutable($e['creado']))->format('d/m/Y')) ?></p></div>
+    <div><h1><?= u($e['nombre']) ?></h1><p class="suave"><?= Empresas::alDia($e) ? 'Al día' : e(Empresas::motivoBloqueo($e)) ?> · creado <?= e((new DateTimeImmutable($e['creado']))->format('d/m/Y')) ?></p></div>
 </div>
 <?php require __DIR__ . '/_clave_nueva.php'; ?>
 
@@ -39,7 +39,7 @@ $esTukan = (int) $e['id'] === Empresas::TUKAN;
         <label>Teléfono<input name="telefono" inputmode="tel" value="<?= e($e['telefono'] !== '' ? Telefono::bonito($e['telefono']) : '') ?>"></label>
         <label>Correo<input type="email" name="correo" value="<?= e($e['correo']) ?>"></label>
     </div>
-    <label>Notas internas (solo Tukán)<textarea name="notas" rows="3"><?= e($e['notas']) ?></textarea></label>
+    <label>Notas internas (solo Tukán)<textarea name="notas" rows="3"><?= u($e['notas']) ?></textarea></label>
     <button class="boton">Guardar</button>
     <?php if ($e['telefono'] !== ''): ?>
     <a class="boton boton-gratis" href="<?= e(Telefono::enlace($e['telefono'])) ?>" target="_blank" rel="noopener">Escribirle por WhatsApp</a>
@@ -71,7 +71,7 @@ $esTukan = (int) $e['id'] === Empresas::TUKAN;
     <h2>Números (<?= count($numeros) ?>/<?= (int) $e['max_numeros'] ?>)</h2>
     <?php if (!$numeros): ?><p class="suave">Todavía no conecta ningún número. Lo hace él mismo con el botón "Conectar con WhatsApp Business" (o entra a su cuenta y ayúdale).</p><?php endif; ?>
     <?php foreach ($numeros as $n): ?>
-    <p><b><?= e($n['nombre']) ?></b> · <?= e($n['telefono'] !== '' ? Telefono::bonito($n['telefono']) : 'sin número') ?> · <?= $n['coexistencia'] ? 'con la app del celular' : 'solo API' ?> · automático <?= $n['auto_activo'] ? 'encendido' : 'apagado' ?> · tope <?= e(dinero($n['tope_mensual'])) ?></p>
+    <p><b><?= u($n['nombre']) ?></b> · <?= e($n['telefono'] !== '' ? Telefono::bonito($n['telefono']) : 'sin número') ?> · <?= $n['coexistencia'] ? 'con la app del celular' : 'solo API' ?> · automático <?= $n['auto_activo'] ? 'encendido' : 'apagado' ?> · tope <?= e(dinero($n['tope_mensual'])) ?></p>
     <?php endforeach; ?>
 </section>
 
@@ -79,7 +79,7 @@ $esTukan = (int) $e['id'] === Empresas::TUKAN;
 <ul class="lista-simple lista-usuarios">
     <?php foreach ($usuarios as $x): ?>
     <li>
-        <span><b><?= e($x['nombre']) ?></b> <?= $x['activo'] ? '' : '<small class="chip chip-estado-suspendida">Desactivado</small>' ?><br>
+        <span><b><?= u($x['nombre']) ?></b> <?= $x['activo'] ? '' : '<small class="chip chip-estado-suspendida">Desactivado</small>' ?><br>
             <span class="suave"><?= e($x['correo']) ?> · <?= $x['super'] ? 'Personal de Tukán' : e(Empresas::ROLES[$x['rol']] ?? $x['rol']) ?></span></span>
         <?php if (!$x['super']): ?>
         <form method="post">

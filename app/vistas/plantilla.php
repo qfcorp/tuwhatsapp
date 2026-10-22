@@ -5,7 +5,7 @@ use TuWhatsApp\Gasto;
 ?>
 <div class="chat-cabeza">
     <a href="<?= e(url('chat', ['c' => $c['id']])) ?>" class="volver" aria-label="Volver al chat">‹</a>
-    <div><h1>Enviar plantilla</h1><p class="suave">a <?= e(Contactos::nombre($c)) ?></p></div>
+    <div><h1>Enviar plantilla</h1><p class="suave">a <?= u(Contactos::nombre($c)) ?></p></div>
 </div>
 <p class="suave">Aquí salen solo las plantillas que Meta ya aprobó. <a href="<?= e(url('plantillas', ['c' => $c['id']])) ?>">Crear o ver todas las plantillas</a>.</p>
 <?php if ($errorMeta): ?>
@@ -21,8 +21,8 @@ use TuWhatsApp\Gasto;
         <label class="opcion-plantilla">
             <input type="radio" name="plantilla" value="<?= e($p['nombre'] . '|' . $p['idioma']) ?>" data-espacios="<?= (int) $p['espacios'] ?>" <?= $i === 0 ? 'checked' : '' ?>>
             <span>
-                <b><?= e($p['nombre']) ?></b> <small class="chip"><?= e(Gasto::CATEGORIAS[$p['categoria']] ?? $p['categoria']) ?> · <?= e(dinero($precios[$p['categoria']] ?? 0, true)) ?></small>
-                <span class="cuerpo-plantilla"><?= nl2br(e($p['cuerpo'])) ?></span>
+                <b><?= u($p['nombre']) ?></b> <small class="chip"><?= e(Gasto::CATEGORIAS[$p['categoria']] ?? $p['categoria']) ?> · <?= e(dinero($precios[$p['categoria']] ?? 0, true)) ?></small>
+                <span class="cuerpo-plantilla"><?= '<!--notr-->' . nl2br(e($p['cuerpo'])) . '<!--/notr-->' ?></span>
             </span>
         </label>
         <?php endforeach; ?>

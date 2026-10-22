@@ -11,7 +11,7 @@ $claseEstado = ['APPROVED' => 'ok', 'PENDING' => 'espera', 'IN_APPEAL' => 'esper
 <?php if ($volverChat): ?>
 <div class="chat-cabeza">
     <a href="<?= e(url('plantilla', ['c' => $volverChat['id']])) ?>" class="volver" aria-label="Volver">‹</a>
-    <div><h1>Plantillas</h1><p class="suave">Volver a enviar a <?= e(Contactos::nombre($volverChat)) ?></p></div>
+    <div><h1>Plantillas</h1><p class="suave">Volver a enviar a <?= u(Contactos::nombre($volverChat)) ?></p></div>
 </div>
 <?php else: ?>
 <div class="cabeza"><h1>Plantillas</h1></div>
@@ -84,7 +84,7 @@ $claseEstado = ['APPROVED' => 'ok', 'PENDING' => 'espera', 'IN_APPEAL' => 'esper
     <?php foreach ($plantillas as $p): ?>
     <li class="tarjeta">
         <div class="pl-cabeza">
-            <b><?= e($p['nombre']) ?></b>
+            <b><?= u($p['nombre']) ?></b>
             <span class="chip estado-<?= e($claseEstado[$p['estado']] ?? 'espera') ?>"><?= e(Meta::ESTADOS_PLANTILLA[$p['estado']] ?? $p['estado']) ?></span>
         </div>
         <p class="suave pequeno"><?= e(Gasto::CATEGORIAS[$p['categoria']] ?? $p['categoria']) ?> · <?= e(Plantillas::IDIOMAS[$p['idioma']] ?? $p['idioma']) ?> · <?= e(dinero($precios[$p['categoria']] ?? 0, true)) ?> por envío</p>
@@ -93,16 +93,16 @@ $claseEstado = ['APPROVED' => 'ok', 'PENDING' => 'espera', 'IN_APPEAL' => 'esper
         <?php endif; ?>
         <div class="burbuja-vista">
             <?php if ($p['encabezado'] !== ''): ?><b class="vp-encabezado"><?= e($p['encabezado']) ?></b><?php endif; ?>
-            <span class="vp-cuerpo"><?= nl2br(e($p['cuerpo'])) ?></span>
+            <span class="vp-cuerpo"><?= '<!--notr-->' . nl2br(e($p['cuerpo'])) . '<!--/notr-->' ?></span>
             <?php if ($p['pie'] !== ''): ?><small class="vp-pie"><?= e($p['pie']) ?></small><?php endif; ?>
-            <?php if ($p['botones']): ?><span class="vp-botones"><?php foreach ($p['botones'] as $b): ?><span><?= e($b['texto']) ?></span><?php endforeach; ?></span><?php endif; ?>
+            <?php if ($p['botones']): ?><span class="vp-botones"><?php foreach ($p['botones'] as $b): ?><span><?= u($b['texto']) ?></span><?php endforeach; ?></span><?php endif; ?>
         </div>
         <details class="borrar-plantilla">
             <summary>Borrar</summary>
             <form method="post">
                 <?= csrf_campo() ?><input type="hidden" name="accion" value="borrar"><input type="hidden" name="nombre" value="<?= e($p['nombre']) ?>">
                 <p class="suave pequeno">Se borra en Meta (en todos los idiomas) y el nombre no se puede volver a usar por unas semanas.</p>
-                <button class="boton boton-peligro">Sí, borrar "<?= e($p['nombre']) ?>"</button>
+                <button class="boton boton-peligro">Sí, borrar "<?= u($p['nombre']) ?>"</button>
             </form>
         </details>
     </li>

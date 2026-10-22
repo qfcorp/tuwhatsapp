@@ -11,6 +11,7 @@ declare(strict_types=1);
  * "linea" es opcional (por defecto el primer número).
  */
 define('TUWA_SIN_SESION', true);
+define('TUWA_SIN_IDIOMA', true);
 require dirname(__DIR__) . '/app/bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');

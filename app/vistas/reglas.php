@@ -98,7 +98,7 @@ if (isset($_GET['p_texto'])) {
     <?php if ($prueba): ?>
     <div class="resultado-prueba <?= $prueba['responder'] ? 'si' : 'no' ?>" role="status">
         <b><?= $prueba['responder'] ? 'Sí se contesta solo' : 'No se contesta' ?></b> — <?= e($prueba['motivo']) ?>
-        <?php if ($prueba['texto']): ?><pre><?= e($prueba['texto']) ?></pre><?php endif; ?>
+        <?php if ($prueba['texto']): ?><pre><?= u($prueba['texto']) ?></pre><?php endif; ?>
     </div>
     <?php endif; ?>
 </form>

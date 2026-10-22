@@ -22,6 +22,9 @@ trap 'kill $SIM ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS"' EXIT
 sleep 0.5
 
 export TUWA_DB_HOST="$PGHOST" TUWA_DB_PORT="$PGPORT" TUWA_DB_NAME="$DB" TUWA_DB_USER="$PGUSER" TUWA_DB_PASS="${PGPASSWORD:-}"
+echo "######## Idiomas"
+php -d display_errors=1 -d error_reporting=-1 tests/prueba_idiomas.php || exit 1
+
 echo "######## Lógica"
 php -d display_errors=1 -d error_reporting=-1 tests/prueba_logica.php || exit 1
 

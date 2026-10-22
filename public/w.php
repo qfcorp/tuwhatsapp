@@ -4,6 +4,7 @@ declare(strict_types=1);
 // Enlace corto del módulo "Enlaces": cuenta el clic y abre WhatsApp con el texto listo. No usa sesión.
 //   https://whatsapp.tukanec.com/w.php?c=abc123
 define('TUWA_SIN_SESION', true);
+define('TUWA_SIN_IDIOMA', true);
 require dirname(__DIR__) . '/app/bootstrap.php';
 
 header('Cache-Control: no-store');

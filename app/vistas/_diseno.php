@@ -39,7 +39,8 @@ if ($u && $linea) {
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($titulo) ?> · WhatsApp Tukán</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314211F'/%3E%3Cpath d='M7 25l2-5a9 9 0 1 1 3.5 3.3z' fill='%23F28C28'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/assets/app.css?v=12">
+<link rel="stylesheet" href="/assets/app.css?v=13">
+<?= tukan_idioma_js(require RAIZ . '/app/frases_js.php') ?>
 </head>
 <body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?>">
 <?php if ($u): ?>
@@ -58,20 +59,21 @@ if ($u && $linea) {
         </select>
     </form>
     <?php elseif ($linea): ?>
-    <span class="nombre-linea"><?= e($linea['nombre']) ?></span>
+    <span class="nombre-linea"><?= u($linea['nombre']) ?></span>
     <?php endif; ?>
     <nav class="acciones-barra">
         <a href="<?= e(url('plantillas')) ?>" title="Plantillas" aria-label="Plantillas"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M8 12h8M8 16h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
 <?php if (es_admin()): ?><a href="<?= e(url('lineas')) ?>" title="Números conectados" aria-label="Números conectados"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a><?php endif; ?>
         <a href="<?= e(url('cuenta')) ?>" title="Mi cuenta" aria-label="Mi cuenta"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
         <?php if (es_super()): ?><a href="<?= e(url('clientes')) ?>" title="Clientes de Tukán" aria-label="Clientes de Tukán"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5M9 10h.01M15 10h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a><?php endif; ?>
+        <?= tukan_idioma_selector('idioma-barra') ?>
         <a href="<?= e(url('salir')) ?>" title="Salir" aria-label="Salir"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16l-4-4 4-4M6 12h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     </nav>
 </header>
 <?php if (viendo_otra_empresa()): ?>
 <form method="post" action="<?= e(url('volver_tukan')) ?>" class="soporte">
     <?= csrf_campo() ?>
-    <span>Soporte: estás en la cuenta de <b><?= e($empresaVista['nombre']) ?></b><?= \TuWhatsApp\Empresas::alDia($empresaVista) ? '' : ' (no está al día)' ?></span>
+    <span>Soporte: estás en la cuenta de <b><?= u($empresaVista['nombre']) ?></b><?= \TuWhatsApp\Empresas::alDia($empresaVista) ? '' : ' (no está al día)' ?></span>
     <button class="boton boton-claro">Volver a Tukán</button>
 </form>
 <?php endif; ?>
@@ -84,6 +86,7 @@ if ($u && $linea) {
 <?php endif; ?>
 <?php endif; ?>
 
+<?php if (!$u): ?><div class="idioma-suelto"><?= tukan_idioma_selector() ?></div><?php endif; ?>
 <main class="principal">
     <?php foreach ($avisos as [$tipo, $texto]): ?>
     <div class="aviso aviso-<?= e($tipo) ?>" role="<?= $tipo === 'error' ? 'alert' : 'status' ?>"><?= e($texto) ?></div>
@@ -103,6 +106,6 @@ if ($u && $linea) {
     <?php endforeach; ?>
 </nav>
 <?php endif; ?>
-<script src="/assets/app.js?v=8" defer></script>
+<script src="/assets/app.js?v=9" defer></script>
 </body>
 </html>

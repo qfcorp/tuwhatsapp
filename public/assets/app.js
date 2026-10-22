@@ -1,6 +1,8 @@
 // WhatsApp Tukán — pequeñas ayudas en el navegador (todo funciona también sin esto)
 (function () {
     'use strict';
+    // Textos traducidos (los pone la página con tukan_idioma_js; si no hay, queda en español)
+    var TR = function (t) { return (window.TUKAN_TR && window.TUKAN_TR[t]) || t; };
     var $ = function (s, r) { return (r || document).querySelector(s); };
     var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
@@ -65,7 +67,7 @@
     }
     function avisarNavegador(a) {
         if (!('Notification' in window) || Notification.permission !== 'granted') { return; }
-        var op = { body: a.texto || 'Mensaje nuevo', tag: 'tuwa-' + a.id, icon: iconoBase || undefined, data: { url: a.url } };
+        var op = { body: a.texto || TR('Mensaje nuevo'), tag: 'tuwa-' + a.id, icon: iconoBase || undefined, data: { url: a.url } };
         try {
             if (registro && registro.showNotification) { registro.showNotification(a.nombre, op); return; }
             var n = new Notification(a.nombre, op);
@@ -81,7 +83,7 @@
         cajaAvisos.hidden = p === 'granted';
         if (p === 'denied') {
             botonAvisos.hidden = true;
-            estadoAvisos.textContent = 'Los avisos están bloqueados: actívalos en el candado junto a la dirección (Notificaciones → Permitir).';
+            estadoAvisos.textContent = TR('Los avisos están bloqueados: actívalos en el candado junto a la dirección (Notificaciones → Permitir).');
         }
     }
     if (botonAvisos) {
@@ -114,7 +116,7 @@
                 if (!texto || texto.value.trim() === '') { location.reload(); return; }
                 if (!$('#hay-nuevos')) {
                     var a = document.createElement('a');
-                    a.id = 'hay-nuevos'; a.className = 'hay-nuevos'; a.href = location.href; a.textContent = 'Llegó un mensaje nuevo · tocar para ver';
+                    a.id = 'hay-nuevos'; a.className = 'hay-nuevos'; a.href = location.href; a.textContent = TR('Llegó un mensaje nuevo · tocar para ver');
                     lista.after(a);
                 }
             }
@@ -178,18 +180,18 @@
                         var nombre = (c.name && c.name[0]) ? c.name[0].replace(/[\r\n]+/g, ' ') : '';
                         (c.tel || []).forEach(function (t) { filas.push(t + ', ' + nombre); });
                     });
-                    if (!filas.length) { estado.textContent = 'No elegiste contactos con número.'; return; }
+                    if (!filas.length) { estado.textContent = TR('No elegiste contactos con número.'); return; }
                     $('#imp-lista').value = filas.join('\n');
                     archivo.value = '';
-                    estado.textContent = 'Guardando ' + filas.length + ' números…';
+                    estado.textContent = TR('Guardando {n} números…').replace('{n}', filas.length);
                     formI.submit();
-                }).catch(function () { estado.textContent = 'No se pudo abrir la agenda. Usa "Subir archivo de contactos".'; });
+                }).catch(function () { estado.textContent = TR('No se pudo abrir la agenda. Usa "Subir archivo de contactos".'); });
             });
         }
         archivo.addEventListener('change', function () {
             var f = archivo.files[0];
             if (!f) { return; }
-            estado.textContent = 'Leyendo ' + f.name + '…';
+            estado.textContent = TR('Leyendo {s}…').replace('{s}', f.name);
             var lector = new FileReader();
             lector.onload = function () {
                 // Se quitan las fotos de los contactos para que el archivo pese poco
@@ -199,7 +201,7 @@
                     $('#imp-nombre').value = f.name;
                     archivo.disabled = true;   // no se manda el archivo grande, solo el texto
                 }
-                estado.textContent = 'Guardando contactos…';
+                estado.textContent = TR('Guardando contactos…');
                 formI.submit();
             };
             lector.onerror = function () { formI.submit(); };
@@ -220,7 +222,7 @@
                 if (espera !== 'fin') { return; }
             }
             enviado = true;
-            decir('Guardando la conexión…');
+            decir(TR('Guardando la conexión…'));
             var f = new URLSearchParams();
             f.append('csrf', btnQr.dataset.csrf);
             f.append('code', codigo);
@@ -234,10 +236,10 @@
             fetch('/?r=conectar_qr', { method: 'POST', body: f, credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
-                    if (d.ok) { decir('¡Listo! Abriendo tu número…'); location.href = d.ir; }
-                    else { decir(d.error || 'No se pudo conectar.'); enviado = false; btnQr.disabled = false; }
+                    if (d.ok) { decir(TR('¡Listo! Abriendo tu número…')); location.href = d.ir; }
+                    else { decir(d.error || TR('No se pudo conectar.')); enviado = false; btnQr.disabled = false; }
                 })
-                .catch(function () { decir('No se pudo hablar con el servidor. Revisa el internet e intenta de nuevo.'); enviado = false; btnQr.disabled = false; });
+                .catch(function () { decir(TR('No se pudo hablar con el servidor. Revisa el internet e intenta de nuevo.')); enviado = false; btnQr.disabled = false; });
         };
         window.addEventListener('message', function (ev) {
             if (!/(^|\.)facebook\.com$/.test(String(ev.origin).replace(/^https:\/\//, ''))) { return; }
@@ -246,7 +248,7 @@
             if (!d || d.type !== 'WA_EMBEDDED_SIGNUP') { return; }
             try { console.log('[TukanQR] Meta:', d.event, JSON.stringify(d.data || {})); } catch (e) {}
             if (d.event === 'CANCEL') {
-                decir(d.data && d.data.error_message ? 'Meta: ' + d.data.error_message : 'Cerraste la ventana de Meta antes de terminar.');
+                decir(d.data && d.data.error_message ? 'Meta: ' + d.data.error_message : TR('Cerraste la ventana de Meta antes de terminar.'));
                 btnQr.disabled = false;
                 return;
             }
@@ -258,21 +260,21 @@
             btnQr.disabled = false;
         };
         btnQr.disabled = true;
-        decir('Cargando Meta…');
+        decir(TR('Cargando Meta…'));
         var s = document.createElement('script');
         s.src = 'https://connect.facebook.net/es_LA/sdk.js';
         s.async = true; s.defer = true; s.crossOrigin = 'anonymous';
         s.onload = function () { decir(''); };
-        s.onerror = function () { decir('No se pudo cargar Meta. Desactiva el bloqueador de anuncios o prueba con Chrome.'); };
+        s.onerror = function () { decir(TR('No se pudo cargar Meta. Desactiva el bloqueador de anuncios o prueba con Chrome.')); };
         document.head.appendChild(s);
         btnQr.addEventListener('click', function () {
             if (!window.FB) { return; }
             btnQr.disabled = true; datosMeta = null; codigo = null; enviado = false; espera = null;
-            decir('Sigue los pasos en la ventana de Meta…');
+            decir(TR('Sigue los pasos en la ventana de Meta…'));
             FB.login(function (resp) {
                 try { console.log('[TukanQR] permiso:', resp && resp.status, !!(resp && resp.authResponse && resp.authResponse.code)); } catch (e) {}
                 if (resp && resp.authResponse && resp.authResponse.code) { codigo = resp.authResponse.code; enviar(); }
-                else { decir('No se completó el permiso en Meta. Intenta de nuevo.'); btnQr.disabled = false; }
+                else { decir(TR('No se completó el permiso en Meta. Intenta de nuevo.')); btnQr.disabled = false; }
             }, {
                 config_id: btnQr.dataset.config,
                 response_type: 'code',
@@ -302,7 +304,7 @@
                 return '<mark>' + esc(ej && ej.value ? ej.value : '{{' + n + '}}') + '</mark>';
             }).replace(/\n/g, '<br>');
             $('.vp-encabezado', vista).textContent = $('input[name=encabezado]', formN).value;
-            $('.vp-cuerpo', vista).innerHTML = html || '<span class="suave">Escribe el texto…</span>';
+            $('.vp-cuerpo', vista).innerHTML = html || '<span class="suave">' + TR('Escribe el texto…') + '</span>';
             $('.vp-pie', vista).textContent = $('input[name=pie]', formN).value;
             var bots = '';
             $$('.fila-boton', formN).forEach(function (f) {
@@ -354,8 +356,8 @@
         var alCambiar = function () {
             var f = archivo.files[0];
             texto.required = !f;
-            texto.placeholder = f ? 'Texto debajo del archivo (opcional)…' : 'Escribe tu respuesta…';
-            nombreAdj.textContent = f ? f.name + ' · ' + Math.max(1, Math.round(f.size / 1024)) + ' KB (toca "Enviar por el sistema")' : '';
+            texto.placeholder = f ? TR('Texto debajo del archivo (opcional)…') : TR('Escribe tu respuesta…');
+            nombreAdj.textContent = f ? f.name + ' · ' + Math.max(1, Math.round(f.size / 1024)) + ' KB ' + TR('(toca "Enviar por el sistema")') : '';
         };
         archivo.addEventListener('change', alCambiar);
         if (grabar && window.MediaRecorder && navigator.mediaDevices && window.DataTransfer) {
@@ -373,13 +375,13 @@
                         var ext = tipo.indexOf('ogg') >= 0 ? 'ogg' : 'webm';
                         var f = new File(partes, 'nota-de-voz.' + ext, { type: tipo.split(';')[0] });
                         var dt = new DataTransfer(); dt.items.add(f); archivo.files = dt.files;
-                        grabar.textContent = '🎤 Nota de voz'; grabar.classList.remove('grabando');
+                        grabar.textContent = TR('🎤 Nota de voz'); grabar.classList.remove('grabando');
                         alCambiar();
                     };
                     rec.start();
-                    grabar.textContent = '⏹ Detener'; grabar.classList.add('grabando');
-                    nombreAdj.textContent = 'Grabando… toca "Detener" cuando termines.';
-                }).catch(function () { nombreAdj.textContent = 'No se pudo usar el micrófono. Revisa el permiso del navegador.'; });
+                    grabar.textContent = TR('⏹ Detener'); grabar.classList.add('grabando');
+                    nombreAdj.textContent = TR('Grabando… toca "Detener" cuando termines.');
+                }).catch(function () { nombreAdj.textContent = TR('No se pudo usar el micrófono. Revisa el permiso del navegador.'); });
             });
         }
     }
@@ -390,8 +392,8 @@
             var i = b.previousElementSibling;
             i.select();
             (navigator.clipboard ? navigator.clipboard.writeText(i.value) : Promise.reject()).catch(function () { document.execCommand('copy'); });
-            b.textContent = '¡Copiado!';
-            setTimeout(function () { b.textContent = 'Copiar'; }, 1500);
+            b.textContent = TR('¡Copiado!');
+            setTimeout(function () { b.textContent = TR('Copiar'); }, 1500);
         });
     });
     // Formularios que se mandan solos al elegir (embudo); sin JavaScript queda el botón
@@ -414,8 +416,8 @@
         b.addEventListener('click', function () {
             var t = b.dataset.copiar, txt = b.textContent;
             (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () {
-                b.textContent = '¡Copiado!';
-            }, function () { b.textContent = 'Mantén presionado el enlace para copiarlo'; });
+                b.textContent = TR('¡Copiado!');
+            }, function () { b.textContent = TR('Mantén presionado el enlace para copiarlo'); });
             setTimeout(function () { b.textContent = txt; }, 1800);
         });
     });

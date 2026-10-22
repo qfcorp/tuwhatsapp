@@ -58,6 +58,12 @@ function e(mixed $v): string
     return htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+/** Texto escrito por clientes o usuarios (mensajes, nombres, notas): se escapa y NUNCA se traduce con el botón 🌐. */
+function u(mixed $v): string
+{
+    return '<!--notr-->' . e($v) . '<!--/notr-->';
+}
+
 function url(string $ruta, array $params = []): string
 {
     return '/?' . http_build_query(array_merge(['r' => $ruta], $params));
@@ -114,7 +120,7 @@ function usuario(): ?array
     if ($id <= 0) {
         return $u = null;
     }
-    $st = db()->prepare('SELECT id, nombre, correo, empresa_id, rol, super FROM usuarios WHERE id = ? AND activo');
+    $st = db()->prepare('SELECT id, nombre, correo, empresa_id, rol, super, idioma FROM usuarios WHERE id = ? AND activo');
     $st->execute([$id]);
     return $u = ($st->fetch() ?: null);
 }
@@ -203,4 +209,24 @@ function tipo_contacto(string $tipo): string
 function ip_cliente(): string
 {
     return (string) ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '');
+}
+
+// ---------------------------------------------------------------------
+// Idiomas (pieza compartida Tukán Idiomas): español, inglés, francés, portugués e italiano.
+// Botón 🌐 arriba; la página se arma en español y se traduce al final con idiomas/xx.php.
+// ---------------------------------------------------------------------
+require_once RAIZ . '/src/tukan_idiomas.php';
+tukan_idioma_config([
+    'dir'       => RAIZ . '/idiomas',
+    'usuario'   => fn () => usuario()['idioma'] ?? null,
+    'guardar'   => function (string $l): void {
+        if (($u = usuario()) && ($u['idioma'] ?? '') !== $l) {
+            db()->prepare('UPDATE usuarios SET idioma = ? WHERE id = ?')->execute([$l, $u['id']]);
+        }
+    },
+    'defecto'   => fn () => getenv('TUWA_IDIOMA_PRUEBA') ?: null,      // solo en pruebas (forzar un idioma)
+    'faltantes' => getenv('TUWA_IDIOMA_FALTANTES') ?: null,   // solo en pruebas (anota lo que falta traducir)
+]);
+if (PHP_SAPI !== 'cli' && !defined('TUWA_SIN_IDIOMA')) {
+    tukan_idioma_iniciar();
 }

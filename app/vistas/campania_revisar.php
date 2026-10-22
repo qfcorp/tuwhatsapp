@@ -6,7 +6,7 @@ $noAlcanza = $prep['precio'] > 0 && $prep['alcanza'] < $prep['total'];
 ?>
 <div class="chat-cabeza">
     <a href="<?= e(url('campanias')) ?>" class="volver" aria-label="Volver">‹</a>
-    <div><h1>Revisar campaña</h1><p class="suave"><?= e($prep['nombre']) ?></p></div>
+    <div><h1>Revisar campaña</h1><p class="suave"><?= u($prep['nombre']) ?></p></div>
 </div>
 <section class="tarjeta">
     <p class="cifra-grande"><b><?= (int) $prep['total'] ?></b> contactos</p>
@@ -20,7 +20,7 @@ $noAlcanza = $prep['precio'] > 0 && $prep['alcanza'] < $prep['total'];
     <p class="nota">Ojo: vas a escribir también a quien no aceptó promociones. Si te reportan, Meta puede limitar tu número.</p>
     <?php endif; ?>
     <p class="suave pequeno">Así le llega a "Ana López":</p>
-    <div class="burbuja-vista"><span class="vp-cuerpo"><?= nl2br(e($prep['ejemplo'])) ?></span></div>
+    <div class="burbuja-vista"><span class="vp-cuerpo"><?= '<!--notr-->' . nl2br(e($prep['ejemplo'])) . '<!--/notr-->' ?></span></div>
     <?php if ($prep['total'] > 0): ?>
     <form method="post">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="lanzar"><input type="hidden" name="total" value="<?= (int) $prep['total'] ?>">

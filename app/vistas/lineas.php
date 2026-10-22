@@ -6,7 +6,7 @@
 <ul class="lista-simple">
     <?php foreach ($lineas as $l): ?>
     <li>
-        <span><b><?= e($l['nombre']) ?></b><br><span class="suave"><?= $l['telefono'] !== '' ? e(Telefono::bonito($l['telefono'])) : 'sin número escrito' ?> · automático <?= $l['auto_activo'] ? 'encendido' : 'apagado' ?> · tope <?= e(dinero($l['tope_mensual'])) ?></span></span>
+        <span><b><?= u($l['nombre']) ?></b><br><span class="suave"><?= $l['telefono'] !== '' ? e(Telefono::bonito($l['telefono'])) : 'sin número escrito' ?> · automático <?= $l['auto_activo'] ? 'encendido' : 'apagado' ?> · tope <?= e(dinero($l['tope_mensual'])) ?></span></span>
         <a class="boton boton-claro" href="<?= e(url('linea', ['id' => $l['id']])) ?>">Editar</a>
     </li>
     <?php endforeach; ?>

@@ -8,9 +8,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#14211F">
 <title><?= e($titulo) ?> · Tukán Software</title>
-<link rel="stylesheet" href="/assets/app.css?v=4">
+<link rel="stylesheet" href="/assets/app.css?v=13">
 </head>
 <body class="sin-sesion publica">
+<div class="idioma-suelto"><?= tukan_idioma_selector() ?></div>
 <main class="contenido documento">
     <p><a href="https://tukansoftware.com">Tukán Software</a></p>
     <?= $contenido ?>

@@ -11,7 +11,7 @@ $pct = $r['respuesta']['total'] > 0 ? (int) round($r['respuesta']['contestados']
         <?php foreach (Reportes::PERIODOS as $d => $n): ?><a href="<?= e(url('reportes', ['d' => $d])) ?>" class="<?= $r['dias'] === $d ? 'activo' : '' ?>"><?= e($n) ?></a><?php endforeach; ?>
     </nav>
 </div>
-<p class="suave pequeno"><?= e($linea['nombre']) ?> · del <?= e($r['desde']->format('d/m/Y')) ?> al <?= e($r['hasta']->format('d/m/Y')) ?></p>
+<p class="suave pequeno"><?= u($linea['nombre']) ?> · del <?= e($r['desde']->format('d/m/Y')) ?> al <?= e($r['hasta']->format('d/m/Y')) ?></p>
 
 <ul class="cifras">
     <li><b><?= (int) $t['conversaciones'] ?></b><span>personas escribieron</span></li>
@@ -51,7 +51,7 @@ $pct = $r['respuesta']['total'] > 0 ? (int) round($r['respuesta']['contestados']
 <?php else: ?>
 <ul class="lista-simple">
     <?php foreach ($r['agentes'] as $a): ?>
-    <li><span><b><?= e($a['nombre']) ?></b></span><span class="suave"><?= e($pl((int) $a['mensajes'], 'mensaje', 'mensajes')) ?> · <?= e($pl((int) $a['conversaciones'], 'conversación', 'conversaciones')) ?></span></li>
+    <li><span><b><?= u($a['nombre']) ?></b></span><span class="suave"><?= e($pl((int) $a['mensajes'], 'mensaje', 'mensajes')) ?> · <?= e($pl((int) $a['conversaciones'], 'conversación', 'conversaciones')) ?></span></li>
     <?php endforeach; ?>
 </ul>
 <?php endif; ?>

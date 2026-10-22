@@ -21,8 +21,8 @@ y aquí ves <b>cuántas veces lo tocaron</b>. Cada enlace tiene su <b>código QR
 <?php endif; ?>
 <?php foreach ($enlaces as $x): $u = Enlaces::url((string) $x['codigo']); ?>
 <section class="tarjeta enlace-tarjeta">
-    <div class="cabeza"><h2><?= e($x['nombre']) ?></h2><span class="chip chip-cliente"><?= (int) $x['clics'] ?> <?= (int) $x['clics'] === 1 ? 'clic' : 'clics' ?></span></div>
-    <?php if ($x['texto'] !== ''): ?><p class="suave pequeno">Mensaje: <?= e($x['texto']) ?></p><?php endif; ?>
+    <div class="cabeza"><h2><?= u($x['nombre']) ?></h2><span class="chip chip-cliente"><?= (int) $x['clics'] ?> <?= (int) $x['clics'] === 1 ? 'clic' : 'clics' ?></span></div>
+    <?php if ($x['texto'] !== ''): ?><p class="suave pequeno">Mensaje: <?= u($x['texto']) ?></p><?php endif; ?>
     <p><code class="copiable"><?= e($u) ?></code></p>
     <div class="qr" data-qr="<?= e($u) ?>" data-nombre="qr-<?= e($x['codigo']) ?>" aria-label="Código QR de <?= e($x['nombre']) ?>"></div>
     <div class="fila-botones">

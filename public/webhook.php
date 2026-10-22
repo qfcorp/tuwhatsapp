@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 // Aquí avisa Meta (mensajes que llegan, estados y lo enviado desde el celular). No usa sesión.
 define('TUWA_SIN_SESION', true);
+define('TUWA_SIN_IDIOMA', true);
 require dirname(__DIR__) . '/app/bootstrap.php';
 
 header('Content-Type: text/plain; charset=utf-8');

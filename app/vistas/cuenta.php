@@ -8,12 +8,12 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
 <?php require __DIR__ . '/_clave_nueva.php'; ?>
 
 <section class="tarjeta">
-    <h2><?= e($empresa['nombre']) ?></h2>
+    <h2><?= u($empresa['nombre']) ?></h2>
     <p class="suave">
         Plan: <b><?= e(Empresas::ESTADOS[$empresa['estado']]) ?></b><?= $empresa['vence'] ? ' hasta el ' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) : '' ?> ·
         Números: <?= $numeros ?> de <?= (int) $empresa['max_numeros'] ?> · Usuarios: <?= $activos ?> de <?= (int) $empresa['max_usuarios'] ?>
     </p>
-    <p class="suave pequeno">Entraste como <b><?= e($yo['nombre']) ?></b> (<?= e($yo['correo']) ?>) · <?= es_super() ? 'Personal de Tukán' : e(Empresas::ROLES[$yo['rol']] ?? $yo['rol']) ?></p>
+    <p class="suave pequeno">Entraste como <b><?= u($yo['nombre']) ?></b> (<?= e($yo['correo']) ?>) · <?= es_super() ? 'Personal de Tukán' : e(Empresas::ROLES[$yo['rol']] ?? $yo['rol']) ?></p>
 </section>
 
 <details class="tarjeta plegable">
@@ -33,7 +33,7 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
 <ul class="lista-simple lista-usuarios">
     <?php foreach ($usuarios as $x): ?>
     <li>
-        <span><b><?= e($x['nombre']) ?></b> <?= $x['activo'] ? '' : '<small class="chip chip-estado-suspendida">Desactivado</small>' ?><br>
+        <span><b><?= u($x['nombre']) ?></b> <?= $x['activo'] ? '' : '<small class="chip chip-estado-suspendida">Desactivado</small>' ?><br>
             <span class="suave"><?= e($x['correo']) ?> · <?= $x['super'] ? 'Personal de Tukán' : e(Empresas::ROLES[$x['rol']] ?? $x['rol']) ?></span></span>
         <?php if ((int) $x['id'] !== (int) $yo['id'] && !$x['super']): ?>
         <form method="post">

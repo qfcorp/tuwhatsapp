@@ -161,6 +161,7 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS empresa_id integer REFERENCES empr
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rol        text NOT NULL DEFAULT 'admin';
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS super      boolean NOT NULL DEFAULT false;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo     boolean NOT NULL DEFAULT true;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS idioma     varchar(2);   -- idioma elegido con el botón 🌐 (null = español)
 UPDATE usuarios SET empresa_id = 1 WHERE empresa_id IS NULL;
 UPDATE usuarios SET super = true
     WHERE id = (SELECT min(id) FROM usuarios) AND NOT EXISTS (SELECT 1 FROM usuarios WHERE super);

@@ -12,11 +12,11 @@
 </details>
 <?php foreach ($respuestas as $rr): ?>
 <details class="tarjeta plegable">
-    <summary>/<?= e($rr['atajo']) ?> <span class="suave">· <?= e(mb_strimwidth($rr['texto'], 0, 50, '…')) ?></span></summary>
+    <summary>/<?= e($rr['atajo']) ?> <span class="suave">· <?= u(mb_strimwidth($rr['texto'], 0, 50, '…')) ?></span></summary>
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="id" value="<?= (int) $rr['id'] ?>">
         <label>Nombre corto<input name="atajo" required maxlength="40" value="<?= e($rr['atajo']) ?>"></label>
-        <label>Texto<textarea name="texto" rows="4" required maxlength="4000"><?= e($rr['texto']) ?></textarea></label>
+        <label>Texto<textarea name="texto" rows="4" required maxlength="4000"><?= u($rr['texto']) ?></textarea></label>
         <div class="fila-botones">
             <button class="boton">Guardar</button>
             <button class="boton boton-claro" name="accion" value="borrar" formnovalidate>Borrar</button>

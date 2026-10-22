@@ -24,8 +24,8 @@ $maxEsp = $plantillas ? max(array_column($plantillas, 'espacios')) : 0;
             <?php foreach ($plantillas as $i => $p): $v = $p['nombre'] . '|' . $p['idioma']; ?>
             <label class="opcion-plantilla">
                 <input type="radio" name="plantilla" value="<?= e($v) ?>" data-espacios="<?= (int) $p['espacios'] ?>" <?= $f('plantilla') === $v || ($f('plantilla') === '' && $i === 0) ? 'checked' : '' ?>>
-                <span><b><?= e($p['nombre']) ?></b> <small class="chip"><?= e(Gasto::CATEGORIAS[$p['categoria']] ?? $p['categoria']) ?></small>
-                    <span class="cuerpo-plantilla"><?= nl2br(e($p['cuerpo'])) ?></span></span>
+                <span><b><?= u($p['nombre']) ?></b> <small class="chip"><?= e(Gasto::CATEGORIAS[$p['categoria']] ?? $p['categoria']) ?></small>
+                    <span class="cuerpo-plantilla"><?= '<!--notr-->' . nl2br(e($p['cuerpo'])) . '<!--/notr-->' ?></span></span>
             </label>
             <?php endforeach; ?>
         </fieldset>
@@ -64,7 +64,7 @@ $maxEsp = $plantillas ? max(array_column($plantillas, 'espacios')) : 0;
     $clase = ['enviando' => 'espera', 'pausada' => 'mal', 'terminada' => 'ok', 'cancelada' => 'mal'][$k['estado']] ?? 'espera';
 ?>
 <section class="tarjeta">
-    <div class="pl-cabeza"><b><?= e($k['nombre']) ?></b><span class="chip estado-<?= $clase ?>"><?= e(Campanias::ESTADOS[$k['estado']]) ?></span></div>
+    <div class="pl-cabeza"><b><?= u($k['nombre']) ?></b><span class="chip estado-<?= $clase ?>"><?= e(Campanias::ESTADOS[$k['estado']]) ?></span></div>
     <p class="suave pequeno">Plantilla <?= e($k['plantilla']) ?> · <?= e(hora_corta($k['creado'])) ?> · <?= (int) $k['por_minuto'] ?> por minuto</p>
     <div class="tope-barra grande"><span style="width: <?= $pct ?>%"></span></div>
     <div class="cifras">

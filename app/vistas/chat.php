@@ -10,7 +10,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 <div class="chat-cabeza">
     <a href="<?= e(url('bandeja')) ?>" class="volver" aria-label="Volver a la bandeja">‹</a>
     <div>
-        <h1><?= e(Contactos::nombre($c)) ?></h1>
+        <h1><?= u(Contactos::nombre($c)) ?></h1>
         <p class="suave"><?= e(Telefono::bonito($c['telefono'])) ?><?= $c['nombre_whatsapp'] !== '' && $c['nombre_whatsapp'] !== Contactos::nombre($c) ? ' · en WhatsApp: ' . e($c['nombre_whatsapp']) : '' ?><?= $c['etiquetas'] !== '' ? ' · ' . e($c['etiquetas']) : '' ?><?= $c['marketing'] === 'baja' ? ' · <b>no quiere promociones</b>' : '' ?></p>
     </div>
 </div>
@@ -67,9 +67,9 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         <?php else: ?>
         <a class="adjunto-doc" href="<?= e(url('archivo', ['id' => $m['id'], 'bajar' => 1])) ?>">📄 <?= e($m['media_nombre'] ?: 'Documento') ?><?= $m['media_bytes'] ? ' · ' . e(\TuWhatsApp\Archivos::tamanio((int) $m['media_bytes'])) : '' ?></a>
         <?php endif; ?>
-        <?php if ($pie !== ''): ?><p><?= nl2br(e($pie)) ?></p><?php endif; ?>
+        <?php if ($pie !== ''): ?><p><?= '<!--notr-->' . nl2br(e($pie)) . '<!--/notr-->' ?></p><?php endif; ?>
         <?php else: ?>
-        <p><?= nl2br(e($m['texto'])) ?></p>
+        <p><?= '<!--notr-->' . nl2br(e($m['texto'])) . '<!--/notr-->' ?></p>
         <?php endif; ?>
         <span class="pie">
             <?php if ($m['direccion'] === 'sale'): ?><?= e($origenes[$m['origen']] ?? '') ?> · <?php endif; ?>
@@ -156,7 +156,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <form method="post" class="seguimiento-item">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="cancelar_seguimiento"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
         <span><b><?= e((new DateTimeImmutable($s['cuando']))->format('d/m H:i')) ?></b> · <?= e(\TuWhatsApp\Seguimientos::ESTADOS[$s['estado']] ?? $s['estado']) ?><br>
-        <span class="suave pequeno"><?= e(mb_strimwidth($s['texto'], 0, 90, '…')) ?></span></span>
+        <span class="suave pequeno"><?= u(mb_strimwidth($s['texto'], 0, 90, '…')) ?></span></span>
         <?php if ($s['estado'] === 'programado'): ?><button class="enlace enlace-rojo">Cancelar</button><?php endif; ?>
     </form>
     <?php endforeach; ?>
@@ -179,7 +179,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         <?= csrf_campo() ?><input type="hidden" name="accion" value="datos">
         <label>Nombre<input name="nombre" maxlength="100" value="<?= e($c['nombre']) ?>" placeholder="<?= e($c['nombre_whatsapp']) ?>"></label>
         <label>Etiquetas (separadas por coma: vip, quito)<input name="etiquetas" maxlength="300" value="<?= e($c['etiquetas']) ?>"></label>
-        <label>Notas<textarea name="notas" rows="3" maxlength="2000"><?= e($c['notas']) ?></textarea></label>
+        <label>Notas<textarea name="notas" rows="3" maxlength="2000"><?= u($c['notas']) ?></textarea></label>
         <button class="boton">Guardar</button>
     </form>
     <form method="post" class="formulario">

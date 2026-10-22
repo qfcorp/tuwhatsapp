@@ -71,6 +71,15 @@ Corrección (22 oct): al principio le puse a WhatsApp una clave de IA propia; es
 Pendiente de estas mejoras: llenar "Lo que sabe la IA" (Más → Asistente con IA) con los datos de Tukán; revisar precios de los planes en `src/Modulos.php` si quieres otros; más adelante, la acción `ia_uso` para ver el gasto de IA de WhatsApp en el Panel Tukán Central (hoy WhatsApp usa el conector v1).
 Ideas siguientes (lo que más ofrecen los competidores y aún no tenemos): Instagram y Messenger en la misma bandeja, app con notificaciones, Shopify/WooCommerce, catálogo de productos, pagos con Payphone/DeUna, constructor visual de flujos.
 
+## 🌐 Idiomas (22 oct 2026, noche)
+- Pedido de Dimi: botón de traducción en todos los programas para vender afuera. Revisado: solo TuVocalía y TuAcademia lo tenían (v28, 5 idiomas). Nunca se quitó; los demás nunca lo tuvieron.
+- Hecho: pieza compartida **Tukán Idiomas** (`tukan-central/compartido/tukan_idiomas.php` + `LEEME_IDIOMAS.md`), copiada sin cambios en `src/tukan_idiomas.php`.
+- WhatsApp Tukán ya tiene el botón 🌐 con español, inglés (777 frases), francés (773), portugués (722) e italiano (773). Se guarda en `usuarios.idioma`.
+- Mensajes, nombres, notas y plantillas de clientes se marcan con `u()` / `<!--notr-->` y **nunca se traducen**.
+- La IA sugiere la respuesta en el idioma del cliente.
+- Pruebas: idiomas 43, lógica 443, pantallas 202, todo bien.
+- Falta: páginas legales en otros idiomas (revisión de abogado). Siguientes programas, en orden: TuSalón, TuHospedaje, TuEvento, TuPlanner, TuGuardería Canina, TuSpa, TuGroomer, TuPass, ERP para productoras, TuRemolque, Panel Tukán Central.
+
 ## 📝 Revisión de la app de Meta (empezada 22 oct 2026)
 Guía completa con textos, videos y respuestas: **docs/REVISION_META.md**.
 - Listo: verificación ✅, llamadas de prueba ✅, plataforma Sitio web ✅, los 3 permisos ✅ (textos + video 1 y video 2 + casillas), tratamiento de datos ✅ (Cloudflare y Anthropic como encargados; responsable QFCORP SOCIEDAD POR ACCIONES SIMPLIFICADA, Ecuador), instrucciones para revisores ✅ (texto en inglés, Facebook Login: Sí).
