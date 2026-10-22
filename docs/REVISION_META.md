@@ -49,7 +49,7 @@ Los videos deben durar entre 1 y 3 minutos, ir sin sonido y verse claros. Abre e
 ### Video 2: whatsapp_business_management (cuenta y plantillas)
 
 1. En el programa toca el ícono de la **hoja** (Plantillas) → **Crear plantilla**.
-2. Nombre `appointment_reminder`, categoría **Utilidad**, idioma **Inglés (EE. UU.)**, texto: `Hi {{1}}, this is a reminder of your appointment on {{2}}.` → **Enviar a Meta para aprobar**.
+2. Nombre `appointment_reminder`, categoría **Utilidad**, idioma **Inglés (EE. UU.)**, texto: `Hi {{1}}, this is a reminder of your appointment on {{2}}. See you soon!` → **Enviar a Meta para aprobar**.
 3. Muestra que aparece en la lista como **En revisión**.
 4. Ve a **Más → Números conectados** → muestra el número conectado (nombre, número y estado).
 5. Toca **Conectar otro número** → **Conectar con WhatsApp Business** → muestra que se abre la ventana de Meta para conectar una cuenta (Embedded Signup). Ciérrala sin terminar.

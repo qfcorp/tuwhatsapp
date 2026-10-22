@@ -63,7 +63,7 @@ final class Plantillas
                 throw new RuntimeException('Máximo ' . self::MAX_VARIABLES . ' variables.');
             }
             if (preg_match('/^\s*\{\{\d+\}\}/', $cuerpo) || preg_match('/\{\{\d+\}\}[\s.!?¡¿]*$/u', $cuerpo)) {
-                throw new RuntimeException('Una variable {{1}} no puede ir al principio ni al final del texto: agrega palabras antes y después (por ejemplo "Hola {{1}}, ...").');
+                throw new RuntimeException('Una variable ({{1}}, {{2}}…) no puede ir al principio ni al final del texto (un punto al final no cuenta): agrega palabras antes y después, por ejemplo "Hola {{1}}, tu cita es el {{2}}. ¡Te esperamos!".');
             }
         }
         $ejemplos = [];
