@@ -259,6 +259,15 @@ final class Meta
                 'nombre' => (string) ($r['datos']['verified_name'] ?? ''), 'calidad' => (string) ($r['datos']['quality_rating'] ?? '')];
     }
 
+    /** Suscribe esta app a la cuenta de WhatsApp (WABA): sin esto Meta NO manda los mensajes que llegan. */
+    public function suscribirApp(): array
+    {
+        if ($this->wabaId === '') {
+            return ['ok' => false, 'error' => 'Falta el identificador de la cuenta (WABA ID): sin él Meta no avisa los mensajes que llegan.'];
+        }
+        return $this->pedir('POST', '/' . $this->wabaId . '/subscribed_apps', []);
+    }
+
     private function enviar(array $cuerpo): array
     {
         $r = $this->pedir('POST', '/' . $this->phoneNumberId . '/messages', $cuerpo);

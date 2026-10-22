@@ -71,6 +71,11 @@ Corrección (22 oct): al principio le puse a WhatsApp una clave de IA propia; es
 Pendiente de estas mejoras: llenar "Lo que sabe la IA" (Más → Asistente con IA) con los datos de Tukán; revisar precios de los planes en `src/Modulos.php` si quieres otros; más adelante, la acción `ia_uso` para ver el gasto de IA de WhatsApp en el Panel Tukán Central (hoy WhatsApp usa el conector v1).
 Ideas siguientes (lo que más ofrecen los competidores y aún no tenemos): Instagram y Messenger en la misma bandeja, app con notificaciones, Shopify/WooCommerce, catálogo de productos, pagos con Payphone/DeUna, constructor visual de flujos.
 
+## 🧪 Prueba con el número de prueba (22 oct 2026, tarde)
+- Token nuevo puesto en Prueba Meta ("Guardado y conectado"). Destinatario: celular personal de Dimi.
+- El mensaje no llegaba: **la cuenta de prueba (WABA 2501989233621271) no tenía suscrita la app Tukan Mensajes**. Se suscribió desde el Explorador de la API Graph (POST subscribed_apps → success).
+- Arreglo en el programa: al guardar un número a mano ahora suscribe la app solo (antes solo lo hacía el botón QR) y los avisos con firma mala quedan anotados en webhook_log. Pruebas: lógica 441, pantallas 190.
+
 ## 🔎 Revisión de la versión de GitHub (22 oct 2026)
 Otra sesión subió 6 cambios el 21 oct en la tarde (+3.240 líneas): **plantillas desde el panel**, **cuentas por cliente** (empresas separadas, panel "Clientes de Tukán", "Mi cuenta"), **campañas masivas** con permiso de promociones y etiquetas, **varios agentes** (asignar conversaciones, respuestas rápidas), **conector con el Panel Tukán Central** y **términos y condiciones + tratamiento de datos**.
 - Pruebas: **lógica 306 y pantallas 140, todo bien**. Sin errores de sintaxis.

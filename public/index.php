@@ -735,6 +735,12 @@ try {
                 $prueba = Meta::deLinea($nueva)->probar();
                 aviso($prueba['ok'] ? 'Guardado y conectado con Meta: ' . $prueba['numero'] . ' (' . $prueba['nombre'] . ').'
                                     : 'Guardado, pero Meta no respondió bien: ' . $prueba['error'], $prueba['ok'] ? 'ok' : 'error');
+                if ($prueba['ok']) {   // que Meta avise a este programa los mensajes que llegan a esa cuenta
+                    $sus = Meta::deLinea($nueva)->suscribirApp();
+                    if (!$sus['ok']) {
+                        aviso('Meta todavía no avisará los mensajes que lleguen: ' . $sus['error'], 'error');
+                    }
+                }
                 redirigir('linea', ['id' => $id]);
             }
         }

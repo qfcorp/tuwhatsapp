@@ -31,6 +31,7 @@ echo "== Conectar número"
 post "/?r=linea" --data-urlencode "nombre=Tukán ventas" --data-urlencode "telefono=0996408397" --data-urlencode "phone_number_id=100" \
      --data-urlencode "waba_id=200" --data-urlencode "token=EAAGtokenDePrueba1234567890"
 ok 'tiene "Guardado y conectado con Meta" && tiene "Tukán Software"' "guarda y prueba la conexión"
+ok 'grep -q "200.\{1,2\}subscribed_apps" "$SIM_LOG" && ! tiene "todavía no avisará"' "suscribe la app a la cuenta para recibir mensajes"
 ok 'tiene "https://whatsapp.ejemplo.com/webhook.php" && tiene "verifica123"' "muestra los datos del webhook"
 ok '! tiene "EAAGtokenDePrueba"' "el token no se muestra"
 get "/?r=lineas";   ok 'tiene "Tukán ventas" && tiene "099 640 8397"' "lista de números"
