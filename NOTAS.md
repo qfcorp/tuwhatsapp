@@ -56,7 +56,7 @@ Se investigaron 17 programas que venden lo mismo (Wati, Callbell, Kommo, Leadsal
 **Lo que más molesta a sus clientes:** cobro por cada usuario, recargo escondido de 15–80 % sobre lo que cobra Meta, límites de contactos, campañas o bot quitados del plan barato, pago de 3 a 6 meses por adelantado.
 **Nuestra propuesta:** precio fijo por negocio, mes a mes, contactos ilimitados, **0 % de recargo** (el cliente paga Meta directo), coexistencia, español y factura SRI.
 
-Hecho y probado (lógica 441, pantallas 188, instalador simulado con 19 tablas):
+Hecho, probado e **INSTALADO en qfcorp el 22 oct 2026** (resultado: 19 tablas, todo bien, IA con la clave compartida de Tukán):
 1. **Módulos por cliente**: se encienden o apagan en la ficha del cliente; **planes con un toque**: Básico $19, Negocio $35, Pro $55. Lo que no tiene sale en **Más** como "No incluido" con botón "Pedir a Tukán".
 2. **Fotos, audios, videos y documentos** en el chat (ver, escuchar, adjuntar, **notas de voz** desde el navegador).
 3. **Menú con botones de WhatsApp** (3 botones o lista de hasta 10) en la respuesta automática.
@@ -68,7 +68,7 @@ Hecho y probado (lógica 441, pantallas 188, instalador simulado con 19 tablas):
 9. **Integraciones**: descargar a Excel y aviso a Make/Zapier/n8n firmado.
 
 Corrección (22 oct): al principio le puse a WhatsApp una clave de IA propia; estaba mal, porque ya existe la IA compartida de Tukán con la clave de TuHospedaje. Ya se cambió: **no hace falta crear otra clave**. La clave nueva que se creó en console.anthropic.com se puede borrar ahí (API Keys → la última → Delete) para no dejar claves sueltas.
-Pendiente de estas mejoras: si el instalador dice "9) Asistente con IA: apagado", correr en qfcorp `cd /var/www/tukan-central && git pull && bash deploy/configurar_ia.sh --usar-clave-tuhospedaje`; revisar precios de los planes en `src/Modulos.php` si quieres otros; más adelante, la acción `ia_uso` para ver el gasto de IA de WhatsApp en el Panel Tukán Central (hoy WhatsApp usa el conector v1).
+Pendiente de estas mejoras: llenar "Lo que sabe la IA" (Más → Asistente con IA) con los datos de Tukán; revisar precios de los planes en `src/Modulos.php` si quieres otros; más adelante, la acción `ia_uso` para ver el gasto de IA de WhatsApp en el Panel Tukán Central (hoy WhatsApp usa el conector v1).
 Ideas siguientes (lo que más ofrecen los competidores y aún no tenemos): Instagram y Messenger en la misma bandeja, app con notificaciones, Shopify/WooCommerce, catálogo de productos, pagos con Payphone/DeUna, constructor visual de flujos.
 
 ## 🔎 Revisión de la versión de GitHub (22 oct 2026)
