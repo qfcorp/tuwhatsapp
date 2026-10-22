@@ -74,6 +74,8 @@ Ideas siguientes (lo que más ofrecen los competidores y aún no tenemos): Insta
 ## 🧪 Prueba con el número de prueba (22 oct 2026, tarde)
 - Token nuevo puesto en Prueba Meta ("Guardado y conectado"). Destinatario: celular personal de Dimi.
 - El mensaje no llegaba: **la cuenta de prueba (WABA 2501989233621271) no tenía suscrita la app Tukan Mensajes**. Se suscribió desde el Explorador de la API Graph (POST subscribed_apps → success).
+- **Resultado: FUNCIONA.** Llega el mensaje (Bandeja y Embudo → Nuevo), Enviar por el sistema sale ✓✓.
+- IA: la clave compartida vieja daba 401 (no válida). Se creó una clave nueva y se guardó con `tukan-central/deploy/configurar_ia.sh` (modelo rápido claude-haiku-5-5) → "IA: FUNCIONA". Sugerir respuesta probado en el chat: funciona. Revisar si TuHospedaje usa la clave compartida.
 - Arreglo en el programa: al guardar un número a mano ahora suscribe la app solo (antes solo lo hacía el botón QR) y los avisos con firma mala quedan anotados en webhook_log. Pruebas: lógica 441, pantallas 190.
 
 ## 🔎 Revisión de la versión de GitHub (22 oct 2026)
