@@ -71,6 +71,11 @@ Corrección (22 oct): al principio le puse a WhatsApp una clave de IA propia; es
 Pendiente de estas mejoras: llenar "Lo que sabe la IA" (Más → Asistente con IA) con los datos de Tukán; revisar precios de los planes en `src/Modulos.php` si quieres otros; más adelante, la acción `ia_uso` para ver el gasto de IA de WhatsApp en el Panel Tukán Central (hoy WhatsApp usa el conector v1).
 Ideas siguientes (lo que más ofrecen los competidores y aún no tenemos): Instagram y Messenger en la misma bandeja, app con notificaciones, Shopify/WooCommerce, catálogo de productos, pagos con Payphone/DeUna, constructor visual de flujos.
 
+## 📝 Revisión de la app de Meta (empezada 22 oct 2026)
+Guía completa con textos, videos y respuestas: **docs/REVISION_META.md**.
+- Listo: verificación del negocio ✅, llamadas de prueba ✅, plataforma Sitio web agregada ✅, descripción del negocio y texto de whatsapp_business_messaging en borrador ✅.
+- Falta (Dimi): ícono, 2 videos, casilla de confirmación de cada permiso, tratamiento de datos (nombre legal de la empresa), cuenta de prueba "Meta Review" para revisores y **Enviar para revisión**.
+
 ## 🧪 Prueba con el número de prueba (22 oct 2026, tarde)
 - Token nuevo puesto en Prueba Meta ("Guardado y conectado"). Destinatario: celular personal de Dimi.
 - El mensaje no llegaba: **la cuenta de prueba (WABA 2501989233621271) no tenía suscrita la app Tukan Mensajes**. Se suscribió desde el Explorador de la API Graph (POST subscribed_apps → success).
