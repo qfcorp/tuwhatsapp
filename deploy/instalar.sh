@@ -101,7 +101,7 @@ sudo mkdir -p /var/backups/tuwhatsapp && sudo chmod 700 /var/backups/tuwhatsapp
 LINEA="40 3 * * * sudo -u postgres pg_dump -Fc tuwhatsapp > /var/backups/tuwhatsapp/tuwhatsapp_\$(date +\\%F).dump && find /var/backups/tuwhatsapp -name '*.dump' -mtime +14 -delete"
 (sudo crontab -l 2>/dev/null | grep -v "backups/tuwhatsapp"; echo "$LINEA") | sudo crontab - && echo "   listo"
 
-echo "== 6b. Envio de campañas (cada minuto, como www-data)"
+echo "== 7. Envio de campanias (cada minuto, como www-data)"
 sudo touch /var/log/tuwhatsapp-campanias.log && sudo chown www-data:www-data /var/log/tuwhatsapp-campanias.log
 (sudo crontab -u www-data -l 2>/dev/null | grep -v "tuwhatsapp/bin/campanias"; echo "* * * * * php $APP/bin/campanias.php >> /var/log/tuwhatsapp-campanias.log 2>&1") | sudo crontab -u www-data - && echo "   listo"
 
@@ -112,9 +112,9 @@ echo "2) Extensiones de PHP: $(php -m | grep -E -c '^(pdo_pgsql|curl|mbstring|so
 curl -s -o /dev/null -w "3) Pagina de entrar: %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/?r=login"
 curl -s -o /dev/null -w "4) Webhook: %{http_code} (debe ser 403 hasta conectar Meta)\n" -H "Host: $DOMINIO" "http://127.0.0.1/webhook.php"
 echo "5) Usuarios del panel: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM usuarios" < /dev/null)"
-echo "7) Envio de campañas: $(sudo crontab -u www-data -l 2>/dev/null | grep -c tuwhatsapp/bin/campanias) (debe ser 1)"
 grep -q '^META_APP_SECRET=.' "$ENVF" && echo "6) Clave secreta de Meta: guardada" || echo "6) Clave secreta de Meta: FALTA (paso de Meta)"
 grep -q '^META_ES_CONFIG_ID=.' "$ENVF" && grep -q '^META_APP_ID=.' "$ENVF" && echo "7) Boton QR de Meta: listo" || echo "7) Boton QR de Meta: FALTA (App ID y Configuration ID)"
+echo "8) Envio de campanias: $(sudo crontab -u www-data -l 2>/dev/null | grep -c tuwhatsapp/bin/campanias) (debe ser 1)"
 echo "================================="
 echo "Crear tu usuario:          php $APP/bin/crear_usuario.php"
 echo "Guardar la clave de Meta:  bash $APP/deploy/clave_meta.sh"

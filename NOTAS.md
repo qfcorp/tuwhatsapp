@@ -51,6 +51,15 @@ En el servidor (`/var/www/tuwhatsapp/config/.env`) ya están: META_APP_ID, META_
 
 ---
 
+## 🔎 Revisión de la versión de GitHub (22 oct 2026)
+Otra sesión subió 6 cambios el 21 oct en la tarde (+3.240 líneas): **plantillas desde el panel**, **cuentas por cliente** (empresas separadas, panel "Clientes de Tukán", "Mi cuenta"), **campañas masivas** con permiso de promociones y etiquetas, **varios agentes** (asignar conversaciones, respuestas rápidas), **conector con el Panel Tukán Central** y **términos y condiciones + tratamiento de datos**.
+- Pruebas: **lógica 306 y pantallas 140, todo bien**. Sin errores de sintaxis.
+- El botón QR mantiene todos los arreglos (solo se agregó que el número sea de la empresa correcta y que haya cupo en el plan).
+- Actualizar sobre la base actual **no borra nada**: usuarios, números, mensajes y pendientes se conservan; lo existente pasa a la empresa 1 "Tukán Software" y el primer usuario queda como **super**.
+- Instalador probado en servidor simulado: 15 tablas, página 200, envío de campañas programado (cada minuto).
+- Arreglado: el cuadro RESULTADO tenía dos "7)" y una "ñ"; ahora va del 1 al 8 sin tildes.
+- **Para tenerlo en el servidor:** pegar la línea de "Actualizar el programa" (abajo) en PuTTY **qf@qfcorp**. Debe decir Tablas 15 y "8) Envio de campanias: 1".
+
 ## ✅ Hecho (21 oct 2026)
 1. Programa instalado en qfcorp, usuario creado, publicado en Cloudflare.
 2. App de Meta creada, publicada, con dominio, privacidad, eliminación de datos y categoría.
