@@ -74,7 +74,8 @@ Ideas siguientes (lo que más ofrecen los competidores y aún no tenemos): Insta
 ## 📝 Revisión de la app de Meta (empezada 22 oct 2026)
 Guía completa con textos, videos y respuestas: **docs/REVISION_META.md**.
 - Listo: verificación ✅, llamadas de prueba ✅, plataforma Sitio web ✅, los 3 permisos ✅ (textos + video 1 y video 2 + casillas), tratamiento de datos ✅ (Cloudflare y Anthropic como encargados; responsable QFCORP SOCIEDAD POR ACCIONES SIMPLIFICADA, Ecuador), instrucciones para revisores ✅ (texto en inglés, Facebook Login: Sí).
-- Falta (Dimi): crear la cuenta de prueba review@tukanec.com en Clientes de Tukán y pegar su contraseña después de "Password:" en Instrucciones para revisores; revisar el ícono; tocar **Enviar para revisión**.
+- **ENVIADA a Meta el 22 oct 2026 16:38 → "Revisión en curso"** (hasta 20 días). Cuenta de prueba: cliente "Meta Review" (review@tukanec.com, demo hasta 21/11/2026). Ícono y URL de términos guardados.
+- Arreglado: el usuario dimitryfierro@gmail.com no era super (el super era "dimitryfierro@gmail.oom", error de tipeo al crearlo); se le dio super con UPDATE en la base.
 
 ## 🧪 Prueba con el número de prueba (22 oct 2026, tarde)
 - Token nuevo puesto en Prueba Meta ("Guardado y conectado"). Destinatario: celular personal de Dimi.

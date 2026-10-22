@@ -16,9 +16,12 @@ Página: developers.facebook.com → Mis apps → **Tukan Mensajes** → **Revis
 | public_profile (casilla de confirmación) | ✅ Lo marcó Dimi |
 | Tratamiento de datos | ✅ Encargados: Cloudflare, Inc. (EE. UU. y Ecuador) y Anthropic, PBC (EE. UU.). Responsable: QFCORP SOCIEDAD POR ACCIONES SIMPLIFICADA (Ecuador, RUC). Seguridad nacional: No. Políticas: las 4 primeras |
 | Instrucciones para revisores | ✅ Texto escrito, Facebook Login: Sí, sin restricción geográfica |
-| **Cuenta de prueba review@tukanec.com** | ⬜ Dimi la crea y pega la contraseña después de "Password:" |
-| **Ícono de la app** (1024×1024) | ⬜ Revisar que esté subido |
-| **Enviar para revisión** | ⬜ Lo toca Dimi al final (después ya no se puede editar) |
+| Cuenta de prueba review@tukanec.com (cliente "Meta Review", demo hasta 21/11/2026) | ✅ Creada por Dimi, contraseña pegada en Meta |
+| Ícono de la app y URL de condiciones del servicio (/terminos.php) | ✅ Guardados |
+| **Enviar para revisión** | ✅ **ENVIADA el 22 oct 2026, 16:38** → estado "Revisión en curso" |
+
+Meta dice que la mayoría se revisa en hasta 20 días. Si piden algo, llega a Revisar → Revisión de la app y a la Bandeja de alertas.
+Cuando Meta apruebe: borrar (o suspender) el cliente "Meta Review" y pedir acceso avanzado.
 
 Meta suele responder entre 1 y 7 días hábiles.
 
