@@ -73,8 +73,8 @@ Ideas siguientes (lo que más ofrecen los competidores y aún no tenemos): Insta
 
 ## 📝 Revisión de la app de Meta (empezada 22 oct 2026)
 Guía completa con textos, videos y respuestas: **docs/REVISION_META.md**.
-- Listo: verificación del negocio ✅, llamadas de prueba ✅, plataforma Sitio web agregada ✅, descripción del negocio y texto de whatsapp_business_messaging en borrador ✅.
-- Falta (Dimi): ícono, 2 videos, casilla de confirmación de cada permiso, tratamiento de datos (nombre legal de la empresa), cuenta de prueba "Meta Review" para revisores y **Enviar para revisión**.
+- Listo: verificación ✅, llamadas de prueba ✅, plataforma Sitio web ✅, los 3 permisos ✅ (textos + video 1 y video 2 + casillas), tratamiento de datos ✅ (Cloudflare y Anthropic como encargados; responsable QFCORP SOCIEDAD POR ACCIONES SIMPLIFICADA, Ecuador), instrucciones para revisores ✅ (texto en inglés, Facebook Login: Sí).
+- Falta (Dimi): crear la cuenta de prueba review@tukanec.com en Clientes de Tukán y pegar su contraseña después de "Password:" en Instrucciones para revisores; revisar el ícono; tocar **Enviar para revisión**.
 
 ## 🧪 Prueba con el número de prueba (22 oct 2026, tarde)
 - Token nuevo puesto en Prueba Meta ("Guardado y conectado"). Destinatario: celular personal de Dimi.

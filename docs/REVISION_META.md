@@ -11,14 +11,13 @@ Página: developers.facebook.com → Mis apps → **Tukan Mensajes** → **Revis
 | Verificación del negocio | ✅ Lista |
 | Llamadas de prueba a la API | ✅ Completadas |
 | Plataforma "Sitio web" (https://whatsapp.tukanec.com/) | ✅ La agregó Claude |
-| Descripción del negocio y texto del permiso de mensajes | ✅ Escritos por Claude (borrador, en la ventana abierta) |
-| **Ícono de la app** (1024×1024) | ⬜ Lo sube Dimi |
-| **Video 1** (mensajes) | ⬜ Lo graba Dimi |
-| **Video 2** (plantillas y conectar número) | ⬜ Lo graba Dimi |
-| Texto del permiso whatsapp_business_management | ⬜ Pegar el de abajo |
-| public_profile | ⬜ Marcar la casilla de confirmación |
-| Tratamiento de datos | ⬜ Lo responde Dimi (respuestas sugeridas abajo) |
-| Instrucciones para revisores, con cuenta de prueba | ⬜ Crear la cuenta y pegar el texto de abajo |
+| Permiso whatsapp_business_messaging (texto + video 1) | ✅ Guardado |
+| Permiso whatsapp_business_management (texto + video 2) | ✅ Guardado |
+| public_profile (casilla de confirmación) | ✅ Lo marcó Dimi |
+| Tratamiento de datos | ✅ Encargados: Cloudflare, Inc. (EE. UU. y Ecuador) y Anthropic, PBC (EE. UU.). Responsable: QFCORP SOCIEDAD POR ACCIONES SIMPLIFICADA (Ecuador, RUC). Seguridad nacional: No. Políticas: las 4 primeras |
+| Instrucciones para revisores | ✅ Texto escrito, Facebook Login: Sí, sin restricción geográfica |
+| **Cuenta de prueba review@tukanec.com** | ⬜ Dimi la crea y pega la contraseña después de "Password:" |
+| **Ícono de la app** (1024×1024) | ⬜ Revisar que esté subido |
 | **Enviar para revisión** | ⬜ Lo toca Dimi al final (después ya no se puede editar) |
 
 Meta suele responder entre 1 y 7 días hábiles.
