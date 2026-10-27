@@ -859,8 +859,17 @@ try {
     ok($x->getCode() === 403, 'el correo de un cliente no entra como personal de Tukán');
 }
 $okLim = true;
-for ($i = 0; $i < 30; $i++) { $okLim = $okLim && $tc->dentroDelLimite('9.9.9.9', $t0); }
-ok($okLim && !$tc->dentroDelLimite('9.9.9.9', $t0), 'límite de 30 por minuto');
+for ($i = 0; $i < 120; $i++) { $okLim = $okLim && $tc->dentroDelLimite('9.9.9.9', $t0); }
+ok($okLim && !$tc->dentroDelLimite('9.9.9.9', $t0), 'límite de 120 por minuto (protocolo v2)');
+for ($i = 0; $i < 30; $i++) { $tc->anotarRechazo('9.9.9.8', $t0); }
+ok(!$tc->dentroDelLimite('9.9.9.8', $t0), 'límite de 30 rechazados por minuto');
+try {
+    $tc->validar($tok(['inst' => 'tusalon']), 'estado', $t0);
+    ok(false, 'los errores de v1 traen codigo');
+} catch (\TuWhatsApp\TukanCentralError $x) {
+    ok($x->codigo === 'inst', 'los errores de v1 traen codigo');
+}
+ok(($e['protocolo_max'] ?? null) === 2, 'estado dice protocolo_max 2');
 putenv('TUKAN_CENTRAL_ID=');
 putenv('TUKAN_CENTRAL_SECRET=');
 

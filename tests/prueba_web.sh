@@ -479,16 +479,46 @@ tokenCentral() { TIPO="$1" php -r '$b = fn($s) => rtrim(strtr(base64_encode($s),
 T=$(tokenCentral estado)
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/tukan_central.php?accion=estado&t=$T")
 ok '[ "$CODIGO" = 200 ] && grep -q "\"producto\":\"tuwhatsapp\"" "$P" && grep -q "\"negocios\":{\"total\":1" "$P"' "estado para el panel central"
+ok 'grep -q "\"protocolo_max\":2" "$P"' "estado dice que ya habla el protocolo v2"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/tukan_central.php?accion=estado&t=$T")
-ok '[ "$CODIGO" = 401 ] && grep -q "ya se usó" "$P"' "el mismo enlace no sirve dos veces"
+ok '[ "$CODIGO" = 401 ] && grep -q "ya se usó" "$P" && grep -q "\"codigo\":\"nonce\"" "$P"' "el mismo enlace no sirve dos veces (con codigo)"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/tukan_central.php?accion=capacidades")
-ok '[ "$CODIGO" = 400 ] && ! grep -q "codigo" "$P"' "acción v2 -> 400 sin codigo (el panel lo toma como v1)"
+ok '[ "$CODIGO" = 405 ] && grep -q "\"codigo\":\"invalido\"" "$P"' "acción v2 por GET -> 405 invalido"
+# Pedido v2 como lo hace el panel: POST, JSON y el token (con bh) en la cabecera X-Tukan-Token
+pedirV2() { CUERPO="$2" TIPO="$1" php -r '$b = fn($s) => rtrim(strtr(base64_encode($s), "+/", "-_"), "="); $n = time(); $t = getenv("TIPO");
+  $p = $b(json_encode(["v"=>2,"tipo"=>$t,"inst"=>"tuwhatsapp","email"=>"dimi@tukanec.com","nombre"=>"Dimitry","rol"=>"dueno","iat"=>$n,"exp"=>$n+($t==="ejecutar"?30:60),
+       "nonce"=>bin2hex(random_bytes(16)),"bh"=>$b(hash("sha256", getenv("CUERPO"), true))]));
+  echo $p . "." . $b(hash_hmac("sha256", $p, str_repeat("a1", 32), true));' > "$P.t"
+  CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "Content-Type: application/json; charset=utf-8" -H "X-Tukan-Token: $(cat "$P.t")" --data-binary "$2" "$W/tukan_central.php?accion=$1"); }
+pedirV2 capacidades '{}'
+ok '[ "$CODIGO" = 200 ] && grep -q "\"protocolo\":2" "$P" && grep -q "\"crear_demo\"" "$P" && grep -q "\"dias_prueba_max\":90" "$P"' "capacidades v2 por HTTP"
+DEMO='{"operacion_id":"0123456789abcdef0123456789abcdef","accion":"crear_demo","datos":{"nombre":"Demo Web","contacto_nombre":"Rosa Web","email":"rosa@demoweb.ec","telefono":"0991112233","plan":null,"dias":7,"enviar_correo":false,"extra":{}}}'
+pedirV2 ejecutar "$DEMO"
+ok '[ "$CODIGO" = 200 ] && grep -q "\"clave\":\"[a-z0-9-]\{14\}\"" "$P" && grep -q "\"origen\":\"central\"" "$P"' "crear demo desde el panel (HTTP)"
+DEMO_ID=$(grep -o '"cliente_id":"[0-9]*"' "$P" | head -1 | grep -o '[0-9]*')
+pedirV2 ejecutar "$DEMO"
+ok '[ "$CODIGO" = 200 ] && grep -q "\"repetida\":true" "$P" && grep -q "\"clave\":null" "$P"' "crear demo repetido: sin clave"
+pedirV2 clientes '{"estados":["prueba"]}'
+ok '[ "$CODIGO" = 200 ] && grep -q "Demo Web" "$P"' "la demo sale en clientes"
 J="$(mktemp)"
 T=$(tokenCentral sso)
 seguir "/tukan_central.php?accion=sso&t=$T"
 ok 'tiene "Clientes de Tukán" && tiene "← Panel Tukán" && tiene "Entraste desde el Panel Tukán Central"' "entrar con un toque desde el panel central"
 seguir "/tukan_central.php?accion=sso&t=$T"
 ok 'tiene "No se pudo entrar" && tiene "ya se usó"' "enlace de entrada repetido"
+CODIGO=$(curl -s -D - -o /dev/null "$W/tukan_central.php?accion=sso&t=$T" | grep -i -c "X-Tukan-Codigo: nonce")
+ok '[ "$CODIGO" = 1 ]' "el SSO repetido trae la cabecera X-Tukan-Codigo"
+tokenIr() { IR="$1" php -r '$b = fn($s) => rtrim(strtr(base64_encode($s), "+/", "-_"), "="); $n = time();
+  $p = $b(json_encode(["v"=>1,"tipo"=>"sso","inst"=>"tuwhatsapp","email"=>"dimi@tukanec.com","nombre"=>"Dimitry","iat"=>$n,"exp"=>$n+60,"nonce"=>bin2hex(random_bytes(16)),"ir"=>getenv("IR")]));
+  echo $p . "." . $b(hash_hmac("sha256", $p, str_repeat("a1", 32), true));'; }
+J="$(mktemp)"
+seguir "/tukan_central.php?accion=sso&t=$(tokenIr "/?r=cliente&id=$DEMO_ID")"
+ok 'tiene "Demo Web" && tiene "Módulos del plan"' "SSO con enlace directo a la ficha del cliente"
+ok 'tiene "Desde el Panel Tukán Central" && tiene "Demo creada: Demo Web" && tiene "Dimitry &lt;dimi@tukanec.com&gt;"' "la ficha muestra lo que hizo el panel"
+J="$(mktemp)"
+CODIGO=$(curl -s -D - -o /dev/null -b "$J" -c "$J" "$W/tukan_central.php?accion=sso&t=$(tokenIr "//malo.com")" | grep -i "^Location:" | tr -d '\r')
+ok '[ "$CODIGO" = "Location: /?r=clientes" ]' "SSO con ir malo va al inicio"
+seguir "/?r=clientes"; ok 'tiene "El enlace directo no era válido"' "y avisa que el enlace no era válido"
 
 echo "== Idiomas (botón 🌐)"
 get "/?r=bandeja&lang=en"

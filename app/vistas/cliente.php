@@ -1,5 +1,5 @@
 <?php
-/** @var array $empresa @var list<array> $usuarios @var list<array> $numeros @var ?array $claveNueva */
+/** @var array $empresa @var list<array> $usuarios @var list<array> $numeros @var ?array $claveNueva @var list<array> $registroCentral */
 use TuWhatsApp\Empresas;
 use TuWhatsApp\Telefono;
 $e = $empresa;
@@ -91,6 +91,15 @@ $esTukan = (int) $e['id'] === Empresas::TUKAN;
     </li>
     <?php endforeach; ?>
 </ul>
+<?php if (!empty($registroCentral) || ($e['origen'] ?? '') === 'central'): ?>
+<section class="tarjeta">
+    <h2>Desde el Panel Tukán Central</h2>
+    <?php if (($e['origen'] ?? '') === 'central'): ?><p class="suave pequeno">Esta demo se creó desde el Panel Tukán Central.</p><?php endif; ?>
+    <?php foreach ($registroCentral ?? [] as $r): ?>
+    <p class="pequeno"><b><?= e((new DateTimeImmutable($r['momento']))->format('d/m/Y H:i')) ?></b> · <?= e($r['texto']) ?><br><small class="suave"><?= e($r['quien']) ?></small></p>
+    <?php endforeach; ?>
+</section>
+<?php endif; ?>
 <details class="tarjeta plegable">
     <summary>Agregar usuario a este cliente</summary>
     <form method="post" class="formulario">

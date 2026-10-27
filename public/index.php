@@ -458,8 +458,10 @@ try {
         }
         $clave = $_SESSION['clave_mostrar'] ?? null;
         unset($_SESSION['clave_mostrar']);
+        $reg = db()->prepare('SELECT momento, quien, texto FROM tukan_central_registro WHERE empresa_id = ? ORDER BY momento DESC, id DESC LIMIT 10');
+        $reg->execute([(int) $e['id']]);
         vista('cliente', $e['nombre'], ['empresa' => $e, 'usuarios' => Empresas::usuarios(db(), (int) $e['id']),
-            'numeros' => Lineas::todas(db(), (int) $e['id']), 'claveNueva' => $clave]);
+            'numeros' => Lineas::todas(db(), (int) $e['id']), 'claveNueva' => $clave, 'registroCentral' => $reg->fetchAll()]);
 
     case 'archivo':   // foto, audio, video o documento de un chat (solo de la cuenta que se está mirando)
         $st = db()->prepare('SELECT m.*, l.empresa_id FROM mensajes m JOIN lineas l ON l.id = m.linea_id WHERE m.id = ?');

@@ -1,5 +1,5 @@
 # WhatsApp Tukán — Estado y pasos para continuar
-*Actualizado: 21 oct 2026, 12:30*
+*Actualizado: 27 oct 2026*
 
 ## Qué es
 Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de WhatsApp de Meta**, para el número de ventas de Tukán (+593 99 640 8397) y después QF Producciones (+593 98 683 3077) en el mismo programa.
@@ -8,7 +8,7 @@ Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de
 - Dirección: **https://whatsapp.tukanec.com** (ya funciona)
 - Servidor: **qfcorp** (usuario `qf`), túnel de Cloudflare `servidorqf` → `http://localhost:80`
 - Tecnología: PHP + PostgreSQL + nginx
-- Pruebas (Meta simulado): **lógica 173 y pantallas 77, todo bien**
+- Pruebas (Meta simulado): **idiomas 43, lógica 446, Panel Central v2 162 y pantallas 212, todo bien** (27 oct 2026)
 
 ## Qué hace el programa
 - **Bandeja** y **chat** con 2 botones: "Enviar desde el celular" (gratis) y "Enviar por el sistema" (pagado, muestra el costo).
@@ -50,6 +50,43 @@ Recibir mensajes y enviar desde la app del celular es **gratis**.
 En el servidor (`/var/www/tuwhatsapp/config/.env`) ya están: META_APP_ID, META_ES_CONFIG_ID=1865337081309109 y la clave secreta. ✅
 
 ---
+
+## 🧩 Panel Tukán Central v2: demos desde el panel (27 oct 2026)
+**Problema:** en el Panel Tukán Central, *Crear demo* no mostraba WhatsApp Tukán porque el conector solo hablaba el protocolo v1 (entrar y cifras).
+
+**Hecho** (`src/TukanCentralV2.php`, `src/TukanCentralError.php`, `public/tukan_central.php`, siguiendo el de TuLavadora):
+- v1 sigue igual (`sso`, `estado`), ahora con `codigo` en los errores (y cabecera `X-Tukan-Codigo` en el SSO), `estado` dice `protocolo_max: 2`
+  y el SSO acepta `ir` (enlace directo a la ficha: solo `/?r=cliente…`; uno malo abre Clientes de Tukán).
+- Acciones v2: `capacidades`, `clientes`, `cliente`, `planes` (de `Modulos::PLANES`), `modulos` (Anexo B), `ia_uso` (Anexo C) y `ejecutar` con
+  `crear_demo`, `extender_prueba`, `suspender`, `reactivar`, `cambiar_plan`, `nueva_clave_dueno`, `nota_interna`, `cambiar_modulos` e `ia_tope`.
+- **Crear demo**: empresa en demo hasta hoy + días (7 por defecto, máx. 90), su administrador con contraseña que se ve una sola vez,
+  `origen = central`, plan Pro con todos los módulos (o los elegidos; "ninguno" = solo lo básico), mensaje y enlace de WhatsApp. Usa
+  `Empresas::crear` (lo mismo que *Crear cliente nuevo*) y `Modulos::aplicarPlan`. Correo ya usado → error en el campo correo. `correo_enviado: false` (no hay envío de correo).
+- Seguridad del protocolo: orden de validación §3.1, `bh` (hash del cuerpo), nonce de un solo uso, vida 60 s (30 s en `ejecutar`),
+  límite por IP **120 pedidos y 30 rechazados por minuto** (también para `sso` y `estado`; antes 30), errores siempre con `codigo`.
+- Idempotencia: tabla `tukan_central_operaciones` (la operación repetida devuelve lo mismo con `repetida: true`; la contraseña NO se
+  guarda: en la repetida sale `clave: null, clave_oculta: true`). Registro de lo que hace el panel en `tukan_central_registro`
+  (se ve en la ficha del cliente → *Desde el Panel Tukán Central*).
+- Base (`db/schema.sql`, se puede correr muchas veces): `empresas.origen`, `empresas.plan`, `empresas.estado_antes`,
+  `tukan_central_pedidos.rechazados` y las tablas `tukan_central_operaciones` y `tukan_central_registro` → **Tablas: 21**.
+- Estado de cada cliente con la regla única del panel: demo → *prueba*; demo terminada o vencida → *vencido*; activa que vence en 0 a 7 días
+  → *por_vencer*; activa sin fecha → *activo*; suspendida → *suspendido*. `estado` (v1) y `clientes` (v2) dan las mismas cifras.
+- Precio del mes por módulos: plan + módulos encendidos aparte − módulos del plan apagados. Precios sueltos **provisionales** en
+  `Modulos::PRECIOS` (enlaces 3, campañas 6, agentes 5, embudo 4, seguimientos 4, reportes 3, IA 12, integraciones 8).
+
+**Pruebas:** nuevo `tests/prueba_central_v2.php` (162, contra PostgreSQL real: firma mala, vencido, nonce repetido, bh malo, GET, no JSON,
+vida 31 s, crear demo, repetida con clave oculta, correo duplicado → `datos.email`, alargar, suspender/reactivar, nueva clave,
+capacidades, clientes = estado, módulos, IA, error interno sin detalles, límite 120/30). Toda la suite: idiomas 43, lógica 446,
+Panel Central v2 162, pantallas 212 (crear demo por HTTP, SSO con `ir`) → **TODO BIEN**.
+
+**Para tenerlo en el servidor:**
+1. Pegar la línea de "Actualizar el programa" (abajo) en PuTTY **qf@qfcorp**: corre `db/schema.sql` (agrega las columnas y tablas nuevas, no borra nada) → debe decir **Tablas 21**.
+2. En el Panel Tukán Central → Programas → WhatsApp Tukán → tocar **Probar conexión** (así lee las capacidades v2 y aparece en *Crear demo*).
+
+**Pendiente:**
+- Dimitry: confirmar los precios de los módulos sueltos (`Modulos::PRECIOS`).
+- No hay correo de bienvenida (el programa no envía correos): la demo se manda por WhatsApp desde el panel.
+- Sin `registrar_pago` ni `finanzas`: WhatsApp Tukán no guarda pagos; si se quiere, agregar una tabla de pagos y esas acciones.
 
 ## 🚀 Mejoras para competir (22 oct 2026)
 Se investigaron 17 programas que venden lo mismo (Wati, Callbell, Kommo, Leadsales, Respond.io, WhatChimp, Wasapi, Whaticket, Zoko, AiSensy, etc.).
@@ -183,7 +220,7 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 - Respaldo diario 3:40 am en `/var/backups/tuwhatsapp` (14 días).
 - Archivos principales: `src/Registro.php` (botón QR), `src/Webhook.php`, `src/Reglas.php`, `src/Mensajeria.php`, `src/Gasto.php`, `deploy/instalar.sh`, `deploy/clave_meta.sh`.
 - Módulos nuevos: `src/Modulos.php` (módulos y planes), `src/Archivos.php`, `src/Embudo.php`, `src/Seguimientos.php`, `src/Reportes.php`, `src/Asistente.php` + `src/tukan_ia.php` (IA compartida, copia sin cambios del Panel Central), `src/Enlaces.php`, `src/Integraciones.php`, `public/w.php`, `public/boton.js`. Fotos y audios en `/var/www/tuwhatsapp/archivos` (no se suben a GitHub).
-- Pruebas: `PGPORT=5432 PGUSER=postgres bash tests/correr.sh` → debe terminar en `TODO BIEN` (lógica 441, pantallas 193).
+- Pruebas: `PGPORT=5432 PGUSER=postgres bash tests/correr.sh` → debe terminar en `TODO BIEN` (idiomas 43, lógica 446, Panel Central v2 162, pantallas 212).
 - Cuidado: hay dos ventanas de PuTTY; la del programa es **qf@qfcorp** (no `root@vps-...`).
 
 ## 21 oct 2026 (tarde): cuentas por cliente

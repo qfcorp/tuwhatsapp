@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Conecta WhatsApp Tukán con el Panel Tukán Central (protocolo v1).
+# Conecta WhatsApp Tukán con el Panel Tukán Central (protocolo v1 y v2: cifras, entrar con un toque y crear demos).
 # Uso (en el servidor, con sudo; el comando completo lo da el Panel Central al agregar el programa):
 #   sudo bash /var/www/tuwhatsapp/deploy/conectar_central.sh ID SECRETO URL
 # Ejemplo:
@@ -39,3 +39,5 @@ T="$(ID="$ID" S="$SECRETO" php -r '
   echo $p . "." . $b(hash_hmac("sha256", $p, getenv("S"), true));')"
 R="$(curl -s -H "Host: $DOMINIO" "http://127.0.0.1/tukan_central.php?accion=estado&t=$T")"
 if echo "$R" | grep -q '"ok":true'; then echo "OK: conectado con el Panel Tukan Central"; else echo "ERROR: la prueba fallo: $R"; exit 1; fi
+echo "$R" | grep -q '"protocolo_max":2' && echo "OK: protocolo v2 (en el panel toca Probar conexion para que aparezca en Crear demo)" \
+  || echo "AVISO: el programa todavia habla solo v1. Actualizalo y vuelve a correr este comando."

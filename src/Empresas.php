@@ -102,8 +102,13 @@ final class Empresas
         ];
     }
 
+    /** De dónde vino cada cliente (protocolo v2 del Panel Tukán Central): super = Clientes de Tukán, central = demo del panel. */
+    public const ORIGENES = ['super', 'central', 'registro', 'demo_pedida'];
+
     /**
      * Crea la empresa con su primer usuario (administrador).
+     * $d['origen'] (opcional): uno de ORIGENES; por defecto "super". Si ya hay una transacción abierta (Panel Tukán Central),
+     * trabaja dentro de ella.
      * @return array{empresa_id:int, clave:string} la clave se muestra una sola vez
      */
     public static function crear(PDO $db, array $d): array
@@ -114,16 +119,24 @@ final class Empresas
         if (!filter_var($correoAdmin, FILTER_VALIDATE_EMAIL)) {
             throw new RuntimeException('Escribe el correo con el que va a entrar el cliente.');
         }
-        $db->beginTransaction();
+        $origen = in_array($d['origen'] ?? null, self::ORIGENES, true) ? (string) $d['origen'] : 'super';
+        $propia = !$db->inTransaction();
+        if ($propia) {
+            $db->beginTransaction();
+        }
         try {
-            $st = $db->prepare('INSERT INTO empresas (nombre, estado, vence, max_numeros, max_usuarios, contacto, telefono, correo, notas)
-                                VALUES (:nombre, :estado, :vence, :max_numeros, :max_usuarios, :contacto, :telefono, :correo, :notas) RETURNING id');
-            $st->execute(array_diff_key($x, ['motivo_suspension' => 1]));
+            $st = $db->prepare('INSERT INTO empresas (nombre, estado, vence, max_numeros, max_usuarios, contacto, telefono, correo, notas, origen)
+                                VALUES (:nombre, :estado, :vence, :max_numeros, :max_usuarios, :contacto, :telefono, :correo, :notas, :origen) RETURNING id');
+            $st->execute(array_diff_key($x, ['motivo_suspension' => 1]) + ['origen' => $origen]);
             $id = (int) $st->fetchColumn();
             $clave = self::agregarUsuario($db, $id, $correoAdmin, $nombreAdmin !== '' ? $nombreAdmin : $x['contacto'], 'admin', false);
-            $db->commit();
+            if ($propia) {
+                $db->commit();
+            }
         } catch (\Throwable $e) {
-            $db->rollBack();
+            if ($propia) {
+                $db->rollBack();
+            }
             throw $e;
         }
         return ['empresa_id' => $id, 'clave' => $clave];

@@ -108,7 +108,7 @@ sudo touch /var/log/tuwhatsapp-campanias.log && sudo chown www-data:www-data /va
 
 echo
 echo "=========== RESULTADO ==========="
-echo "1) Tablas: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" < /dev/null) (deben ser 19)"
+echo "1) Tablas: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" < /dev/null) (deben ser 21)"
 echo "2) Extensiones de PHP: $(php -m | grep -E -c '^(pdo_pgsql|curl|mbstring|sodium)$') (deben ser 4)"
 curl -s -o /dev/null -w "3) Pagina de entrar: %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/?r=login"
 curl -s -o /dev/null -w "4) Webhook: %{http_code} (debe ser 403 hasta conectar Meta)\n" -H "Host: $DOMINIO" "http://127.0.0.1/webhook.php"

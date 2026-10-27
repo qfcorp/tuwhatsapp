@@ -141,12 +141,31 @@ En **Automático**: revisa horario, palabras clave y el menú, prueba con el **p
 - Bandeja: filtros **Míos** y **Sin asignar**; cada conversación muestra quién la atiende.
 - **Respuestas rápidas** (Automático → Respuestas rápidas, o "Editar" en el chat): textos guardados que se pegan con un toque. Los agentes las usan; los administradores las crean.
 
-## Conectar con el Panel Tukán Central
+## Conectar con el Panel Tukán Central (protocolo v2: demos desde el panel)
 1. En panel.tukanec.com → **Programas** → **Agregar programa** → elige **WhatsApp Tukán**, ID `tuwhatsapp`, dirección `https://whatsapp.tukanec.com`.
 2. Copia el comando que te da y pégalo en el servidor (PuTTY de qfcorp). Es así:
-   `sudo bash /var/www/tuwhatsapp/deploy/conectar_central.sh tuwhatsapp <SECRETO> https://panel.tukanec.com` → debe terminar en `OK`.
-3. En el panel toca **Probar conexión**. Desde ahí entras con un toque (abre Clientes de Tukán) y ves las cifras: clientes en demo, activos, por vencer, vencidos, suspendidos, números, mensajes y gasto del mes.
+   `sudo bash /var/www/tuwhatsapp/deploy/conectar_central.sh tuwhatsapp <SECRETO> https://panel.tukanec.com` → debe terminar en `OK: protocolo v2`.
+3. En el panel toca **Probar conexión**. Con eso el panel lee las **capacidades** y WhatsApp Tukán aparece en **Crear demo**, **Clientes** y **Vencimientos**.
+   Si ya estaba conectado y solo actualizaste el programa, basta con tocar **Probar conexión**.
 - Opcional: `TUKAN_SOLO_CENTRAL=1` en `config/.env` hace que el personal de Tukán solo entre desde el panel central (los clientes entran igual).
+
+Qué se puede hacer desde el panel (cada cliente es una **empresa**; Tukán no cuenta como cliente):
+
+| Desde el panel | Qué hace en WhatsApp Tukán |
+|---|---|
+| **Crear demo** | Crea la empresa en **demo** hasta hoy + los días elegidos (7 por defecto, máximo 90), con su administrador y una contraseña que se ve **una sola vez** (botón *Enviar por WhatsApp*). Plan Pro con **todos los módulos**, o los que se marquen. Usa las mismas funciones que *Crear cliente nuevo* de Clientes de Tukán. No manda correo (el programa no envía correos). |
+| **Alargar demo** | Suma días desde el fin de la demo (o desde hoy si ya terminó). No se puede con cuentas de pago ni suspendidas. |
+| **Suspender / Reactivar** | Suspende con motivo (el cliente lo ve al entrar; los mensajes que llegan se guardan). Reactivar la deja como estaba (demo o activa). |
+| **Nueva clave del dueño** | Contraseña nueva para el administrador principal (la anterior deja de servir). |
+| **Cambiar plan**, **Módulos**, **Tope de IA**, **Nota interna** | Lo mismo que la ficha del cliente: plan Básico/Negocio/Pro, encender o apagar módulos (el precio del mes se recalcula), tope de IA y notas que el cliente no ve. |
+| Clientes, ficha, Vencimientos | Estado con la regla única del panel (demo, al día, vence en 7 días, vencida, suspendida), plan, módulos y su precio del mes, contacto, uso (números, usuarios, mensajes, contactos) y lo que hizo el panel. |
+| **Entrar** | Abre WhatsApp Tukán ya dentro, directo en la ficha de ese cliente. |
+| **IA** | Gasto de IA de cada cliente en el mes. |
+
+- Cada operación lleva una clave (`operacion_id`): si el panel reintenta, no se crea una demo dos veces. Se guarda en `tukan_central_operaciones` **sin contraseñas**.
+- Lo que hace el panel queda en la ficha del cliente → *Desde el Panel Tukán Central* (quién, qué y cuándo).
+- Los precios de los módulos sueltos (encender uno fuera del plan) están en `src/Modulos.php` (`PRECIOS`) y son **provisionales**.
+- No hay cobros dentro del programa (los pagos se anotan en el panel), ni pedidos de demo, ni tickets: por eso no tiene *Registrar pago*, *Finanzas* ni *Solicitudes*.
 
 ## Términos y condiciones
 - Páginas públicas: `/terminos.php` (qué paga el cliente a Tukán y a Meta, reglas de uso, suspensión, ley de Ecuador) y `/tratamiento-datos.php` (acuerdo de encargado de tratamiento según la LOPDP).
@@ -190,7 +209,7 @@ Idiomas: `php tests/prueba_idiomas.php` (motor + diccionarios). Para encontrar t
 ```
 PGPORT=5432 PGUSER=postgres bash tests/correr.sh
 ```
-Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`). Lógica 441 y pantallas 192, deben terminar en `TODO BIEN`.
+Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`). Idiomas 43, lógica 446, Panel Tukán Central v2 162 y pantallas 212: deben terminar en `TODO BIEN`.
 
 ## Archivos
 - `public/index.php` panel · `public/webhook.php` lo que avisa Meta · `public/api.php` API
@@ -199,4 +218,5 @@ Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/m
 - `src/Reglas.php` decisión de responder · `src/Mensajeria.php` envíos con tope · `src/Gasto.php` precios y gasto · `src/Webhook.php` mensajes, estados y ecos · `src/Meta.php` conexión con Meta
 - `src/Modulos.php` módulos y planes · `src/Archivos.php` fotos, audios y documentos · `src/Embudo.php` · `src/Seguimientos.php` · `src/Reportes.php` · `src/Asistente.php` (IA) · `src/Enlaces.php` · `src/Integraciones.php`
 - `public/w.php` enlace corto · `public/boton.js` botón para páginas web · `public/assets/qrcode.js` códigos QR (MIT, Kazuhiko Arase)
+- `src/TukanCentral.php` (v1: entrar y cifras) y `src/TukanCentralV2.php` (v2: demos, clientes, módulos) · `public/tukan_central.php` conector · `tests/prueba_central_v2.php`
 - `db/schema.sql` base (se puede correr muchas veces) · `deploy/instalar.sh` instalador · `deploy/clave_meta.sh` clave de Meta · `src/tukan_ia.php` IA compartida (no editar: se copia del Panel Tukán Central)

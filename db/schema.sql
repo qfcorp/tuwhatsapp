@@ -376,3 +376,42 @@ CREATE TABLE IF NOT EXISTS tukan_ia_gasto (
   actualizado TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (negocio_id, mes)
 );
+
+
+-- ---------------------------------------------------------------------
+-- Panel Tukán Central, protocolo v2 (27 oct 2026): crear y manejar demos desde el panel.
+--   empresas.origen: de dónde vino cada cliente (super = Clientes de Tukán, central = demo creada desde el Panel Tukán Central).
+--   empresas.plan: el plan elegido (basico, negocio, pro); vacío en las cuentas de antes (se deduce de sus módulos).
+--   empresas.estado_antes: demo o activa antes de suspenderla (para volver a lo mismo al reactivar).
+--   tukan_central_pedidos.rechazados: límite de 30 pedidos rechazados (401) por minuto por IP (además de 120 en total).
+--   tukan_central_operaciones: cada "ejecutar" del panel con su clave de operación (no se crea una demo dos veces si el
+--                   panel reintenta). Guarda la respuesta SIN contraseñas. Se borran a los 90 días.
+--   tukan_central_registro: qué hizo el panel en cada cuenta (quién, qué y la clave de operación).
+-- ---------------------------------------------------------------------
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS origen       text NOT NULL DEFAULT 'super';
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plan         text;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS estado_antes text;
+ALTER TABLE tukan_central_pedidos ADD COLUMN IF NOT EXISTS rechazados integer NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS tukan_central_operaciones (
+    operacion_id char(32) PRIMARY KEY,
+    accion       varchar(40) NOT NULL,
+    cliente_id   varchar(80),
+    cuerpo_hash  char(43) NOT NULL,               -- el mismo valor que "bh" del token
+    estado       varchar(10) NOT NULL CHECK (estado IN ('en_curso', 'ok', 'error')),
+    http         integer,
+    respuesta    text,                            -- JSON de la respuesta SIN claves
+    email        varchar(120) NOT NULL,
+    creado       timestamptz NOT NULL DEFAULT now(),
+    terminado    timestamptz
+);
+CREATE INDEX IF NOT EXISTS tukan_central_operaciones_creado ON tukan_central_operaciones (creado);
+
+CREATE TABLE IF NOT EXISTS tukan_central_registro (
+    id         bigserial PRIMARY KEY,
+    empresa_id integer NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    momento    timestamptz NOT NULL DEFAULT now(),
+    quien      text NOT NULL,                     -- "Panel Tukán Central · Dimitry <correo>"
+    texto      text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tukan_central_registro_empresa ON tukan_central_registro (empresa_id, momento);
