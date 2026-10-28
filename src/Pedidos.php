@@ -250,7 +250,8 @@ final class Pedidos
     }
 
     /**
-     * Enlace de pago: con Payphone (si el número tiene token) se crea uno por pedido; si no, el enlace fijo del número
+     * Enlace de pago: con Plux, la página de pago de WhatsApp Tukán del pedido; con Payphone, un enlace por pedido
+     * (si hay los dos, el que eligió el negocio en Cobros); si no, el enlace fijo del número
      * (DeUna, PayPal, Kushki…) cambiando {total} y {pedido}. Se guarda en el pedido. Devuelve '' si no hay forma de pago en línea.
      */
     public static function enlacePago(PDO $db, array $linea, array $pedido): string
@@ -260,7 +261,20 @@ final class Pedidos
         }
         $url = '';
         $token = Cifrado::descifrar((string) ($linea['payphone_token'] ?? ''));
-        if ($token !== '') {
+        $conPlux = Plux::configurado($linea);
+        $elegido = (string) ($linea['cobro_tarjeta'] ?? '');
+        // Con qué se cobra con tarjeta: lo que eligió el negocio en Cobros; si no eligió, Payphone y si no, Plux
+        $usar = match (true) {
+            $elegido === 'plux' && $conPlux => 'plux',
+            $elegido === 'payphone' && $token !== '' => 'payphone',
+            $token !== '' => 'payphone',
+            $conPlux => 'plux',
+            default => '',
+        };
+        if ($usar === 'plux') {
+            $url = Plux::urlPago($db, $pedido);
+            $metodo = 'plux';
+        } elseif ($usar === 'payphone') {
             $cent = (int) round((float) $pedido['total'] * 100);
             $iva = (int) round((float) $pedido['iva'] * 100);
             $r = (float) $pedido['iva'] > 0

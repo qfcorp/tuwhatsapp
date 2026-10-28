@@ -8,7 +8,7 @@ $grupos = [
     'Vender' => [
         ['pedidos', 'Pedidos', 'Carritos y pedidos de tus clientes: pendientes de pago, pagados, enviados.', false],
         ['catalogo', 'Catálogo', 'Tus productos o servicios con precio y stock, para mandarlos por el chat.', true],
-        ['cobros', 'Cobros y cotizaciones', 'Enlace de pago (Payphone, DeUna), transferencia, IVA y cotización en PDF.', true],
+        ['cobros', 'Cobros y cotizaciones', 'Tarjeta con Plux o Payphone, transferencia, IVA y cotización en PDF.', true],
         ['campanias', 'Campañas', 'Mandar una plantilla a muchos clientes a la vez.', true],
         ['seguimientos', 'Seguimientos', 'Mensajes programados: escribir solo a quien no respondió.', false],
         ['enlaces', 'Enlaces y QR', 'Enlace corto, código QR y botón de WhatsApp para tu página web.', true],

@@ -57,7 +57,8 @@
     <li>Bandeja y chat</li>
     <li>Catálogo de productos</li>
     <li>Carrito, pedidos y cotización en PDF</li>
-    <li>Cobros: Payphone, enlace de pago y transferencia</li>
+    <li>Cobros: tarjeta (Plux o Payphone), enlace de pago y transferencia</li>
+    <li>Pago con tarjeta por Plux: cómo inscribirte y cómo paga el cliente</li>
     <li>El cliente compra solo por WhatsApp</li>
     <li>Chatbots por pasos</li>
     <li>Agente con IA que contesta solo (extra)</li>
@@ -82,7 +83,7 @@
     <tr><td><b>Todo incluido</b></td><td>Ya no se cobra por módulos: campañas, varios agentes, embudo, catálogo, pedidos, chatbots, reportes y todo lo demás vienen en el mismo plan.</td><td>—</td></tr>
     <tr><td><b>Catálogo</b></td><td>Tus productos o servicios con foto, precio y stock.</td><td>Más → Catálogo</td></tr>
     <tr><td><b>Carrito y pedidos</b></td><td>Arma el pedido del cliente desde el chat; él también puede comprar tocando.</td><td>Chat → Carrito · Pedidos</td></tr>
-    <tr><td><b>Cobros</b></td><td>Enlace de Payphone por pedido, enlace fijo (DeUna, PayPal…) o datos de transferencia.</td><td>Más → Cobros y cotizaciones</td></tr>
+    <tr><td><b>Cobros</b></td><td>Pago con tarjeta por <b>Plux</b> (el pedido pasa solo a Pagado) o Payphone, enlace fijo (DeUna, PayPal…) o datos de transferencia.</td><td>Más → Cobros y cotizaciones</td></tr>
     <tr><td><b>Cotización en PDF</b></td><td>Se arma sola con tus datos, IVA y validez, y se manda por WhatsApp.</td><td>Chat → Carrito</td></tr>
     <tr><td><b>Chatbots</b></td><td>Conversaciones por pasos con botones y preguntas, sin programar.</td><td>Más → Chatbots</td></tr>
     <tr><td><b>Agente con IA</b> <span class="chip">Extra</span></td><td>Contesta solo las 24 horas, arma el carrito y pasa a una persona cuando hace falta.</td><td>Más → Agente con IA</td></tr>
@@ -182,7 +183,7 @@
 </section>
 
 <section class="capitulo">
-  <h2>6. Cobros: Payphone, enlace de pago y transferencia</h2>
+  <h2>6. Cobros: tarjeta (Plux o Payphone), enlace de pago y transferencia</h2>
   <div class="dos">
     <div>
       <p>En <b>Más → Cobros y cotizaciones</b>:</p>
@@ -190,28 +191,62 @@
         <li><b>IVA que se suma</b>: pon 0 si tus precios ya son finales, o 15 para sumar el 15 %.</li>
         <li><b>Datos para transferencia</b>: banco, tipo y número de cuenta, a nombre de quién.</li>
         <li><b>Enlace de pago fijo</b> (DeUna, PayPal, Kushki…). Puedes usar <code>{total}</code> y <code>{pedido}</code> dentro del enlace.</li>
-        <li><b>Payphone</b>: pega el <b>token</b> y el <b>Store ID</b> de tu aplicación en Payphone Developer. Así cada pedido tiene su propio enlace con el monto exacto.</li>
+        <li><b>Pago Plux</b> (tarjeta de crédito o débito): cada pedido tiene su página de pago y, cuando el cliente paga, el pedido pasa <b>solo</b> a Pagado. Ver el capítulo 7.</li>
+        <li><b>Payphone</b>: pega el <b>token</b> y el <b>Store ID</b> de tu aplicación en Payphone Developer. Cada pedido tiene su enlace con el monto exacto; cuando pague, revisa en Payphone y marca el pedido como <b>Pagado</b>.</li>
+        <li><b>Cobrar con tarjeta usando</b>: si conectas los dos, elige cuál se manda al cliente.</li>
       </ul>
-      <div class="caja">El token de Payphone se guarda cifrado. Cuando el cliente paga, revisa el pago en Payphone y marca el pedido como <b>Pagado</b>.</div>
+      <div class="caja">Las claves de Plux y Payphone se guardan cifradas.</div>
     </div>
     <img src="img/cobros.jpg" alt="Cobros">
   </div>
 </section>
 
 <section class="capitulo">
-  <h2>7. El cliente compra solo por WhatsApp</h2>
+  <h2>7. Pago con tarjeta por Plux</h2>
+  <div class="dos">
+    <div>
+      <h3>Cómo inscribirte en Plux (una sola vez)</h3>
+      <ol>
+        <li>Entra a <b>plux.ec/contactos</b> y pide abrir tu cuenta de <b>Pago Plux</b> como comercio (soporte de Plux: 099 845 2058). Plux te dice qué documentos de tu negocio necesita.</li>
+        <li>Elige tu plan con Plux. En plux.ec (octubre 2026): <b>porcentual</b> (arranque $99 + IVA; crédito 1,50 %, débito 0,50 % + IVA) o <b>fijo</b> (arranque $99 + IVA, $49,99 + IVA al mes y $0,40 + IVA por pago). Confírmalo con Plux.</li>
+        <li>Diles que cobras con la integración por API de tarjetas de <b>WhatsApp Tukán</b> y pásales el cuadro <b>Datos para darle a Plux</b> que sale en Cobros (dominio, página de pago, regreso del banco, aviso de pago con su usuario y clave, y cómo se cuida la tarjeta).</li>
+        <li>Plux te da 4 datos: <b>id de establecimiento</b>, <b>id de cliente</b>, <b>clave secreta</b> y <b>llave pública</b>. Pégalos en Cobros y guarda.</li>
+        <li>En el panel de Plux → <b>Developers → Web Hook</b>, registra el aviso de pago.</li>
+        <li>Haz un pago en <b>Pruebas</b>; Plux revisa y <b>certifica</b> tu instalación. Después cambia a <b>Producción</b>.</li>
+      </ol>
+      <div class="caja azul">Tukán te ayuda con todo esto: te damos los datos técnicos listos para que Plux te certifique.</div>
+    </div>
+    <img src="img/cobros_plux.jpg" alt="Plux en Cobros">
+  </div>
+  <div class="dos" style="margin-top:8mm">
+    <div>
+      <h3>Cómo paga el cliente</h3>
+      <ol>
+        <li>Le mandas el resumen (o lo manda el agente con IA, o el cliente escribe <b>comprar</b>). Le llega <b>Paga aquí</b> con su enlace.</li>
+        <li>Ve su pedido con el <b>valor exacto</b> (no lo puede cambiar) y escribe los datos de su tarjeta.</li>
+        <li>Si su banco lo pide, escribe el <b>código</b> que le llega por SMS o pasa por la <b>validación de su banco</b> (3D Secure).</li>
+        <li>Listo: el pedido pasa a <b>Pagado</b>, al cliente le llega "Recibimos tu pago" por WhatsApp y a tu equipo un aviso en el celular.</li>
+      </ol>
+      <div class="caja">Los datos de la tarjeta se cifran en el teléfono del cliente y van directo a Plux: WhatsApp Tukán <b>no los guarda</b>. Si Plux avisa el pago por su cuenta (aviso de pago), también se marca solo.</div>
+    </div>
+    <img src="img/pago_tarjeta.jpg" alt="Página de pago con tarjeta">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>8. El cliente compra solo por WhatsApp</h2>
   <p>Sin que nadie del equipo intervenga (y sin necesidad de IA):</p>
   <ol>
     <li>El cliente escribe <b>catálogo</b> (o "productos"). Le llega una lista con tus productos y su precio.</li>
     <li>Toca uno: se agrega a su carrito y se le dice cuánto lleva.</li>
     <li>Escribe <b>comprar</b>: el pedido queda <i>Pendiente de pago</i> y le llega el resumen con el total y cómo pagar.</li>
-    <li>Tú lo ves en <b>Pedidos</b> y lo marcas pagado cuando llegue el pago.</li>
+    <li>Si paga con tarjeta por Plux, el pedido se marca <b>Pagado</b> solo. Si paga por transferencia, tú lo ves en <b>Pedidos</b> y lo marcas pagado.</li>
   </ol>
   <div class="caja">A los contactos marcados como <b>Personal</b> nunca se les manda nada solo.</div>
 </section>
 
 <section class="capitulo">
-  <h2>8. Chatbots por pasos</h2>
+  <h2>9. Chatbots por pasos</h2>
   <div class="dos">
     <div>
       <p>Un chatbot es una conversación armada por pasos. Cada paso puede ser:</p>
@@ -237,7 +272,7 @@
 </section>
 
 <section class="capitulo">
-  <h2>9. Agente con IA que contesta solo <span class="chip">Extra</span></h2>
+  <h2>10. Agente con IA que contesta solo <span class="chip">Extra</span></h2>
   <div class="dos">
     <div>
       <p>Contesta a tus clientes con lo que escribes en <b>Lo que sabe la IA de tu negocio</b> y con tu <b>catálogo</b> (precios y stock). Contesta en el idioma del cliente.</p>
@@ -258,7 +293,7 @@
 </section>
 
 <section class="capitulo">
-  <h2>10. Qué contesta primero</h2>
+  <h2>11. Qué contesta primero</h2>
   <div class="dos">
     <div>
       <p>Cuando te escribe alguien, el programa decide en este orden:</p>
@@ -276,7 +311,7 @@
 </section>
 
 <section class="capitulo">
-  <h2>11. Equipo, reparto automático y vista del supervisor</h2>
+  <h2>12. Equipo, reparto automático y vista del supervisor</h2>
   <div class="dos">
     <div>
       <p>En <b>Más → Equipo y reparto</b>:</p>
@@ -296,7 +331,7 @@
 </section>
 
 <section class="capitulo">
-  <h2>12. Campos personalizados</h2>
+  <h2>13. Campos personalizados</h2>
   <div class="dos">
     <div>
       <p>Datos propios que quieres guardar de cada cliente: ciudad, cédula, talla, fecha de cumpleaños, placa del carro…</p>
@@ -312,7 +347,7 @@
 </section>
 
 <section class="capitulo">
-  <h2>13. Reportes y de qué anuncio llegó cada cliente</h2>
+  <h2>14. Reportes y de qué anuncio llegó cada cliente</h2>
   <div class="dos">
     <div>
       <p>Cuando alguien te escribe desde un anuncio de Facebook o Instagram con el botón "Enviar mensaje de WhatsApp", Meta avisa de qué anuncio vino. El programa lo guarda solo:</p>
@@ -328,7 +363,7 @@
 </section>
 
 <section class="capitulo">
-  <h2>14. Tienda en línea: Shopify y WooCommerce</h2>
+  <h2>15. Tienda en línea: Shopify y WooCommerce</h2>
   <div class="dos">
     <div>
       <ol>
@@ -349,7 +384,7 @@
 </section>
 
 <section class="capitulo">
-  <h2>15. App en el celular y avisos</h2>
+  <h2>16. App en el celular y avisos</h2>
   <div class="dos">
     <div>
       <h3>Instalar como app</h3>
@@ -371,7 +406,9 @@
 </section>
 
 <section class="capitulo">
-  <h2>16. Preguntas frecuentes</h2>
+  <h2>17. Preguntas frecuentes</h2>
+  <h3>¿El pago con tarjeta por Plux cobra de verdad desde el primer día?</h3>
+  <p>No. Queda en <b>Pruebas</b> hasta que Plux certifique tu instalación; ahí cambias a <b>Producción</b> en Cobros. El dinero cae en <b>tu</b> cuenta de Plux.</p>
   <h3>¿Tengo que pagar aparte por usuarios o por contactos?</h3>
   <p>No. El plan incluye todo el programa, con varios usuarios y contactos ilimitados. Lo único que se activa aparte es el Agente con IA.</p>
   <h3>¿Quién cobra los mensajes de WhatsApp?</h3>

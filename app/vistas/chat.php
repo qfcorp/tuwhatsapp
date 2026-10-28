@@ -228,7 +228,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         <?= csrf_campo() ?><input type="hidden" name="accion" value="datos">
         <label>Nombre<input name="nombre" maxlength="100" value="<?= e($c['nombre']) ?>" placeholder="<?= e($c['nombre_whatsapp']) ?>"></label>
         <label>Etiquetas (separadas por coma: vip, quito)<input name="etiquetas" maxlength="300" value="<?= e($c['etiquetas']) ?>"></label>
-        <label>Notas<textarea name="notas" rows="3" maxlength="2000"><?= u($c['notas']) ?></textarea></label>
+        <label>Notas<textarea name="notas" rows="3" maxlength="2000"><?= e($c['notas']) ?></textarea></label>
         <?php $valores = \TuWhatsApp\Campos::de($c); foreach ($campos as $cp): $val = $valores[$cp['clave']] ?? ''; ?>
         <label><?= e($cp['nombre']) ?>
         <?php if ($cp['tipo'] === 'lista'): ?><select name="campo[<?= e($cp['clave']) ?>]"><option value="">—</option>

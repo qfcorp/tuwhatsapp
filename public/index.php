@@ -777,6 +777,7 @@ try {
 
     case 'cobros':
         if ($post) {
+            \TuWhatsApp\Plux::guardar(db(), $linea, $_POST);   // primero: si las credenciales de Plux están mal, no se guarda nada
             $iva = \TuWhatsApp\Embudo::valor((string) ($_POST['iva_pct'] ?? '0'));
             if ($iva > 30) {
                 throw new RuntimeException('El IVA no puede ser más de 30 %.');
@@ -796,10 +797,12 @@ try {
             } elseif ($tok !== '') {
                 db()->prepare('UPDATE lineas SET payphone_token = ? WHERE id = ?')->execute([\TuWhatsApp\Cifrado::cifrar($tok), $lid]);
             }
+            $cobro = (string) ($_POST['cobro_tarjeta'] ?? '');
+            db()->prepare('UPDATE lineas SET cobro_tarjeta = ? WHERE id = ?')->execute([in_array($cobro, ['payphone', 'plux'], true) ? $cobro : '', $lid]);
             aviso('Guardado.');
             redirigir('cobros');
         }
-        vista('cobros', 'Cobros y cotizaciones', ['linea' => $linea]);
+        vista('cobros', 'Cobros y cotizaciones', ['linea' => $linea, 'pluxAviso' => \TuWhatsApp\Plux::aviso(db(), $linea)]);
 
     case 'pedidos':
         $estado = (string) ($_GET['e'] ?? '');

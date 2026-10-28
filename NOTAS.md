@@ -8,7 +8,7 @@ Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de
 - Dirección: **https://whatsapp.tukanec.com** (ya funciona)
 - Servidor: **qfcorp** (usuario `qf`), túnel de Cloudflare `servidorqf` → `http://localhost:80`
 - Tecnología: PHP + PostgreSQL + nginx
-- Pruebas (Meta simulado): **idiomas 43, lógica 635, Panel Central v2 163 y pantallas 286, todo bien** (28 oct 2026)
+- Pruebas (Meta y Plux simulados): **idiomas 43, lógica 684, Panel Central v2 163 y pantallas 325, todo bien** (28 oct 2026)
 
 ## Qué hace el programa
 - **Bandeja** y **chat** con 2 botones: "Enviar desde el celular" (gratis) y "Enviar por el sistema" (pagado, muestra el costo).
@@ -50,6 +50,19 @@ Recibir mensajes y enviar desde la app del celular es **gratis**.
 En el servidor (`/var/www/tuwhatsapp/config/.env`) ya están: META_APP_ID, META_ES_CONFIG_ID=1865337081309109 y la clave secreta. ✅
 
 ---
+
+## 💳 Cobro con tarjeta por Pago Plux (28 oct 2026, tarde)
+Pedido de Dimitry: "cobros con Plux (se requiere inscripción en Plux; nosotros les damos toda la información)".
+- Misma integración probada de TuPass (API de tarjetas v1.3, cifrado en el navegador, OTP, 3D Secure, aviso de pago), pero **con las credenciales de cada negocio, por número**.
+- Página de pago por pedido `/pagar.php?p=…` (valor exacto); regreso 3DS `/pagar.php` sin parámetros; aviso de pago `/plux.php` (usuario `tukan<N>` + clave, o id de cliente + clave secreta de Plux).
+- Al pagar: pedido → *Pagado*, "Recibimos tu pago" por WhatsApp al cliente y aviso en el celular al equipo. La tarjeta nunca se guarda.
+- En **Más → Cobros**: guía de inscripción paso a paso, cuadro "Datos para darle a Plux", los 4 datos, Pruebas/Producción y "Cobrar con tarjeta usando" (Plux o Payphone).
+- Guía para entregar al cliente: `docs/GUIA_PLUX.md`. Manual: capítulo 7.
+- Arreglado de paso: las notas (chat, pedido, cliente) y respuestas rápidas mostraban marcas `<!--notr-->` dentro de la caja de texto.
+- Pruebas: lógica 684, Panel Central 163, pantallas 325 (con un Plux FALSO), todo bien; y un pago real en el navegador (Chromium) con la página de pago: rechazo, código OTP y aprobado.
+- Pendiente: cada negocio debe inscribirse en Plux y Plux debe **certificar** su instalación antes de pasar a Producción.
+
+✅ **Verificación de acceso de Tech Provider: ENVIADA el 28 oct 2026, 10:36 (por Leonel Fierro) → "En revisión"** (Meta responde en unos 5 días).
 
 ## 🛒 Todo incluido + agente con IA (28 oct 2026)
 Decisión de Dimitry: **ya no va por módulos**. Un solo plan **Todo incluido (unos $20/mes)**; lo único aparte es la **IA (unos $5 más)**. Precios en `src/Modulos.php`. En piezas de venta no se publican precios (regla de la marca).
@@ -212,7 +225,7 @@ Causa más probable: el número tiene **poco tiempo/actividad** en WhatsApp Busi
 ### 6. Después
 - Conectar el número de **QF Producciones** (ícono del celular arriba → **Conectar otro número** → botón QR).
 - Conectar TuSalón / Panel Tukán Central a la API (`/api.php`, token `TUWA_API_TOKEN` en `.env`).
-- Ofrecer WhatsApp Tukán (todo incluido) junto a los programas Tukán. Para venderlo a otros negocios falta: terminar la **revisión de la app** de Meta y **enviar la verificación de Tech Provider** (formulario ya llenado como borrador; fecha límite 27/12/2026).
+- Ofrecer WhatsApp Tukán (todo incluido) junto a los programas Tukán. Para venderlo a otros negocios falta: terminar la **revisión de la app** de Meta y que Meta apruebe la **verificación de Tech Provider** (enviada el 28 oct 2026, en revisión).
 - Traducir al inglés, francés, portugués e italiano las pantallas nuevas (hoy salen en español).
 
 ---

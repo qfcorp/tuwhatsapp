@@ -63,6 +63,13 @@ $siguientes = ['carrito' => ['pendiente' => 'Confirmar (pendiente de pago)', 'pa
     <?php if (!$ventana): ?><p class="suave pequeno">Pasaron más de 24 horas desde su último mensaje: descarga el PDF y mándalo desde el celular, o envíale una plantilla primero.</p><?php endif; ?>
     <?php if ($p['enlace_pago']): ?><p class="pequeno">Enlace de pago: <a href="<?= e($p['enlace_pago']) ?>" target="_blank" rel="noopener"><?= e($p['enlace_pago']) ?></a></p><?php endif; ?>
     <?php endif; ?>
+    <?php $pasoPlux = ['otp' => 'el cliente está escribiendo el código de su banco', '3ds' => 'el cliente está en la validación de su banco',
+                       'fallido' => 'el último intento con tarjeta no se aprobó', 'rechazado' => 'Plux avisó que el pago fue rechazado'][$p['plux_paso']] ?? ''; ?>
+    <?php if ($p['metodo'] === 'plux' && $p['plux_paso'] === 'pagado'): ?>
+    <p class="aviso aviso-ok pequeno">💳 Pagado con tarjeta por Plux<?= $p['plux_transaccion'] !== '' ? ' · transacción ' . e($p['plux_transaccion']) : '' ?><?= $p['pagado_en'] ? ' · ' . e(hora_corta((string) $p['pagado_en'])) : '' ?></p>
+    <?php elseif ($pasoPlux !== '' && in_array($p['estado'], ['carrito', 'pendiente'], true)): ?>
+    <p class="aviso aviso-info pequeno">💳 Plux: <?= e($pasoPlux) ?>.</p>
+    <?php endif; ?>
 </section>
 
 <?php if ($siguientes || $p['estado'] !== 'cancelado'): ?>
@@ -77,5 +84,5 @@ $siguientes = ['carrito' => ['pendiente' => 'Confirmar (pendiente de pago)', 'pa
 <?php endif; ?>
 
 <form method="post" class="tarjeta formulario"><?= csrf_campo() ?><input type="hidden" name="accion" value="notas">
-    <label>Notas (salen en la cotización)<textarea name="notas" rows="2" maxlength="1000"><?= u($p['notas']) ?></textarea></label>
+    <label>Notas (salen en la cotización)<textarea name="notas" rows="2" maxlength="1000"><?= e($p['notas']) ?></textarea></label>
     <button class="boton boton-claro">Guardar notas</button></form>

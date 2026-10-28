@@ -578,6 +578,96 @@ ok '[ "$TIPO" = "application/pdf" ] && head -c 8 "$P" | grep -q "%PDF-1.4"' "des
 CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -b "$BELLA_J" "$W/?r=cotizacion&id=$PED"); ok '[ "$CODIGO" = 302 ]' "otro cliente no descarga la cotización"
 post "/?r=cobros" --data-urlencode "iva_pct=0" --data-urlencode "pago_enlace=" --data-urlencode "pago_transferencia="
 
+echo "== Cobro con tarjeta (Plux)"
+SQL() { PGPASSWORD="${PGPASSWORD:-}" psql -tAc "$1" -d tuwhatsapp_prueba; }
+LID=$(SQL "SELECT id FROM lineas ORDER BY id LIMIT 1")
+get "/?r=cobros"
+ok 'tiene "Cómo inscribirte en Plux" && tiene "plux.ec/contactos" && tiene "Datos para darle a Plux"' "guía para inscribirse en Plux"
+ok 'tiene "https://whatsapp.ejemplo.com/plux.php" && tiene "tukan$LID" && tiene "https://whatsapp.ejemplo.com/pagar.php</code> (una por pedido)\|https://whatsapp.ejemplo.com/pagar.php?p=" && tiene "<b>sin parámetros</b>: <code>https://whatsapp.ejemplo.com/pagar.php</code>"' "datos técnicos para Plux (aviso de pago y regreso 3DS)"
+CLAVE_AVISO=$(SQL "SELECT plux_aviso FROM lineas WHERE id = $LID")
+ok 'tiene "$CLAVE_AVISO" && [ ${#CLAVE_AVISO} = 32 ]' "clave del aviso de pago creada"
+post "/?r=cobros" --data-urlencode "iva_pct=0" --data-urlencode "plux_llave=no sirve"
+ok 'tiene "llave pública de Plux no es válida"' "llave pública mala: avisa y no guarda"
+get "/?r=cobros"
+post "/?r=cobros" --data-urlencode "iva_pct=0" --data-urlencode "pago_transferencia=Banco Pichincha 2201" --data-urlencode "cobro_tarjeta=plux" \
+     --data-urlencode "plux_establecimiento=EST-123" --data-urlencode "plux_cliente=cliente_plux_prueba" --data-urlencode "plux_clave=clave_plux_prueba" \
+     --data-urlencode "plux_llave=$(cat "$PLUX_PUB")" --data-urlencode "plux_ambiente=sandbox"
+ok 'tiene "Guardado" && tiene "Plux conectado en <b>pruebas</b>" && tiene "value=\"plux\" selected" && ! tiene "clave_plux_prueba"' "conectar Plux (en pruebas), la clave no se muestra"
+get "/?r=chat&c=$C"
+post "/?r=chat&c=$C" --data-urlencode "accion=carrito_agregar" --data-urlencode "producto_id=$TS" --data-urlencode "cantidad=1"
+post "/?r=chat&c=$C" --data-urlencode "accion=carrito_resumen"
+ok 'tiene "Resumen enviado" && grep -q "whatsapp.ejemplo.com.\{1,2\}pagar.php?p=[a-f0-9]\{32\}" "$SIM_LOG"' "el resumen lleva la página de pago de Plux"
+TOK=$(SQL "SELECT pago_token FROM pedidos WHERE metodo = 'plux' ORDER BY id DESC LIMIT 1")
+PG=$(SQL "SELECT id FROM pedidos WHERE pago_token = '$TOK'")
+PJ="$(mktemp)"   # cookies del comprador (otro navegador)
+pagina() { CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$PJ" -c "$PJ" "$W/pagar.php?$1"); }
+pagar() { CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$PJ" -c "$PJ" -H "Content-Type: application/json" --data-binary "$1" "$W/pagar.php"); }
+csrfp() { grep -o 'data-csrf="[a-f0-9]*"' "$P" | head -1 | sed 's/.*="//;s/"$//'; }
+pagina "p=$TOK"
+ok '[ "$CODIGO" = 200 ] && tiene "Pagar pedido #" && tiene "Total a pagar" && tiene "\$29,90" && tiene "Modo de pruebas de Plux" && tiene "BEGIN PUBLIC KEY" && tiene "crypto-js.min.js"' "página de pago con el valor exacto y el formulario"
+ok '! tiene "Recordar llamar" && ! tiene "593991111111"' "la página de pago no muestra datos del chat"
+pagina "p=00000000000000000000000000000000"; ok '[ "$CODIGO" = 404 ] && tiene "no existe"' "enlace de pago que no existe"
+pagina "p=$TOK"; CS=$(csrfp)
+pagar "$(php tests/plux_tarjeta.php "$PLUX_PUB" "$TOK" malo 4540639936908783)"
+ok '[ "$CODIGO" = 400 ] && tiene "Recárgala"' "sin la clave de la página (csrf) no cobra"
+pagar "$(php tests/plux_tarjeta.php "$PLUX_PUB" "$TOK" "$CS" 4111111111111111)"
+ok 'tiene "\"status\":\"failed\"" && tiene "Tu banco no aprobó el pago"' "tarjeta rechazada: mensaje claro"
+ok '[ "$(SQL "SELECT estado || plux_paso FROM pedidos WHERE id = $PG")" = carritofallido ]' "rechazada: el pedido sigue abierto"
+pagar "$(php tests/plux_tarjeta.php "$PLUX_PUB" "$TOK" "$CS" 36417200103608)"
+ok 'tiene "\"status\":\"otp_required\"" && tiene "OTP-1"' "el banco pide el código (OTP)"
+pagar "$(php tests/plux_tarjeta.php "$PLUX_PUB" "$TOK" "$CS" 36417200103608 999999)"
+ok 'tiene "otp_incorrecto"' "código OTP incorrecto"
+pagar "$(php tests/plux_tarjeta.php "$PLUX_PUB" "$TOK" "$CS" 36417200103608 123456)"
+ok 'tiene "\"status\":\"success\"" && tiene "r=ok"' "con el código OTP correcto: aprobado"
+ok '[ "$(SQL "SELECT estado || '"'"' '"'"' || metodo || '"'"' '"'"' || plux_paso FROM pedidos WHERE id = $PG")" = "pagado plux pagado" ]' "el pedido queda Pagado con Plux"
+ok 'grep -q "Recibimos tu pago de \$29,90" "$SIM_LOG"' "al cliente le llega la confirmación por WhatsApp"
+U=$(tail -1 "$PLUX_LOG")
+ok 'echo "$U" | grep -q "\"auth_ok\":true" && echo "$U" | grep -q "\"clave_ok\":true" && echo "$U" | grep -q "\"tarjeta_ok\":true" && echo "$U" | grep -q "\"establecimiento_ok\":true"' "Plux recibió la tarjeta bien cifrada y las credenciales del negocio"
+ok 'echo "$U" | grep -q "\"retorno_limpio\":true" && echo "$U" | grep -q "\"monto\":29.9" && echo "$U" | grep -q "\"con_iva\":false" && echo "$U" | grep -q "\"descripcion\":\"WT-$PG Pedido #"' "regreso 3DS sin parámetros, valor final y referencia del pedido"
+ok '[ "$(SQL "SELECT count(*) FROM pedidos WHERE plux_respuesta LIKE '"'"'%36417200103608%'"'"' OR plux_respuesta LIKE '"'"'%4540639936908783%'"'"'")" = 0 ] && ! grep -q "36417200103608" /tmp/tuwa_err.log 2>/dev/null' "el número de la tarjeta no se guarda"
+pagina "p=$TOK"; ok 'tiene "ya está pagado" && ! tiene "plux-caja"' "pagado: la página ya no pide la tarjeta"
+pagar "$(php tests/plux_tarjeta.php "$PLUX_PUB" "$TOK" "$CS" 4540639936908783)"
+ok 'tiene "\"status\":\"success\""' "pagar dos veces no cobra otra vez"
+ok '[ "$(grep -c "\"ruta\":\"pago\"" "$PLUX_LOG")" = 4 ]' "a Plux solo llegaron los 4 cobros de verdad"
+get "/?r=pedido&id=$PG"; ok 'tiene "Pagado con tarjeta por Plux" && tiene "transacción FALSO-"' "en la ficha del pedido se ve el pago con tarjeta"
+ok '! grep -q "<textarea[^>]*><!--notr" "$P"' "las notas no muestran marcas raras"
+get "/?r=chat&c=$C"; ok '! grep -q "<textarea[^>]*><!--notr" "$P" && grep -q "<textarea name=\"notas\" rows=\"3\"" "$P"' "notas del chat sin marcas raras"
+
+echo "== Plux: validación 3D Secure del banco"
+get "/?r=chat&c=$C"
+post "/?r=chat&c=$C" --data-urlencode "accion=carrito_agregar" --data-urlencode "producto_id=$TS" --data-urlencode "cantidad=1"
+post "/?r=chat&c=$C" --data-urlencode "accion=carrito_resumen"
+TOK2=$(SQL "SELECT pago_token FROM pedidos WHERE metodo = 'plux' AND estado = 'carrito' ORDER BY id DESC LIMIT 1")
+pagina "p=$TOK2"; CS=$(csrfp)
+pagar "$(php tests/plux_tarjeta.php "$PLUX_PUB" "$TOK2" "$CS" 5555555555554444)"
+ok 'tiene "3ds_required" && tiene "/banco?ref="' "el banco pide validación 3DS"
+BANCO=$(php -r '$j = json_decode(file_get_contents($argv[1]), true); echo $j["detail"]["url"];' "$P")
+VUELTA=$(curl -s -o /dev/null -w '%{redirect_url}' "$BANCO")
+ok 'echo "$VUELTA" | grep -q "^https://whatsapp.ejemplo.com/pagar.php?pti="' "el banco vuelve a la página de pago sin nuestros parámetros"
+CODIGO=$(curl -s -o "$P" -w '%{http_code} %{redirect_url}' "$W/pagar.php?${VUELTA#*\?}")
+ok 'echo "$CODIGO" | grep -q "^400" && tiene "No pudimos reconocer tu pedido"' "volver del banco en otro navegador: no se aplica a ciegas"
+CODIGO=$(curl -s -o "$P" -w '%{http_code} %{redirect_url}' -b "$PJ" -c "$PJ" "$W/pagar.php?${VUELTA#*\?}")
+ok 'echo "$CODIGO" | grep -q "^303 .*p=$TOK2.*r=ok"' "volver del banco: aprobado"
+ok '[ "$(SQL "SELECT estado FROM pedidos WHERE pago_token = '"'"'$TOK2'"'"'")" = pagado ]' "pagado después de la validación 3DS"
+
+echo "== Plux: aviso de pago (webhook)"
+get "/?r=chat&c=$C"
+post "/?r=chat&c=$C" --data-urlencode "accion=carrito_agregar" --data-urlencode "producto_id=$TS" --data-urlencode "cantidad=2"
+post "/?r=chat&c=$C" --data-urlencode "accion=carrito_resumen"
+PG3=$(SQL "SELECT id FROM pedidos WHERE metodo = 'plux' AND estado = 'carrito' ORDER BY id DESC LIMIT 1")
+TOT3=$(SQL "SELECT total FROM pedidos WHERE id = $PG3")
+avisoplux() { curl -s -o "$P" -w '%{http_code}' -u "$1" -H "Content-Type: application/json" --data-binary "$2" "$W/plux.php"; }
+ok '[ "$(curl -s -o /dev/null -w "%{http_code}" "$W/plux.php")" = 405 ]' "el aviso de pago solo acepta POST"
+ok '[ "$(avisoplux "tukan$LID:mala" "{\"state\":\"PAGADO\",\"description\":\"WT-$PG3\"}")" = 401 ]' "aviso de pago con clave mala"
+ok '[ "$(avisoplux "tukan$LID:$CLAVE_AVISO" "{\"state\":\"PAGADO\",\"description\":\"WT-$PG3\",\"amount\":\"1.00\"}")" = 409 ]' "aviso con otro valor: no se aplica"
+ok '[ "$(avisoplux "tukan$LID:$CLAVE_AVISO" "{\"state\":\"PAGADO\",\"description\":\"WT-$PG3 Pedido\",\"amount\":\"$TOT3\",\"id_transaccion\":\"PX-77\"}")" = 200 ] && tiene "\"resultado\":\"pagado\""' "aviso PAGADO: el pedido pasa a Pagado"
+ok '[ "$(SQL "SELECT estado || '"'"' '"'"' || plux_transaccion FROM pedidos WHERE id = $PG3")" = "pagado PX-77" ]' "queda con el número de transacción de Plux"
+ok '[ "$(avisoplux "cliente_plux_prueba:clave_plux_prueba" "{\"state\":\"PAGADO\",\"id_transaccion\":\"PX-77\"}")" = 200 ] && tiene "ya_estaba_pagado"' "aviso repetido (con las credenciales de Plux): no hace nada"
+pagina "p=$(SQL "SELECT pago_token FROM pedidos WHERE id = $PG3")"; ok 'tiene "ya está pagado"' "la página dice que ya está pagado"
+get "/?r=cobros"
+post "/?r=cobros" --data-urlencode "iva_pct=0" --data-urlencode "pago_transferencia=" --data-urlencode "quitar_plux=1" --data-urlencode "cobro_tarjeta="
+ok 'tiene "Guardado" && ! tiene "Plux conectado"' "quitar Plux"
+
 echo "== Chatbots"
 get "/?r=flujos"; ok 'tiene "Todavía no tienes chatbots"' "chatbots vacío"
 post "/?r=flujos" --data-urlencode "nombre=Bienvenida" --data-urlencode "disparador=palabras" --data-urlencode "palabras=hola, info"

@@ -596,3 +596,27 @@ CREATE TABLE IF NOT EXISTS push_suscripciones (
     ultimo_ok   timestamptz,
     errores     integer NOT NULL DEFAULT 0
 );
+
+-- ---------------------------------------------------------------------
+-- 28 oct 2026 (tarde): cobro con tarjeta por Pago Plux (credenciales DEL CLIENTE, por número)
+-- ---------------------------------------------------------------------
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS cobro_tarjeta        text NOT NULL DEFAULT '';          -- '' (automático) | payphone | plux
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS plux_ambiente        text NOT NULL DEFAULT 'sandbox';   -- sandbox | produccion
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS plux_establecimiento text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS plux_cliente         text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS plux_clave           text NOT NULL DEFAULT '';          -- cifrado
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS plux_llave           text NOT NULL DEFAULT '';          -- llave pública RSA de Plux
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS plux_aviso           text NOT NULL DEFAULT '';          -- clave del aviso de pago (se registra en Plux)
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS plux_error           text NOT NULL DEFAULT '';
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS pago_token       text;                                 -- dirección de la página de pago
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS plux_transaccion text NOT NULL DEFAULT '';
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS plux_paso        text NOT NULL DEFAULT '';             -- otp | 3ds | fallido | rechazado | pagado
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS plux_respuesta   text NOT NULL DEFAULT '';             -- sin datos de tarjeta
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS plux_intentos    integer NOT NULL DEFAULT 0;
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS plux_intento_en  timestamptz;
+CREATE UNIQUE INDEX IF NOT EXISTS pedidos_pago_token ON pedidos (pago_token) WHERE pago_token IS NOT NULL;
+-- Arreglo: las notas y respuestas rápidas guardadas con las marcas de "no traducir" (<!--notr-->) se limpian
+UPDATE contactos SET notas = replace(replace(notas, '<!--notr-->', ''), '<!--/notr-->', '') WHERE notas LIKE '%notr-->%';
+UPDATE pedidos SET notas = replace(replace(notas, '<!--notr-->', ''), '<!--/notr-->', '') WHERE notas LIKE '%notr-->%';
+UPDATE empresas SET notas = replace(replace(notas, '<!--notr-->', ''), '<!--/notr-->', '') WHERE notas LIKE '%notr-->%';
+UPDATE respuestas_rapidas SET texto = replace(replace(texto, '<!--notr-->', ''), '<!--/notr-->', '') WHERE texto LIKE '%notr-->%';

@@ -43,7 +43,7 @@
     <textarea id="conocimiento" name="conocimiento" rows="14" maxlength="8000" placeholder="Somos Tukán Software, en Quito.
 Vendemos: cortes, tintes y tratamientos (los precios están en el catálogo).
 Horario: lunes a viernes de 8:00 a 18:00.
-Pagos: transferencia o tarjeta con Payphone.
+Pagos: transferencia o tarjeta (Plux).
 Preguntas frecuentes:
 - ¿Tiene contrato? No, se paga mes a mes."><?= e((string) $linea['ia_conocimiento']) ?></textarea>
     <button class="boton">Guardar</button>

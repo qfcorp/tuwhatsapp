@@ -17,6 +17,8 @@ ob_start();
     <li>De los negocios que usan el programa: nombre, correo de acceso y los datos de su cuenta de WhatsApp Business (número, identificadores y el permiso que entregan desde Meta).</li>
     <li>De las personas que escriben a esos negocios por WhatsApp: número de teléfono, nombre de perfil, los mensajes de la conversación y su estado (enviado, entregado, leído).</li>
     <li>Si el negocio conecta la app WhatsApp Business del celular y lo autoriza: sus contactos y el historial de chats que Meta comparte.</li>
+    <li>Pagos con tarjeta (si el negocio cobra con Pago Plux): los datos de la tarjeta se cifran en el navegador del comprador y van directo y cifrados a Pago Plux.
+        No guardamos el número, la fecha de vencimiento ni el CVV. Solo guardamos el resultado (aprobado o no), el número de transacción y el nombre, cédula y correo del titular que Plux necesita para el cobro.</li>
 </ul>
 
 <h2>Para qué los usamos</h2>

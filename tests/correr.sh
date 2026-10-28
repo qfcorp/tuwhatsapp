@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Corre todas las pruebas con Meta simulado. Necesita PostgreSQL.
-# Variables: PGHOST (127.0.0.1) PGPORT (5432) PGUSER (postgres) PGPASSWORD, SIM_PUERTO (8097), WEB_PUERTO (8096)
+# Variables: PGHOST (127.0.0.1) PGPORT (5432) PGUSER (postgres) PGPASSWORD, SIM_PUERTO (8097), WEB_PUERTO (8096), PLUX_PUERTO (8098)
 set -u
 cd "$(dirname "$0")/.."
 export PGHOST="${PGHOST:-127.0.0.1}" PGPORT="${PGPORT:-5432}" PGUSER="${PGUSER:-postgres}"
 DB=tuwhatsapp_prueba
 SIM_PUERTO="${SIM_PUERTO:-8097}"
 WEB_PUERTO="${WEB_PUERTO:-8096}"
+PLUX_PUERTO="${PLUX_PUERTO:-8098}"
 export SIM_LOG="$(mktemp)"
 export SIM_URL="http://127.0.0.1:$SIM_PUERTO"
 export TUWA_ARCHIVOS="$(mktemp -d)"
@@ -18,7 +19,14 @@ psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null 2>&1 || { echo 
 
 php -S "127.0.0.1:$SIM_PUERTO" tests/meta_simulado.php > /dev/null 2>&1 &
 SIM=$!
-trap 'kill $SIM ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS"' EXIT
+# Plux FALSO (nunca se llama a Plux de verdad): llaves RSA de prueba hechas aquí mismo
+PLUX_DIR="$(mktemp -d)"
+openssl genrsa -out "$PLUX_DIR/privada.pem" 2048 2>/dev/null && openssl rsa -in "$PLUX_DIR/privada.pem" -pubout -out "$PLUX_DIR/publica.pem" 2>/dev/null || { echo "No se pudieron hacer las llaves de prueba de Plux"; exit 1; }
+export PLUX_PUB="$PLUX_DIR/publica.pem" PLUX_LOG="$PLUX_DIR/plux.log" PLUX_URL="http://127.0.0.1:$PLUX_PUERTO"
+FALSO_LOG="$PLUX_LOG" FALSO_ID_CLIENTE=cliente_plux_prueba FALSO_CLAVE=clave_plux_prueba FALSO_LLAVE_PRIVADA="$PLUX_DIR/privada.pem" \
+  FALSO_ESTABLECIMIENTO=EST-123 FALSO_BASE="$PLUX_URL" php -S "127.0.0.1:$PLUX_PUERTO" tests/plux_falso.php > /dev/null 2>&1 &
+PLUXF=$!
+trap 'kill $SIM $PLUXF ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS" "$PLUX_DIR"' EXIT
 sleep 0.5
 
 export TUWA_DB_HOST="$PGHOST" TUWA_DB_PORT="$PGPORT" TUWA_DB_NAME="$DB" TUWA_DB_USER="$PGUSER" TUWA_DB_PASS="${PGPASSWORD:-}"
@@ -53,6 +61,7 @@ TUKAN_IA_URL=$SIM_URL
 TUKAN_IA_ESPERA_MS=0
 TUWA_PUSH_PRUEBA=$SIM_URL/push/
 PAYPHONE_URL=$SIM_URL
+PLUX_API_BASE=$PLUX_URL/intv1/
 EOF
 TUWA_ENV="$ENVF" php -d display_errors=0 -d log_errors=1 -d error_log="$ENVF.log" -S "127.0.0.1:$WEB_PUERTO" -t public > /dev/null 2>&1 &
 WEB=$!

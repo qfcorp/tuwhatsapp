@@ -1709,6 +1709,115 @@ Push::quitar($db, $idAna, $sim . '/push/ok/ana');
 igual(Push::cuantas($db, $idAna), 0, 'desactivar los avisos');
 putenv('TUWA_PUSH_PRUEBA=');
 
+echo "== Pago con tarjeta (Plux)\n";
+$Plux = \TuWhatsApp\Plux::class;
+$pubPem = (string) file_get_contents((string) getenv('PLUX_PUB'));
+$pubLinea = preg_replace('/-----[A-Z ]+-----|\s+/', '', $pubPem);
+ok(!$Plux::configurado($lineaN), 'sin credenciales no está conectado');
+try { $Plux::guardar($db, $lineaN, ['plux_llave' => 'esto no es una llave']); ok(false, 'llave pública mala'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'llave pública de Plux no es válida'), 'llave pública mala'); }
+try { $Plux::guardar($db, $lineaN, ['plux_cliente' => 'con espacios no']); ok(false, 'id de cliente con espacios'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'id de cliente'), 'id de cliente con espacios'); }
+$Plux::guardar($db, $lineaN, ['plux_establecimiento' => 'EST-123', 'plux_cliente' => 'cliente_plux_prueba', 'plux_clave' => 'clave_plux_prueba', 'plux_llave' => $pubLinea, 'plux_ambiente' => 'sandbox']);
+$lineaN = Lineas::buscar($db, $lN);
+ok($Plux::configurado($lineaN) && $Plux::ambiente($lineaN) === 'sandbox', 'credenciales guardadas, en pruebas');
+ok($lineaN['plux_clave'] !== 'clave_plux_prueba' && Cifrado::descifrar($lineaN['plux_clave']) === 'clave_plux_prueba', 'la clave secreta se guarda cifrada');
+$avisoP = $Plux::aviso($db, $lineaN);
+ok($avisoP['usuario'] === 'tukan' . $lN && preg_match('/^[a-f0-9]{32}$/', $avisoP['clave']) === 1 && str_ends_with($avisoP['url'], '/plux.php') && !str_contains($avisoP['retorno3ds'], '?'), 'datos del aviso de pago y regreso 3DS sin parámetros');
+$lineaN = Lineas::buscar($db, $lN);
+igual($Plux::aviso($db, $lineaN)['clave'], $avisoP['clave'], 'la clave del aviso no cambia sola');
+ok(openssl_pkey_get_public($Plux::llavePem($pubLinea)) !== false && openssl_pkey_get_public($Plux::llavePem($pubPem)) !== false, 'la llave sirve en una línea o con BEGIN/END');
+$Plux::guardar($db, $lineaN, ['plux_ambiente' => 'sandbox']);
+$lineaN = Lineas::buscar($db, $lN);
+ok($Plux::configurado($lineaN), 'guardar sin escribir la clave no la borra');
+igual($Plux::montos(['total' => '27.60', 'iva' => '3.60']), ['baseAmount0' => 0.0, 'baseAmount12' => 27.6], 'con IVA: el total va en baseAmount12');
+igual($Plux::montos(['total' => '10', 'iva' => '0']), ['baseAmount0' => 10.0, 'baseAmount12' => 0.0], 'sin IVA: el total va en baseAmount0');
+
+$marta = Contactos::guardar($db, $lN, '0981000040', 'Marta', 'cliente');
+$db->prepare('UPDATE contactos SET ultimo_entrante = now() WHERE id = ?')->execute([(int) $marta['id']]);
+$marta = Contactos::buscar($db, $lN, (int) $marta['id']);
+$pm = Pedidos::agregar($db, $lineaN, (int) $marta['id'], $pBlusa, 2);
+$pm = Pedidos::buscar($db, $lN, (int) $pm['id']);
+putenv('PAYPHONE_URL=' . $sim);
+$db->prepare('UPDATE lineas SET payphone_token = ? WHERE id = ?')->execute([Cifrado::cifrar('payphone_bueno'), $lN]);
+$lineaN = Lineas::buscar($db, $lN);
+igual(Pedidos::enlacePago($db, $lineaN, $pm), 'https://payp.page.link/SIM' . (int) round((float) $pm['total'] * 100), 'con Payphone y Plux, sin elegir: Payphone');
+$db->prepare("UPDATE pedidos SET enlace_pago = '', metodo = '' WHERE id = ?")->execute([(int) $pm['id']]);
+$db->prepare("UPDATE lineas SET cobro_tarjeta = 'plux' WHERE id = ?")->execute([$lN]);
+$lineaN = Lineas::buscar($db, $lN);
+$um = Pedidos::enlacePago($db, $lineaN, Pedidos::buscar($db, $lN, (int) $pm['id']));
+ok(preg_match('#/pagar\.php\?p=[a-f0-9]{32}$#', $um) === 1 && Pedidos::buscar($db, $lN, (int) $pm['id'])['metodo'] === 'plux', 'eligiendo Plux: la página de pago del pedido');
+$pm = Pedidos::buscar($db, $lN, (int) $pm['id']);
+igual((int) ($Plux::pedidoPorToken($db, (string) $pm['pago_token'])['id'] ?? 0), (int) $pm['id'], 'el token lleva al pedido');
+igual($Plux::pedidoPorToken($db, 'abc'), null, 'token raro: nada');
+ok(str_contains(Pedidos::resumen($lineaN, $pm, Pedidos::items($db, (int) $pm['id']), $um), 'Paga aquí: ' . $um), 'el resumen lleva la página de pago');
+
+$tarj = ['number' => base64_encode('xxxxxxxx'), 'expirationYear' => base64_encode('yyyyyyyy'), 'expirationMonth' => base64_encode('mmmmmmmm'), 'cvv' => base64_encode('cccccccc')];
+$comprador = ['documentNumber' => '171234567-8', 'firstName' => 'Marta', 'lastName' => 'Ruiz', 'email' => 'marta@ejemplo.com', 'phone' => ''];
+try { $Plux::cuerpo($lineaN, $pm, $marta, ['buyer' => $comprador], '1.2.3.4'); ok(false, 'sin tarjeta'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'incompletos'), 'sin tarjeta'); }
+try { $Plux::cuerpo($lineaN, $pm, $marta, ['card' => $tarj, 'buyer' => ['documentNumber' => '123'] + $comprador], '1.2.3.4'); ok(false, 'cédula mala'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'cédula'), 'cédula mala'); }
+try { $Plux::cuerpo($lineaN, $pm, $marta, ['card' => $tarj, 'buyer' => ['email' => 'no'] + $comprador], '1.2.3.4'); ok(false, 'correo malo'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'correo'), 'correo malo'); }
+$cu = $Plux::cuerpo($lineaN, $pm, $marta, ['card' => $tarj, 'buyer' => $comprador], '1.2.3.4');
+ok(str_starts_with($cu['description'], 'WT-' . $pm['id'] . ' Pedido #') && $cu['currency'] === 'USD' && base64_decode($cu['idEstablecimiento']) === 'EST-123'
+   && $cu['buyer']['documentNumber'] === '1712345678' && $cu['buyer']['phone'] === '593981000040' && !str_contains($cu['urlRetorno3ds'], '?')
+   && $cu['baseAmount12'] === round((float) $pm['total'], 2) && !isset($cu['paramsOtp']), 'pedido para Plux con referencia, montos y cédula limpia');
+$cu = $Plux::cuerpo($lineaN, $pm, $marta, ['card' => $tarj, 'buyer' => $comprador, 'paramsOtp' => ['idTransaction' => 'OTP-1', 'otpCode' => '123456', 'malo' => 'x']], '1.2.3.4');
+igual(array_keys($cu['paramsOtp']), ['idTransaction', 'otpCode'], 'con el código OTP (solo los datos que van)');
+$limpio = $Plux::limpiar(['code' => 0, 'detail' => ['cardNumber' => '454063******8783', 'texto' => 'tarjeta 4540639936908783', 'id_transaccion' => 'T-9']]);
+ok(!isset($limpio['detail']['cardNumber']) && $limpio['detail']['texto'] === 'tarjeta [oculto]' && $limpio['detail']['id_transaccion'] === 'T-9', 'lo de la tarjeta se quita antes de guardar');
+igual($Plux::transaccion(['detail' => ['id_transaccion' => 'T-9']]), 'T-9', 'número de transacción');
+
+$r = $Plux::procesar($db, $lineaN, $pm, ['code' => 100, 'detail' => ['idTransaction' => 'OTP-1', 'sessionId' => 'S']], 'tarjeta');
+ok($r['status'] === 'otp_required' && ($r['detail']['idTransaction'] ?? '') === 'OTP-1' && Pedidos::buscar($db, $lN, (int) $pm['id'])['plux_paso'] === 'otp', 'el banco pide código (OTP)');
+igual($Plux::procesar($db, $lineaN, $pm, ['code' => 102, 'detail' => []], 'tarjeta')['status'], 'otp_incorrecto', 'código incorrecto');
+$r = $Plux::procesar($db, $lineaN, $pm, ['code' => 2, 'description' => 'Rechazada', 'detail' => 'Fondos insuficientes'], 'tarjeta');
+ok($r['status'] === 'failed' && str_contains($r['message'], 'Tu banco no aprobó el pago: Fondos insuficientes'), 'rechazada por el banco');
+igual($Plux::procesar($db, $lineaN, $pm, ['code' => 103, 'detail' => []], 'tarjeta')['status'], 'failed', '3DS sin dirección: no sigue');
+$r = $Plux::procesar($db, $lineaN, $pm, ['code' => 103, 'detail' => ['url' => 'https://banco.ejemplo.com/3ds', 'parameters' => [['name' => 'creq', 'value' => 'abc']]]], 'tarjeta');
+ok($r['status'] === '3ds_required' && $r['detail']['url'] === 'https://banco.ejemplo.com/3ds' && $r['detail']['parameters'][0]['name'] === 'creq', 'pide validación 3DS del banco');
+$Plux::procesar($db, $lineaN, $pm, ['code' => 1, 'description' => 'No autorizado'], 'tarjeta');
+igual(Pedidos::buscar($db, $lN, (int) $pm['id'])['estado'], 'carrito', 'un error no cambia el pedido');
+$Plux::procesar($db, $lineaN, $pm, ['code' => -1, 'description' => 'sin red'], 'tarjeta');
+ok(str_contains((string) Lineas::buscar($db, $lN)['plux_error'], 'Revisa las credenciales'), 'si Plux no responde, queda el aviso para el negocio');
+limpiarSim();
+$stockAntes = Catalogo::buscar($db, $lN, $pBlusa)['stock'];
+$r = $Plux::procesar($db, $lineaN, $pm, ['code' => 0, 'description' => 'Aprobada', 'detail' => ['id_transaccion' => 'T-100', 'cardNumber' => '4540********8783']], 'tarjeta');
+$pmP = Pedidos::buscar($db, $lN, (int) $pm['id']);
+ok($r['status'] === 'success' && $pmP['estado'] === 'pagado' && $pmP['metodo'] === 'plux' && $pmP['plux_transaccion'] === 'T-100' && $pmP['plux_paso'] === 'pagado' && $pmP['pagado_en'] !== null, 'aprobado: el pedido pasa a Pagado');
+ok(!str_contains($pmP['plux_respuesta'], '8783') && !str_contains($pmP['plux_respuesta'], 'cardNumber'), 'la respuesta guardada no tiene datos de tarjeta');
+$conf = array_values(array_filter(sim(), fn ($x) => str_contains((string) ($x['cuerpo']['text']['body'] ?? ''), 'Recibimos tu pago')));
+ok(count($conf) === 1 && str_contains($conf[0]['cuerpo']['text']['body'], '#' . $pm['numero']) && $conf[0]['cuerpo']['to'] === '593981000040', 'al cliente le llega la confirmación por WhatsApp');
+igual($stockAntes, Catalogo::buscar($db, $lN, $pBlusa)['stock'], 'sin control de stock no se toca');
+ok(!$Plux::aprobar($db, $lineaN, $pmP, 'T-100', '{}', 'aviso de pago'), 'aprobar dos veces no hace nada (página y aviso de pago)');
+
+$pi = Pedidos::agregar($db, $lineaN, (int) $marta['id'], $pBlusa, 1);
+$okI = true;
+for ($i = 1; $i <= 12; $i++) { $okI = $okI && $Plux::intento($db, $pi); }
+ok($okI && !$Plux::intento($db, $pi), 'máximo 12 intentos por pedido en una hora');
+$db->prepare("UPDATE pedidos SET plux_intento_en = now() - interval '2 hours' WHERE id = ?")->execute([(int) $pi['id']]);
+ok($Plux::intento($db, $pi), 'después de una hora se puede volver a intentar');
+
+$aviso = fn (array $d) => json_encode($d);
+igual($Plux::webhook($db, 'tukan' . $lN, 'mala', $aviso(['state' => 'PAGADO']))[0], 401, 'aviso de pago con clave mala');
+igual($Plux::webhook($db, '', '', $aviso(['state' => 'PAGADO']))[0], 401, 'aviso de pago sin clave');
+igual($Plux::webhook($db, 'tukan' . $lN, $avisoP['clave'], 'no es json')[0], 400, 'aviso que no es JSON');
+igual($Plux::webhook($db, 'tukan' . $lN, $avisoP['clave'], $aviso(['state' => 'RARO']))[0], 422, 'estado desconocido');
+igual($Plux::webhook($db, 'tukan' . $lN, $avisoP['clave'], $aviso(['state' => 'PAGADO', 'description' => 'WT-999999']))[0], 404, 'aviso de un pedido que no existe');
+$pi = Pedidos::buscar($db, $lN, (int) $pi['id']);
+igual($Plux::webhook($db, 'tukan' . $lN, $avisoP['clave'], $aviso(['state' => 'PAGADO', 'description' => 'WT-' . $pi['id'], 'amount' => '1.00']))[0], 409, 'aviso con otro valor: no se aplica');
+[$h, $rr] = $Plux::webhook($db, 'tukan' . $lN, $avisoP['clave'], $aviso(['state' => 'RECHAZADO', 'detail' => ['description' => 'WT-' . $pi['id'] . ' Pedido']]));
+ok($h === 200 && $rr['resultado'] === 'rechazado' && Pedidos::buscar($db, $lN, (int) $pi['id'])['estado'] === 'carrito', 'aviso RECHAZADO: el pedido sigue abierto para pagar de nuevo');
+[$h, $rr] = $Plux::webhook($db, 'cliente_plux_prueba', 'clave_plux_prueba', $aviso(['state' => 'PAGADO', 'description' => 'WT-' . $pi['id'] . ' Pedido', 'amount' => number_format((float) $pi['total'], 2, '.', ''), 'id_transaccion' => 'T-200']));
+ok($h === 200 && $rr['resultado'] === 'pagado' && Pedidos::buscar($db, $lN, (int) $pi['id'])['estado'] === 'pagado', 'aviso PAGADO (con las credenciales de Plux): pedido pagado');
+igual($Plux::webhook($db, 'tukan' . $lN, $avisoP['clave'], $aviso(['state' => 'PAGADO', 'id_transaccion' => 'T-200']))[1]['resultado'], 'ya_estaba_pagado', 'aviso repetido: no hace nada');
+igual($Plux::webhook($db, 'tukan' . $lN, $avisoP['clave'], $aviso(['state' => 'RECHAZADO', 'id_transaccion' => 'T-200']))[1]['resultado'], 'revisar', 'RECHAZADO de algo pagado: se anota para revisar, no se quita');
+igual($Plux::webhook($db, 'tukan' . $lid, $avisoP['clave'], $aviso(['state' => 'PAGADO', 'id_transaccion' => 'T-200']))[0], 401, 'la clave de un número no sirve para otro');
+$Plux::guardar($db, $lineaN, ['quitar_plux' => '1']);
+$lineaN = Lineas::buscar($db, $lN);
+ok(!$Plux::configurado($lineaN) && $lineaN['cobro_tarjeta'] === '', 'quitar Plux');
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

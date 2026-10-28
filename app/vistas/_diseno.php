@@ -51,7 +51,7 @@ if ($u && $linea) {
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WhatsApp Tukán">
-<link rel="stylesheet" href="/assets/app.css?v=14">
+<link rel="stylesheet" href="/assets/app.css?v=15">
 <?= tukan_idioma_js(require RAIZ . '/app/frases_js.php') ?>
 </head>
 <body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?>">

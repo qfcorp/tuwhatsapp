@@ -39,7 +39,7 @@ $esTukan = (int) $e['id'] === Empresas::TUKAN;
         <label>Teléfono<input name="telefono" inputmode="tel" value="<?= e($e['telefono'] !== '' ? Telefono::bonito($e['telefono']) : '') ?>"></label>
         <label>Correo<input type="email" name="correo" value="<?= e($e['correo']) ?>"></label>
     </div>
-    <label>Notas internas (solo Tukán)<textarea name="notas" rows="3"><?= u($e['notas']) ?></textarea></label>
+    <label>Notas internas (solo Tukán)<textarea name="notas" rows="3"><?= e($e['notas']) ?></textarea></label>
     <button class="boton">Guardar</button>
     <?php if ($e['telefono'] !== ''): ?>
     <a class="boton boton-gratis" href="<?= e(Telefono::enlace($e['telefono'])) ?>" target="_blank" rel="noopener">Escribirle por WhatsApp</a>

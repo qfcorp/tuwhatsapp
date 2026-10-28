@@ -43,7 +43,7 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 | **Reparto automático** | A mano, por turnos o a quien tenga menos chats; reglas por tema (palabras clave → persona); cada persona se marca *disponible*; el supervisor ve quién tiene cuántos chats esperando y pasa los chats de una persona a otra | Más → Equipo y reparto |
 | **Catálogo** | Productos o servicios con foto, precio, stock, código y descripción; se cargan uno por uno o con un CSV de Excel (nombre, precio, stock, código, descripción). El cliente escribe "catálogo" y elige tocando de una lista | Más → Catálogo |
 | **Carrito y pedidos** | Desde el chat se agregan productos al carrito y se manda el resumen con cómo pagar. Estados: carrito → pendiente de pago → pagado → enviado → entregado (o cancelado). El stock se descuenta solo y vuelve si se cancela | Chat → Carrito y cotización; menú de abajo → Pedidos (o Más → Pedidos) |
-| **Cobros** | Enlace de pago de **Payphone** por el total exacto de cada pedido, o un enlace fijo, o los datos de transferencia; IVA del negocio | Más → Cobros y cotizaciones |
+| **Cobros** | **Pago Plux** (tarjeta): página de pago por pedido (`/pagar.php?p=…`) con el valor exacto, OTP y 3D Secure; el pedido pasa solo a *Pagado*, al cliente le llega la confirmación y al equipo un aviso; aviso de pago de Plux en `/plux.php`. También **Payphone** (enlace por pedido), un enlace fijo o los datos de transferencia; IVA del negocio. Guía para el cliente: [docs/GUIA_PLUX.md](docs/GUIA_PLUX.md) | Más → Cobros y cotizaciones |
 | **Cotización en PDF** | Con nombre, RUC, dirección, número, validez y condiciones al pie; se manda por el chat o se descarga | Chat → Mandar cotización PDF |
 | **Chatbots por pasos** | Mensaje, botones (hasta 3, o lista hasta 10), pregunta (guarda nombre, correo, notas o un campo propio) y pasar a una persona; etiquetas y etapa del embudo por opción. Se encienden con palabras clave o con el primer mensaje | Más → Chatbots |
 | **Campos propios** | Datos extra de cada contacto (texto, número, fecha o lista de opciones) que se llenan en el chat o con un chatbot y salen en el Excel | Más → Campos de contactos |
@@ -65,7 +65,7 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 - Orden de lo que contesta: chatbot en curso → catálogo (palabras "catálogo", "comprar"…) → chatbot que se enciende → agente con IA → respuestas automáticas.
 
 ### Configurar lo nuevo (una vez por número)
-1. **Más → Cobros y cotizaciones**: RUC, dirección, IVA (15 o 0), datos de transferencia y, si tiene, la clave (token) y el Store ID de **Payphone** (Payphone Developer → Configuración → tu aplicación).
+1. **Más → Cobros y cotizaciones**: RUC, dirección, IVA (15 o 0), datos de transferencia y la tarjeta: **Pago Plux** (los 4 datos que da Plux; pasos en [docs/GUIA_PLUX.md](docs/GUIA_PLUX.md)) o el token y Store ID de **Payphone**.
 2. **Más → Catálogo**: agrega productos o sube el CSV.
 3. **Más → Equipo y reparto**: elige cómo se reparten los chats y quién está disponible.
 4. **Más → Chatbots**: crea el primero (ya trae un ejemplo de 3 pasos) y enciéndelo.

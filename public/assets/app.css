@@ -408,3 +408,19 @@ fieldset.paso legend { padding: 0 6px; }
 button[disabled] { opacity: .5; cursor: not-allowed; }
 @media (max-width: 480px) { .prod-acciones { flex-direction: column; gap: 4px; } }
 .carrito-chat form.formulario { margin-top: 14px; }
+
+/* Página de pago con tarjeta (Plux) */
+.aviso-ok { background: var(--verde-claro); border-left-color: var(--verde); }
+.fila-triple { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.pago { max-width: 560px; }
+.pago-negocio { margin: 0; font-weight: 700; color: var(--tinta-suave); }
+.tabla-pedido { width: 100%; border-collapse: collapse; }
+.tabla-pedido td { padding: 6px 0; border-bottom: 1px solid #e6e8ee; vertical-align: top; }
+.tabla-pedido .derecha { text-align: right; white-space: nowrap; padding-left: 12px; }
+.tabla-pedido .total td { font-weight: 700; font-size: 1.15rem; border-bottom: 0; padding-top: 10px; }
+.pago #plux-otp { font-size: 1.4rem; letter-spacing: 4px; text-align: center; width: 100%; margin-bottom: 10px; }
+.pago .formulario label, .pago.formulario label { display: block; }
+.datos-plux { background: #f7f7f4; border: 1px dashed #c9ccd6; border-radius: 10px; padding: 10px 12px; font-size: .92rem; }
+.datos-plux code { word-break: break-all; }
+@media (max-width: 330px) { .fila-triple { grid-template-columns: 1fr 1fr; } }
+.pagina-pago { min-height: 100vh; }
