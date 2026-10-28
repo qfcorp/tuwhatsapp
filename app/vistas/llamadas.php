@@ -1,0 +1,56 @@
+<?php
+/** @var array $linea @var list<array> $llamadas */
+use TuWhatsApp\Llamadas;
+$activo = !empty($linea['llamadas_activo']);
+$iconos = ['entra' => '↙', 'sale' => '↗'];
+?>
+<div class="cabeza"><h1>Llamadas</h1></div>
+<section class="tarjeta">
+    <h2>Llamadas de WhatsApp <?= $activo ? '<small class="chip chip-cliente">Encendidas</small>' : '<small class="chip">Apagadas</small>' ?></h2>
+    <p class="suave pequeno">Tus clientes te llaman por WhatsApp (el botón 📞 de tu chat) y contestas desde el panel o desde la app en el celular.
+    También puedes llamarlos tú, si te dan permiso. Las llamadas que te hacen son <b>gratis</b>; las que haces tú las cobra Meta por minuto.</p>
+    <?php if ((string) $linea['llamadas_error'] !== ''): ?><p class="aviso aviso-error pequeno"><?= e($linea['llamadas_error']) ?></p><?php endif; ?>
+    <?php if (es_admin()): ?>
+    <form method="post" class="fila-botones">
+        <?= csrf_campo() ?>
+        <?php if ($activo): ?>
+        <button class="boton boton-claro" name="accion" value="apagar">Apagar llamadas</button>
+        <?php else: ?>
+        <button class="boton" name="accion" value="encender">Encender llamadas en mi número</button>
+        <?php endif; ?>
+    </form>
+    <details <?= $activo ? '' : 'open' ?>>
+        <summary><b>Lo que pide Meta</b></summary>
+        <ul class="pequeno">
+            <li>El número debe estar en la <b>API de WhatsApp</b>. <?= !empty($linea['coexistencia']) ? '<b>Ojo: este número también está en la app WhatsApp Business del celular; Meta puede no permitir llamadas en él.</b>' : '' ?></li>
+            <li>Tu número debe poder mandar a <b>2.000 personas al día</b> o más (Meta lo sube solo cuando usas el número sin reportes).</li>
+            <li>En la app de Meta, el webhook debe tener suscrito el campo <b>calls</b> (Tukán lo deja listo).</li>
+            <li>Se usa el <b>horario de atención</b> de Respuestas automáticas: fuera de horario, al cliente le sale que estás cerrado.</li>
+            <li>Para llamar tú a un cliente, primero tiene que aceptar tu <b>pedido de permiso</b> (vale 7 días, o siempre si así lo elige). Meta deja pedirlo 1 vez al día y 2 por semana.</li>
+        </ul>
+    </details>
+    <form method="post" class="formulario">
+        <?= csrf_campo() ?><input type="hidden" name="accion" value="guardar">
+        <label>Mensaje si no alcanzas a contestar (opcional)<textarea name="llamadas_perdida" rows="2" maxlength="1000" placeholder="Hola, vimos tu llamada. Ahora no pudimos contestar, ¿te ayudamos por aquí?"><?= e($linea['llamadas_perdida']) ?></textarea></label>
+        <p class="suave pequeno">Se manda solo si el cliente te escribió en las últimas 24 horas (así no cuesta plantilla).</p>
+        <button class="boton boton-claro">Guardar</button>
+    </form>
+    <?php endif; ?>
+</section>
+
+<section class="tarjeta">
+    <h2>Últimas llamadas</h2>
+    <?php if (!$llamadas): ?>
+    <p class="suave">Todavía no hay llamadas.</p>
+    <?php else: ?>
+    <ul class="lista-llamadas">
+        <?php foreach ($llamadas as $l): ?>
+        <li class="llamada-<?= e($l['estado']) ?>">
+            <span class="ll-ico" aria-hidden="true"><?= $l['estado'] === 'perdida' ? '📵' : $iconos[$l['direccion']] ?></span>
+            <a href="<?= e(url('chat', ['c' => $l['contacto_id']])) ?>"><b><?= u(Llamadas::nombre($l)) ?></b></a>
+            <span class="suave pequeno"><?= $l['direccion'] === 'entra' ? 'Te llamó' : 'Llamaste' ?> · <?= e(tukan_tr(Llamadas::ESTADOS[$l['estado']] ?? $l['estado'])) ?><?= $l['duracion'] !== null ? ' · ' . e(Llamadas::duracion((int) $l['duracion'])) : '' ?><?= $l['u_nombre'] ? ' · ' . u($l['u_nombre']) : '' ?> · <?= e(hora_corta((string) $l['creado'])) ?></span>
+        </li>
+        <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
+</section>

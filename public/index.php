@@ -15,7 +15,8 @@ use TuWhatsApp\Registro;
 $rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr', 'plantillas',
           'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan', 'campanias', 'respuestas', 'aceptar', 'mas', 'archivo',
           'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones',
-          'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda', 'app', 'push'];
+          'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda', 'app', 'push',
+          'llamada', 'llamar', 'llamadas', 'asistente'];
 $ruta = (string) ($_GET['r'] ?? 'bandeja');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
@@ -109,7 +110,8 @@ function vista(string $nombre, string $titulo, array $datos = []): never
 $linea = usuario() ? linea_actual() : null;
 if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas', 'campanias', 'respuestas',
                                     'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones',
-                                    'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda'], true)) {
+                                    'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda',
+                                    'llamada', 'llamar', 'llamadas', 'asistente'], true)) {
     if (!es_admin()) {
         aviso('El administrador de tu cuenta todavía no conecta el número de WhatsApp.', 'info');
         redirigir('cuenta');
@@ -251,7 +253,9 @@ try {
         $cid = (int) $c['id'];
         if ($post) {
             $accion = (string) ($_POST['accion'] ?? '');
-            if ($accion === 'tipo') {
+            if ($accion === 'pedir_llamada') {
+                aviso_envio(\TuWhatsApp\Llamadas::pedirPermiso(db(), $linea, $c, (int) usuario()['id']), 'Pedido de permiso para llamar enviado');
+            } elseif ($accion === 'tipo') {
                 Contactos::cambiarTipo(db(), $lid, $cid, (string) ($_POST['tipo'] ?? ''));
                 aviso('Ahora es: ' . tipo_contacto((string) $_POST['tipo']) . '.');
             } elseif ($accion === 'asignar' && modulo('agentes')) {
@@ -368,6 +372,7 @@ try {
             'ventana' => Gasto::ventanaAbierta($c, new DateTimeImmutable()),
             'precio' => Gasto::estimar(db(), 'servicio', $c, new DateTimeImmutable()),
             'seguimientos' => modulo('seguimientos') ? \TuWhatsApp\Seguimientos::deContacto(db(), $cid) : [],
+            'llamadas' => \TuWhatsApp\Llamadas::lista(db(), $lid, $cid, 3),
             'resumenIa' => $resumenIa,
             'productos' => \TuWhatsApp\Catalogo::lista(db(), $lid, true, '', 300),
             'carrito' => $car = \TuWhatsApp\Pedidos::carrito(db(), $linea, $cid, false),
@@ -683,6 +688,9 @@ try {
                 aviso(!empty($_POST['bot_activo']) ? 'Agente con IA encendido: desde ahora contesta solo.' : 'Agente con IA guardado (apagado).');
             } else {
                 \TuWhatsApp\Asistente::guardarConocimiento(db(), $lid, (string) ($_POST['conocimiento'] ?? ''));
+                if (isset($_POST['ia_tono'])) {
+                    db()->prepare('UPDATE lineas SET ia_tono = ? WHERE id = ?')->execute([mb_substr(trim((string) $_POST['ia_tono']), 0, 300), $lid]);
+                }
                 aviso('Guardado. La IA usará esta información para contestar y sugerir respuestas.');
             }
             redirigir('ia');
@@ -690,6 +698,59 @@ try {
         vista('ia', 'Agente con IA', [
             'linea' => $linea, 'disponible' => \TuWhatsApp\Asistente::disponible(),
             'gastado' => \TuWhatsApp\Asistente::gastadoMes(db(), (int) $emp['id']), 'tope' => (float) ($emp['ia_tope'] ?? 3),
+        ]);
+
+    case 'asistente':   // "Pregúntale a la IA" (como Wati AI) y el resumen de cada mañana
+        if ($post) {
+            $accion = (string) ($_POST['accion'] ?? '');
+            $soloAdm = function (): void {
+                if (!es_admin()) {
+                    aviso('Solo el administrador de la cuenta puede hacer eso.', 'error');
+                    redirigir('asistente');
+                }
+            };
+            if ($accion === 'preguntar') {
+                $q = \TuWhatsApp\Copiloto::preguntar(db(), $linea, (string) ($_POST['pregunta'] ?? ''), (int) usuario()['id']);
+                redirigir('asistente', ['q' => $q['id']]);
+            } elseif ($accion === 'etiqueta') {
+                $soloAdm();
+                $et = (string) ($_POST['etiqueta'] ?? '');
+                $n = \TuWhatsApp\Copiloto::guardarEtiqueta(db(), $linea, (int) ($_POST['q'] ?? 0), $et);
+                aviso($n . ' clientes guardados con la etiqueta "' . \TuWhatsApp\Copiloto::etiqueta($et) . '". En Campañas elige esa etiqueta para escribirles.');
+                redirigir('asistente', ['q' => (int) ($_POST['q'] ?? 0)]);
+            } elseif ($accion === 'campania') {
+                $soloAdm();
+                $cq = \TuWhatsApp\Copiloto::consulta(db(), $lid, (int) ($_POST['q'] ?? 0));
+                if (!$cq || empty($cq['campania'])) {
+                    throw new RuntimeException('Esa respuesta no trae una campaña.');
+                }
+                if (!empty($cq['contactos']) && !empty($cq['etiqueta'])) {
+                    \TuWhatsApp\Copiloto::guardarEtiqueta(db(), $linea, (int) $cq['id'], (string) $cq['etiqueta']);
+                    $_SESSION['campania_form'] = ['filtro_etiqueta' => $cq['etiqueta']];
+                }
+                $_SESSION['form_plantilla'] = ['nombre' => $cq['campania']['nombre'], 'categoria' => $cq['campania']['categoria'], 'idioma' => 'es', 'cuerpo' => $cq['campania']['texto']];
+                aviso('La IA dejó lista la plantilla: revísala y tócala en "Crear plantilla". Cuando Meta la apruebe, ve a Campañas'
+                      . (!empty($cq['etiqueta']) ? ' (ya está elegida la etiqueta "' . $cq['etiqueta'] . '")' : '') . '.', 'info');
+                redirigir('plantillas');
+            } elseif ($accion === 'resumen') {
+                \TuWhatsApp\Copiloto::hacerResumen(db(), $linea);
+                aviso('Resumen de hoy listo.');
+                redirigir('asistente');
+            } elseif ($accion === 'ajustes') {
+                $soloAdm();
+                $hora = (string) ($_POST['resumen_hora'] ?? '07:30');
+                if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora)) {
+                    throw new RuntimeException('Escribe la hora así: 07:30.');
+                }
+                db()->prepare('UPDATE lineas SET resumen_diario = ?, resumen_hora = ? WHERE id = ?')->execute([!empty($_POST['resumen_diario']) ? 't' : 'f', $hora, $lid]);
+                aviso(!empty($_POST['resumen_diario']) ? 'Listo: cada día a las ' . $hora . ' te llega el resumen al celular.' : 'Resumen de cada mañana apagado.');
+                redirigir('asistente');
+            }
+            redirigir('asistente');
+        }
+        vista('asistente', 'Pregúntale a la IA', [
+            'linea' => $linea, 'consulta' => isset($_GET['q']) ? \TuWhatsApp\Copiloto::consulta(db(), $lid, (int) $_GET['q']) : null,
+            'historial' => \TuWhatsApp\Copiloto::historial(db(), $lid), 'resumen' => \TuWhatsApp\Copiloto::resumenDeHoy(db(), $lid),
         ]);
 
     case 'enlaces':
@@ -995,6 +1056,84 @@ try {
         }
         echo json_encode($r, JSON_UNESCAPED_UNICODE);
         exit;
+
+    case 'llamada':   // llamadas de WhatsApp: lo que hace el navegador (JSON)
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        $accion = (string) ($_REQUEST['accion'] ?? '');
+        $uid = (int) usuario()['id'];
+        $idL = (int) ($_REQUEST['id'] ?? 0);
+        try {
+            if ($accion === 'sonando') {
+                $r = ['ok' => true, 'llamada' => !empty($linea['llamadas_activo']) ? \TuWhatsApp\Llamadas::sonando(db(), $lid) : null];
+            } elseif ($accion === 'estado') {
+                $l = \TuWhatsApp\Llamadas::buscar(db(), $lid, $idL);
+                $r = $l ? ['ok' => true, 'estado' => $l['estado'], 'texto' => tukan_tr(\TuWhatsApp\Llamadas::ESTADOS[$l['estado']] ?? $l['estado']),
+                           'respuesta' => $l['direccion'] === 'sale' ? (string) $l['sdp_respuesta'] : '', 'error' => (string) $l['error'],
+                           'duracion' => $l['duracion'] !== null ? (int) $l['duracion'] : null]
+                        : ['ok' => false, 'error' => tukan_tr('Esa llamada no existe.')];
+            } elseif (!$post) {
+                http_response_code(405);
+                $r = ['ok' => false];
+            } elseif ($accion === 'tomar') {
+                $r = ['ok' => true] + \TuWhatsApp\Llamadas::tomar(db(), $lid, $idL, $uid);
+            } elseif ($accion === 'contestar') {
+                \TuWhatsApp\Llamadas::contestar(db(), $linea, $idL, $uid, (string) ($_POST['sdp'] ?? ''));
+                $r = ['ok' => true];
+            } elseif ($accion === 'aceptar') {
+                \TuWhatsApp\Llamadas::aceptar(db(), $linea, $idL, $uid);
+                $r = ['ok' => true];
+            } elseif ($accion === 'rechazar') {
+                \TuWhatsApp\Llamadas::rechazar(db(), $linea, $idL);
+                $r = ['ok' => true];
+            } elseif ($accion === 'colgar') {
+                \TuWhatsApp\Llamadas::colgar(db(), $linea, $idL);
+                $r = ['ok' => true];
+            } elseif ($accion === 'llamar') {
+                $cl = Contactos::buscar(db(), $lid, (int) ($_POST['c'] ?? 0));
+                if (!$cl) {
+                    throw new RuntimeException('Ese contacto no existe.');
+                }
+                $r = ['ok' => true, 'id' => \TuWhatsApp\Llamadas::llamar(db(), $linea, $cl, $uid, (string) ($_POST['sdp'] ?? ''))];
+            } else {
+                $r = ['ok' => false, 'error' => 'Acción desconocida.'];
+            }
+        } catch (RuntimeException $ex) {
+            $r = ['ok' => false, 'error' => tukan_tr($ex->getMessage())];
+        }
+        echo json_encode($r, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+
+    case 'llamar':   // ventanita de la llamada (sigue abierta aunque cambies de página en el panel)
+        $lla = isset($_GET['id']) ? \TuWhatsApp\Llamadas::buscar(db(), $lid, (int) $_GET['id']) : null;
+        $cl = isset($_GET['c']) ? Contactos::buscar(db(), $lid, (int) $_GET['c'])
+            : ($lla && $lla['contacto_id'] !== null ? Contactos::buscar(db(), $lid, (int) $lla['contacto_id']) : null);
+        if (!$lla && !$cl) {
+            aviso('Esa llamada no existe.', 'error');
+            redirigir('llamadas');
+        }
+        $titulo = $cl ? Contactos::nombre($cl) : 'Llamada';
+        require RAIZ . '/app/vistas/llamar.php';
+        exit;
+
+    case 'llamadas':
+        if ($post) {
+            if (!es_admin()) {
+                aviso('Solo el administrador de la cuenta puede cambiar eso.', 'error');
+                redirigir('llamadas');
+            }
+            $accion = (string) ($_POST['accion'] ?? '');
+            if ($accion === 'encender' || $accion === 'apagar') {
+                $r = \TuWhatsApp\Llamadas::encender(db(), $linea, $accion === 'encender');
+                $r['ok'] ? aviso($accion === 'encender' ? 'Llamadas encendidas: tus clientes ya ven el botón de llamar.' : 'Llamadas apagadas.')
+                         : aviso('Meta no dejó cambiarlo: ' . $r['error'], 'error');
+            } else {
+                db()->prepare('UPDATE lineas SET llamadas_perdida = ? WHERE id = ?')->execute([mb_substr(trim((string) ($_POST['llamadas_perdida'] ?? '')), 0, 1000), $lid]);
+                aviso('Guardado.');
+            }
+            redirigir('llamadas');
+        }
+        vista('llamadas', 'Llamadas', ['linea' => $linea, 'llamadas' => \TuWhatsApp\Llamadas::lista(db(), $lid)]);
 
     case 'pendientes':
         if ($post) {

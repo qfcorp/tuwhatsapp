@@ -20,8 +20,8 @@ final class Modulos
     /** Extras que se encienden o apagan por cliente: clave => [nombre, para qué sirve, rutas que necesita] */
     public const LISTA = [
         'ia' => ['Asistente con IA y agente que contesta solo',
-                 'Agente con IA que contesta solo las 24 horas con lo que sabe tu negocio y tu catálogo, y pasa a una persona cuando hace falta. Además sugiere respuestas y resume conversaciones.',
-                 ['ia']],
+                 'Agente con IA que contesta solo las 24 horas con lo que sabe tu negocio y tu catálogo, y pasa a una persona cuando hace falta. Además sugiere respuestas, resume conversaciones, contesta preguntas sobre tu negocio ("¿quién está listo para comprar?"), arma campañas y te manda un resumen cada mañana.',
+                 ['ia', 'asistente']],
     ];
 
     /**

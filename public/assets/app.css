@@ -424,3 +424,35 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .datos-plux code { word-break: break-all; }
 @media (max-width: 330px) { .fila-triple { grid-template-columns: 1fr 1fr; } }
 .pagina-pago { min-height: 100vh; }
+
+/* Llamadas de WhatsApp */
+.boton-verde { background: #1f8a4c; color: #fff; }
+.boton-rojo { background: #c0392b; color: #fff; }
+.barra-llamada { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--tinta, #14211F); color: #fff; padding: 10px 14px; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100% - 20px); }
+.barra-llamada .boton { min-height: 40px; padding: 8px 14px; }
+.barra-llamada > span { flex: 1 1 100%; font-weight: 600; }
+.ventana-llamada { background: #14211F; color: #fff; min-height: 100vh; }
+.llamada { max-width: 380px; margin: 0 auto; padding: 32px 18px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.llamada h1 { margin: 6px 0 0; font-size: 1.5rem; }
+.llamada .suave { color: #b9c6c2; }
+.llamada-avatar { width: 96px; height: 96px; border-radius: 50%; background: #F28C28; color: #14211F; font-size: 2.6rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.llamada-estado { font-size: 1.1rem; margin: 10px 0 0; }
+.llamada-tiempo { font-size: 1.6rem; font-variant-numeric: tabular-nums; margin: 0; }
+.llamada-botones { display: flex; flex-direction: column; gap: 10px; width: 100%; margin: 16px 0; }
+.llamada-botones .boton { width: 100%; min-height: 52px; font-size: 1.05rem; }
+.llamada .aviso { color: var(--tinta, #14211F); text-align: left; }
+.llamar-chat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ll-reciente { background: #eef1ef; border-radius: 999px; padding: 2px 10px; }
+.lista-llamadas { list-style: none; padding: 0; margin: 0; }
+.lista-llamadas li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid #e6e8ee; }
+.lista-llamadas .llamada-perdida b { color: #c0392b; }
+.ll-ico { width: 1.4em; display: inline-block; text-align: center; }
+
+/* Pregúntale a la IA */
+.chips-ia { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.chip-boton { cursor: pointer; border: 1px solid var(--linea, #dadce3); background: var(--fondo, #f7f7f4); font: inherit; font-size: .85rem; padding: 6px 10px; }
+.texto-ia { line-height: 1.55; }
+.lista-ia { padding-left: 18px; }
+.lista-ia li { margin: 4px 0; }
+.burbuja-propuesta { background: #e7f6ec; border-radius: 12px; padding: 10px 12px; white-space: normal; }

@@ -25,7 +25,7 @@ if ($linea && empty($linea['coexistencia']) && \TuWhatsApp\Pendientes::contar(db
 $activo = $rutaActual === 'chat' || $rutaActual === 'plantilla' ? 'bandeja' : ($rutaActual === 'pedido' ? 'pedidos' : ($rutaActual === 'flujo' || $rutaActual === 'flujos' ? 'reglas' : $rutaActual));
 if (!isset($menu[$activo]) && $activo !== 'bandeja') {
     $activo = in_array($activo, ['campanias', 'campania', 'gasto', 'reportes', 'seguimientos', 'ia', 'enlaces', 'integraciones', 'respuestas', 'plantillas',
-                                 'catalogo', 'cobros', 'pedidos', 'equipo', 'campos', 'tienda', 'app'], true) ? 'mas' : $activo;
+                                 'catalogo', 'cobros', 'pedidos', 'equipo', 'campos', 'tienda', 'app', 'llamadas', 'asistente'], true) ? 'mas' : $activo;
 }
 $avisos = tomar_avisos();
 $empresaVista = $u ? empresa_actual() : null;
@@ -51,10 +51,10 @@ if ($u && $linea) {
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WhatsApp Tukán">
-<link rel="stylesheet" href="/assets/app.css?v=15">
+<link rel="stylesheet" href="/assets/app.css?v=16">
 <?= tukan_idioma_js(require RAIZ . '/app/frases_js.php') ?>
 </head>
-<body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?>">
+<body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?>"<?= $u && $linea && !empty($linea['llamadas_activo']) ? ' data-llamadas="1" data-csrf="' . e(csrf()) . '"' : '' ?>>
 <?php if ($u): ?>
 <header class="barra">
     <a class="marca" href="<?= e(url('bandeja')) ?>" aria-label="Inicio">
@@ -119,5 +119,6 @@ if ($u && $linea) {
 </nav>
 <?php endif; ?>
 <script src="/assets/app.js?v=10" defer></script>
+<?php if ($u && $linea && !empty($linea['llamadas_activo'])): ?><script src="/assets/llamadas.js?v=1" defer></script><?php endif; ?>
 </body>
 </html>

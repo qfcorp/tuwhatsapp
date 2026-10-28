@@ -68,6 +68,8 @@ WEB=$!
 sleep 0.7
 TUWA_ENV="$ENVF" bash tests/prueba_web.sh
 R=$?
+# Actualizar sobre una base CON datos (como en el servidor): schema.sql tiene que correr sin errores
+if psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null 2>"$ENVF.schema"; then echo "schema.sql sobre una base con datos: bien"; else echo "FALLA: schema.sql sobre una base con datos"; cat "$ENVF.schema"; R=1; fi
 cp "$ENVF.log" /tmp/tuwa_err.log 2>/dev/null
 if [ -s "$ENVF.log" ]; then echo "Avisos de PHP:"; cat "$ENVF.log"; R=1; fi
 exit $R

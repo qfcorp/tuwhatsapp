@@ -144,7 +144,7 @@ $anio = (int) date('Y');
 <meta name="theme-color" content="#14211F">
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($titulo) ?><?= $linea ? ' · ' . e($linea['nombre']) : '' ?></title>
-<link rel="stylesheet" href="/assets/app.css?v=15">
+<link rel="stylesheet" href="/assets/app.css?v=16">
 </head>
 <body class="sin-sesion publica pagina-pago">
 <main class="contenido documento pago">

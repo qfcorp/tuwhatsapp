@@ -80,7 +80,8 @@ final class Asistente
     {
         $c = trim((string) ($linea['ia_conocimiento'] ?? ''));
         return 'Ayudas al equipo de atención del negocio "' . $linea['nombre'] . '" que atiende a sus clientes por WhatsApp.'
-            . "\n\nInformación del negocio (escrita por el negocio):\n" . ($c !== '' ? $c : '(el negocio todavía no escribió información)');
+            . "\n\nInformación del negocio (escrita por el negocio):\n" . ($c !== '' ? $c : '(el negocio todavía no escribió información)')
+            . (trim((string) ($linea['ia_tono'] ?? '')) !== '' ? "\n\nTono de la marca (respétalo siempre): " . trim((string) $linea['ia_tono']) : '');
     }
 
     /** Los últimos mensajes como texto: "Cliente: …" / "Negocio: …" */

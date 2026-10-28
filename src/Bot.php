@@ -152,6 +152,9 @@ final class Bot
            . "Atiendes a sus clientes con amabilidad, en mensajes cortos (1 a 4 frases), EN EL MISMO IDIOMA en que escribe el cliente, tuteando si el cliente tutea.\n\n"
            . "Información del negocio (escrita por el negocio):\n" . ($info !== '' ? $info : '(el negocio todavía no escribió información)') . "\n\n"
            . 'Horario de atención de las personas: ' . implode('; ', $horario) . ".\n";
+        if (trim((string) ($linea['ia_tono'] ?? '')) !== '') {
+            $s .= 'Tono de la marca (respétalo siempre): ' . trim((string) $linea['ia_tono']) . ".\n";
+        }
         if ($catalogo !== '') {
             $s .= "\nCatálogo (entre corchetes el id de cada producto):\n" . $catalogo . "\n";
             if ($carrito && $items) {

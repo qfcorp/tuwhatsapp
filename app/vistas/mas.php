@@ -18,10 +18,12 @@ $grupos = [
         ['reglas', 'Respuestas automáticas', 'Menú con botones, horario y palabras clave.', true],
         ['flujos', 'Chatbots', 'Conversaciones por pasos con botones y preguntas, sin programar.', true],
         ['ia', 'Agente con IA', 'Contesta solo las 24 horas con lo que sabe tu negocio y tu catálogo.', true],
+        ['asistente', 'Pregúntale a la IA', 'Pide en palabras: quién está listo para comprar, arma una campaña, cómo te fue. Resumen cada mañana.', false],
     ],
     'Equipo' => [
         ['equipo', 'Equipo y reparto', 'Quién atiende qué, reparto automático y vista del supervisor.', true],
         ['reportes', 'Reportes', 'Mensajes, tiempos de respuesta, ventas y de qué anuncio llegó cada cliente.', true],
+        ['llamadas', 'Llamadas', 'Contesta y haz llamadas de WhatsApp desde el panel.', false],
         ['app', 'App en el celular', 'Instálalo como app y recibe avisos aunque el navegador esté cerrado.', false],
     ],
     'Ajustes' => [
@@ -41,11 +43,11 @@ $conIa = modulo('ia');
 <h2 class="separador"><?= e($titulo) ?></h2>
 <ul class="mosaico">
     <?php foreach ($items as [$ruta, $nombre, $texto, $soloAdmin]): if ($soloAdmin && !es_admin()) continue; ?>
-    <?php if ($ruta === 'ia' && !$conIa): ?>
+    <?php if (in_array($ruta, ['ia', 'asistente'], true) && !$conIa): ?>
     <li class="bloqueado"><div><b><?= e($nombre) ?> <small class="chip">Extra</small></b><span><?= e($texto) ?></span>
         <a class="pequeno" href="https://wa.me/593996408397?text=<?= rawurlencode('Hola, quiero activar el Agente con IA en WhatsApp Tukán.') ?>" target="_blank" rel="noopener">Pedir a Tukán</a></div></li>
     <?php else: ?>
-    <li><a href="<?= e(url($ruta)) ?>"><b><?= e($nombre) ?><?= $ruta === 'ia' ? ' <small class="chip chip-cliente">Activo</small>' : '' ?></b><span><?= e($texto) ?></span></a></li>
+    <li><a href="<?= e(url($ruta)) ?>"><b><?= e($nombre) ?><?= in_array($ruta, ['ia', 'asistente'], true) ? ' <small class="chip chip-cliente">Activo</small>' : '' ?></b><span><?= e($texto) ?></span></a></li>
     <?php endif; ?>
     <?php endforeach; ?>
 </ul>

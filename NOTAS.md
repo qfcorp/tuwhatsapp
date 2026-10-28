@@ -8,7 +8,7 @@ Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de
 - Dirección: **https://whatsapp.tukanec.com** (ya funciona)
 - Servidor: **qfcorp** (usuario `qf`), túnel de Cloudflare `servidorqf` → `http://localhost:80`
 - Tecnología: PHP + PostgreSQL + nginx
-- Pruebas (Meta y Plux simulados): **idiomas 43, lógica 684, Panel Central v2 163 y pantallas 325, todo bien** (28 oct 2026)
+- Pruebas (Meta, IA y Plux simulados): **idiomas 43, lógica 739, Panel Central v2 163 y pantallas 360, todo bien** (28 oct 2026)
 
 ## Qué hace el programa
 - **Bandeja** y **chat** con 2 botones: "Enviar desde el celular" (gratis) y "Enviar por el sistema" (pagado, muestra el costo).
@@ -57,6 +57,15 @@ En el servidor (`/var/www/tuwhatsapp/config/.env`) ya están: META_APP_ID, META_
 **Lo que ellos tienen y nosotros no:** Instagram, Messenger y TikTok en la misma bandeja; llamadas de WhatsApp; IA que crea campañas y segmentos con una frase; resumen diario con IA para el dueño; encuestas de satisfacción (CSAT/NPS); app en Play Store / App Store (nosotros: app instalable desde el navegador); conexión directa a HubSpot/Salesforce (nosotros: Make/Zapier/n8n y Excel); catálogo nativo de WhatsApp (Meta Commerce) y formularios WhatsApp Flows; SMS alterno.
 **Lo que nosotros tenemos y ellos cobran aparte o no tienen:** todo en un plan (~$20) con hasta 50 usuarios; 0 % de recargo sobre Meta y tope de gasto; mes a mes; agente IA ~$5 (Wati $99–399); cobro con tarjeta por Plux/Payphone (Ecuador) con pedido que pasa solo a Pagado; cotización PDF con RUC e IVA; catálogo con stock; botón "enviar gratis desde el celular"; español y soporte en Ecuador.
 Pendiente: Dimitry elige cuáles de las que faltan se hacen.
+
+## 📞 Llamadas de WhatsApp y "Pregúntale a la IA" (28 oct 2026, tarde)
+Pedido de Dimitry: hacer las llamadas de WhatsApp y copiar Wati AI (sin grupos ni encuestas).
+- **Llamadas** (Calling API de Meta, WebRTC en el navegador): suena en el panel ("📞 Llamada de…", Contestar/Rechazar), se contesta en una ventanita que sigue aunque cambies de página; la primera persona que contesta se la lleva; perdidas con aviso al celular y mensaje automático opcional; llamar al cliente después de su permiso (botón de Meta, 7 días o siempre; 1 pedido al día); historial en Más → Llamadas y en cada chat. Probado de punta a punta en Chromium: audio conectado entre el panel y un "Meta" falso.
+  - Falta en Meta (una vez): suscribir el campo **calls** del webhook de la app. Meta pide número en la API (no coexistencia) y límite de 2.000 al día.
+- **Pregúntale a la IA** (extra de IA): preguntas en palabras con los datos del número; lista de clientes → etiqueta → Campañas; campaña → plantilla lista en Plantillas; cifras. **Resumen de cada mañana** al celular (cron). **Tono de la marca** para toda la IA.
+- Arreglado: `schema.sql` fallaba al correrlo otra vez si ya había mensajes del agente IA, chatbots o tienda (restricción de origen vieja). Ahora las pruebas lo corren sobre una base con datos.
+- Grupos de WhatsApp por la API: se decidió **no** hacerlos (máximo 8 personas, check verde obligatorio, no en coexistencia).
+- Pruebas: idiomas 43, lógica 739, Panel Central 163, pantallas 360, todo bien.
 
 ## 💳 Cobro con tarjeta por Pago Plux (28 oct 2026, tarde)
 Pedido de Dimitry: "cobros con Plux (se requiere inscripción en Plux; nosotros les damos toda la información)".

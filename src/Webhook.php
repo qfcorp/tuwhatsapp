@@ -81,6 +81,10 @@ final class Webhook
         if ($linea === null) {
             throw new \RuntimeException("Número desconocido (phone_number_id $pnid): agrégalo en Números");
         }
+        if ($campo === 'calls') {   // llamadas de WhatsApp
+            Llamadas::webhook($this->db, $linea, $v, $this->ahora);
+            return;
+        }
         if ($campo === 'history') {
             foreach ((array) ($v['history'] ?? []) as $h) {
                 $this->historial($linea, (array) $h);
@@ -117,7 +121,9 @@ final class Webhook
         $pie = fn (string $k) => trim((string) ($m[$k]['caption'] ?? ''));
         return match ($tipo) {
             'text' => (string) ($m['text']['body'] ?? ''),
-            'interactive' => (string) ($m['interactive']['button_reply']['title'] ?? $m['interactive']['list_reply']['title'] ?? '[Respuesta]'),
+            'interactive' => ($m['interactive']['type'] ?? '') === 'call_permission_reply'
+                ? (($m['interactive']['call_permission_reply']['response'] ?? '') === 'accept' ? '📞 Aceptó que lo llamen' : '📵 No aceptó que lo llamen')
+                : (string) ($m['interactive']['button_reply']['title'] ?? $m['interactive']['list_reply']['title'] ?? '[Respuesta]'),
             'button' => (string) ($m['button']['text'] ?? '[Botón]'),
             'image' => '[Foto]' . ($pie('image') !== '' ? ' ' . $pie('image') : ''),
             'video' => '[Video]' . ($pie('video') !== '' ? ' ' . $pie('video') : ''),
@@ -216,6 +222,10 @@ final class Webhook
             error_log('tuwhatsapp reparto/aviso: ' . $e->getMessage());
         }
 
+        if (($m['interactive']['type'] ?? '') === 'call_permission_reply') {   // contestó el pedido de permiso para llamar
+            $this->motivo((int) $id, Llamadas::permiso($this->db, (int) $contacto['id'], (array) ($m['interactive']['call_permission_reply'] ?? [])) . ': no se contesta solo');
+            return;
+        }
         if (!in_array((string) ($m['type'] ?? ''), self::CON_RESPUESTA, true)) {
             $this->motivo((int) $id, 'No es texto: contestas tú');
             return;

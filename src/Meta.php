@@ -28,6 +28,7 @@ final class Meta
         368    => 'Meta bloqueó temporalmente esta cuenta por incumplir sus reglas.',
         131031 => 'La cuenta de WhatsApp Business está bloqueada o falta verificar el negocio.',
         133010 => 'El número todavía no está registrado en la API de WhatsApp.',
+        138006 => 'Este cliente no te ha dado permiso para llamarlo. Pídele permiso primero (botón "Pedir permiso para llamar").',
     ];
 
     public function __construct(private string $phoneNumberId, private string $token, private string $wabaId = '') {}
@@ -268,6 +269,42 @@ final class Meta
             return ['ok' => false, 'error' => 'Falta el identificador de la cuenta (WABA ID): sin él Meta no avisa los mensajes que llegan.'];
         }
         return $this->pedir('POST', '/' . $this->wabaId . '/subscribed_apps', []);
+    }
+
+    // ---------------------------------------------------------------- Llamadas (Calling API)
+
+    /** Contestar, rechazar o colgar una llamada: pre_accept y accept llevan el SDP de respuesta del navegador. */
+    public function llamadaAccion(string $callId, string $accion, string $sdp = ''): array
+    {
+        $c = ['messaging_product' => 'whatsapp', 'call_id' => $callId, 'action' => $accion];
+        if ($sdp !== '') {
+            $c['session'] = ['sdp_type' => 'answer', 'sdp' => $sdp];
+        }
+        return $this->pedir('POST', '/' . $this->phoneNumberId . '/calls', $c);
+    }
+
+    /** Llamar al cliente (necesita su permiso). Devuelve call_id. */
+    public function llamar(string $para, string $sdpOferta, string $referencia): array
+    {
+        $r = $this->pedir('POST', '/' . $this->phoneNumberId . '/calls', ['messaging_product' => 'whatsapp', 'to' => $para, 'action' => 'connect',
+            'session' => ['sdp_type' => 'offer', 'sdp' => $sdpOferta], 'biz_opaque_callback_data' => mb_substr($referencia, 0, 512)]);
+        if (!$r['ok']) {
+            return $r;
+        }
+        return ['ok' => true, 'call_id' => (string) ($r['datos']['calls'][0]['id'] ?? '')];
+    }
+
+    /** Mensaje con el botón de Meta para que el cliente dé permiso de llamarlo. */
+    public function pedirPermisoLlamada(string $para, string $texto): array
+    {
+        return $this->enviar(['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $para, 'type' => 'interactive',
+            'interactive' => ['type' => 'call_permission_request', 'action' => ['name' => 'call_permission_request'], 'body' => ['text' => mb_substr($texto, 0, 1024)]]]);
+    }
+
+    /** Encender o apagar las llamadas del número (y el horario de atención de llamadas). */
+    public function ajustesLlamadas(array $calling): array
+    {
+        return $this->pedir('POST', '/' . $this->phoneNumberId . '/settings', ['calling' => $calling]);
     }
 
     private function enviar(array $cuerpo): array

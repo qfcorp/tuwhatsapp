@@ -1818,6 +1818,165 @@ $Plux::guardar($db, $lineaN, ['quitar_plux' => '1']);
 $lineaN = Lineas::buscar($db, $lN);
 ok(!$Plux::configurado($lineaN) && $lineaN['cobro_tarjeta'] === '', 'quitar Plux');
 
+echo "== Llamadas de WhatsApp\n";
+$LL = \TuWhatsApp\Llamadas::class;
+$lineaN = Lineas::buscar($db, $lN);
+$sdpMeta = "v=0\r\no=- 46117 2 IN IP4 157.240.1.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE audio\r\nm=audio 3480 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 157.240.1.1\r\na=rtpmap:111 opus/48000/2\r\na=ice-ufrag:abc\r\na=ice-pwd:abcdefghijklmnopqrstuvwx\r\na=fingerprint:sha-256 AB:CD\r\na=setup:actpass\r\n";
+$sdpNav = str_replace(['46117', 'actpass'], ['99', 'active'], $sdpMeta);
+$llamada = fn (string $evento, string $callId, array $extra = [], string $dir = 'USER_INITIATED') => cuerpoMeta(['messaging_product' => 'whatsapp',
+    'metadata' => ['display_phone_number' => '593996401111', 'phone_number_id' => '400'], 'contacts' => [['profile' => ['name' => 'Pedro Llama'], 'wa_id' => '593981000050']],
+    'calls' => [array_merge(['id' => $callId, 'from' => '593981000050', 'to' => '593996401111', 'event' => $evento, 'direction' => $dir, 'timestamp' => (string) time()], $extra)]], 'calls');
+ok(!$LL::sdpValido('hola') && $LL::sdpValido($sdpMeta), 'reconoce una oferta de audio válida');
+$db->prepare('UPDATE lineas SET horario = ? WHERE id = ?')->execute(['{"1":["08:00","18:00"],"2":["08:00","18:00"],"6":["09:00","13:00"]}', $lN]);
+$lineaN = Lineas::buscar($db, $lN);
+limpiarSim();
+$r = $LL::encender($db, $lineaN, true);
+$aj = array_values(array_filter(sim(), fn ($x) => str_ends_with((string) $x['ruta'], '/400/settings')))[0]['cuerpo']['calling'] ?? [];
+ok($r['ok'] && ($aj['status'] ?? '') === 'ENABLED' && ($aj['call_icon_visibility'] ?? '') === 'DEFAULT' && ($aj['callback_permission_status'] ?? '') === 'ENABLED', 'encender llamadas en Meta');
+ok(($aj['call_hours']['timezone_id'] ?? '') === 'America/Guayaquil' && count($aj['call_hours']['weekly_operating_hours'] ?? []) === 3
+   && ($aj['call_hours']['weekly_operating_hours'][2] ?? []) === ['day_of_week' => 'SATURDAY', 'open_time' => '0900', 'close_time' => '1300'], 'con el horario de atención del número (HHMM)');
+$lineaN = Lineas::buscar($db, $lN);
+ok((bool) $lineaN['llamadas_activo'], 'queda encendido');
+$whL = new Webhook($db);
+$whL->procesar($llamada('connect', 'wacid.L1', ['session' => ['sdp_type' => 'offer', 'sdp' => $sdpMeta]]));
+$pedro = Contactos::porTelefono($db, $lN, '593981000050');
+$son = $LL::sonando($db, $lN);
+ok($pedro !== null && $son !== null && $son['nombre'] === 'Pedro Llama' && $son['contacto_id'] === (int) $pedro['id'], 'llamada entrante: suena en el panel con el nombre');
+$whL->procesar($llamada('connect', 'wacid.L1', ['session' => ['sdp_type' => 'offer', 'sdp' => $sdpMeta]]));
+igual((int) $db->query("SELECT count(*) FROM llamadas WHERE call_id = 'wacid.L1'")->fetchColumn(), 1, 'Meta avisa dos veces: una sola llamada');
+$t = $LL::tomar($db, $lN, $son['id'], $idAna);
+igual($t['oferta'], $sdpMeta, 'Ana la toma y recibe la oferta de Meta');
+try { $LL::tomar($db, $lN, $son['id'], $idBeto); ok(false, 'dos personas no contestan la misma llamada'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'Ya la contestó Ana'), 'dos personas no contestan la misma llamada'); }
+igual($LL::sonando($db, $lN), null, 'tomada: ya no suena para el resto');
+try { $LL::contestar($db, $lineaN, $son['id'], $idAna, 'no es sdp'); ok(false, 'respuesta del navegador mala'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'micrófono'), 'respuesta del navegador mala'); }
+limpiarSim();
+$LL::contestar($db, $lineaN, $son['id'], $idAna, $sdpNav);
+$LL::aceptar($db, $lineaN, $son['id'], $idAna);
+$acc = array_values(array_filter(sim(), fn ($x) => str_ends_with((string) $x['ruta'], '/400/calls')));
+ok(count($acc) === 2 && $acc[0]['cuerpo']['action'] === 'pre_accept' && $acc[1]['cuerpo']['action'] === 'accept' && $acc[0]['cuerpo']['call_id'] === 'wacid.L1'
+   && $acc[1]['cuerpo']['session']['sdp'] === $sdpNav && $acc[1]['cuerpo']['session']['sdp_type'] === 'answer', 'pre_accept y accept con la respuesta del navegador');
+igual($LL::buscar($db, $lN, $son['id'])['estado'], 'en_curso', 'en curso');
+$whL->procesar($llamada('terminate', 'wacid.L1', ['status' => 'COMPLETED', 'start_time' => (string) (time() - 95), 'end_time' => (string) time(), 'duration' => 95]));
+$l1 = $LL::buscar($db, $lN, $son['id']);
+ok($l1['estado'] === 'terminada' && (int) $l1['duracion'] === 95 && $l1['u_nombre'] === 'Ana' && $LL::duracion(95) === '1:35', 'terminada: guarda la duración y quién atendió');
+// Perdida (nadie contestó) con mensaje automático
+$db->prepare("UPDATE lineas SET llamadas_perdida = 'Vimos tu llamada, ¿te ayudamos por aquí?' WHERE id = ?")->execute([$lN]);
+$lineaN = Lineas::buscar($db, $lN);
+$db->prepare('UPDATE contactos SET ultimo_entrante = now() WHERE id = ?')->execute([(int) $pedro['id']]);
+limpiarSim();
+$whL->procesar($llamada('connect', 'wacid.L2', ['session' => ['sdp_type' => 'offer', 'sdp' => $sdpMeta]]));
+$whL->procesar($llamada('terminate', 'wacid.L2', ['status' => 'COMPLETED']));
+$l2 = $db->query("SELECT * FROM llamadas WHERE call_id = 'wacid.L2'")->fetch();
+igual($l2['estado'], 'perdida', 'nadie contestó: llamada perdida');
+ok(count(array_filter(sim(), fn ($x) => str_contains((string) ($x['cuerpo']['text']['body'] ?? ''), 'Vimos tu llamada'))) === 1, 'llamada perdida: se le escribe solo (ventana abierta)');
+// Rechazar
+$whL->procesar($llamada('connect', 'wacid.L3', ['session' => ['sdp_type' => 'offer', 'sdp' => $sdpMeta]]));
+$l3 = $LL::sonando($db, $lN);
+limpiarSim();
+$LL::rechazar($db, $lineaN, $l3['id']);
+ok((sim()[0]['cuerpo']['action'] ?? '') === 'reject' && $LL::buscar($db, $lN, $l3['id'])['estado'] === 'rechazada', 'rechazar');
+$whL->procesar($llamada('terminate', 'wacid.L3', ['status' => 'COMPLETED']));
+igual($LL::buscar($db, $lN, $l3['id'])['estado'], 'rechazada', 'rechazada sigue como rechazada al terminar');
+// Llamada vieja: ya no suena
+$db->exec("INSERT INTO llamadas (linea_id, call_id, direccion, estado, creado) VALUES ($lN, 'wacid.VIEJA', 'entra', 'sonando', now() - interval '3 minutes')");
+igual($LL::sonando($db, $lN), null, 'una llamada de hace minutos ya no suena');
+// Permiso para llamar al cliente
+ok(!$LL::puedeLlamar($pedro), 'sin permiso no se puede llamar');
+try { $LL::llamar($db, $lineaN, $pedro, $idAna, $sdpNav); ok(false, 'llamar sin permiso'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'permiso'), 'llamar sin permiso'); }
+limpiarSim();
+$rp = $LL::pedirPermiso($db, $lineaN, $pedro, $idAna);
+$pp = array_values(array_filter(sim(), fn ($x) => str_ends_with((string) $x['ruta'], '/400/messages')))[0]['cuerpo'] ?? [];
+ok($rp['ok'] && ($pp['interactive']['type'] ?? '') === 'call_permission_request' && ($pp['interactive']['action']['name'] ?? '') === 'call_permission_request', 'pedir permiso: botón de Meta');
+$pedro = Contactos::buscar($db, $lN, (int) $pedro['id']);
+ok(!$LL::pedirPermiso($db, $lineaN, $pedro, $idAna)['ok'], 'no se pide dos veces en 24 horas');
+$whL->procesar(cuerpoMeta(['messaging_product' => 'whatsapp', 'metadata' => ['phone_number_id' => '400'], 'contacts' => [['profile' => ['name' => 'Pedro Llama'], 'wa_id' => '593981000050']],
+    'messages' => [['from' => '593981000050', 'id' => 'wamid.PERM1', 'timestamp' => (string) time(), 'type' => 'interactive',
+                    'interactive' => ['type' => 'call_permission_reply', 'call_permission_reply' => ['response' => 'accept', 'is_permanent' => false, 'expiration_timestamp' => (string) (time() + 7 * 86400), 'response_source' => 'user_action']]]]]));
+$pedro = Contactos::buscar($db, $lN, (int) $pedro['id']);
+ok($pedro['llamar_permiso'] === 'temporal' && $LL::puedeLlamar($pedro), 'aceptó: permiso por 7 días');
+$mp = $db->query("SELECT texto, motivo FROM mensajes WHERE wamid = 'wamid.PERM1'")->fetch();
+ok(str_contains($mp['texto'], 'Aceptó que lo llamen') && str_contains((string) $mp['motivo'], 'no se contesta solo'), 'en el chat se ve que aceptó y no se contesta solo');
+limpiarSim();
+$idS = $LL::llamar($db, $lineaN, $pedro, $idAna, $sdpNav);
+$cx = array_values(array_filter(sim(), fn ($x) => str_ends_with((string) $x['ruta'], '/400/calls')))[0]['cuerpo'] ?? [];
+$ls = $LL::buscar($db, $lN, $idS);
+ok($cx['action'] === 'connect' && $cx['to'] === '593981000050' && $cx['session']['sdp_type'] === 'offer' && str_starts_with($ls['call_id'], 'wacid.SIM') && $ls['direccion'] === 'sale', 'llamar al cliente con la oferta del navegador');
+$whL->procesar(cuerpoMeta(['messaging_product' => 'whatsapp', 'metadata' => ['phone_number_id' => '400'],
+    'statuses' => [['id' => $ls['call_id'], 'timestamp' => (string) time(), 'type' => 'call', 'status' => 'RINGING', 'recipient_id' => '593981000050']]], 'calls'));
+$whL->procesar($llamada('connect', $ls['call_id'], ['session' => ['sdp_type' => 'answer', 'sdp' => $sdpMeta]], 'BUSINESS_INITIATED'));
+igual($LL::buscar($db, $lN, $idS)['sdp_respuesta'], $sdpMeta, 'llega la respuesta de Meta para el navegador');
+$whL->procesar(cuerpoMeta(['messaging_product' => 'whatsapp', 'metadata' => ['phone_number_id' => '400'],
+    'statuses' => [['id' => $ls['call_id'], 'timestamp' => (string) time(), 'type' => 'call', 'status' => 'ACCEPTED', 'recipient_id' => '593981000050']]], 'calls'));
+ok($LL::buscar($db, $lN, $idS)['estado'] === 'en_curso' && $LL::buscar($db, $lN, $idS)['contestada'] !== null, 'el cliente contestó');
+limpiarSim();
+$LL::colgar($db, $lineaN, $idS);
+ok((sim()[0]['cuerpo']['action'] ?? '') === 'terminate' && $LL::buscar($db, $lN, $idS)['estado'] === 'terminada', 'colgar');
+$sinP = Contactos::guardar($db, $lN, '0981006006', 'Sin Permiso', 'cliente');
+$db->prepare("UPDATE contactos SET llamar_permiso = 'permanente' WHERE id = ?")->execute([(int) $sinP['id']]);
+$sinP = Contactos::buscar($db, $lN, (int) $sinP['id']);
+try { $LL::llamar($db, $lineaN, $sinP, $idAna, $sdpNav); ok(false, 'Meta dice que no hay permiso'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'no te ha dado permiso') && Contactos::buscar($db, $lN, (int) $sinP['id'])['llamar_permiso'] === '', 'Meta dice que no hay permiso: se borra el permiso guardado'); }
+$r = $LL::encender($db, $lineaN, false);
+ok($r['ok'] && !Lineas::buscar($db, $lN)['llamadas_activo'], 'apagar llamadas');
+$lineaN = Lineas::buscar($db, $lN);
+try { $LL::llamar($db, $lineaN, $pedro, $idAna, $sdpNav); ok(false, 'apagadas no se llama'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'no están encendidas'), 'apagadas no se llama'); }
+igual(count($LL::lista($db, $lN, (int) $pedro['id'])), 4, 'historial de llamadas del cliente');
+
+echo "== Pregúntale a la IA (como Wati AI) y resumen de cada mañana\n";
+putenv('TUKAN_IA_CLAVE=sk-ant-prueba-buena-0123456789');
+putenv('TUKAN_IA_URL=' . $sim);
+putenv('TUKAN_IA_ESPERA_MS=0');
+putenv('TUKAN_IA_REINTENTOS=0');
+$CP = \TuWhatsApp\Copiloto::class;
+Modulos::guardar($db, $eN, ['ia']);
+$lineaN = Lineas::buscar($db, $lN);
+$hijo = Contactos::porTelefono($db, $lN, '593981000009');
+$db->exec("UPDATE contactos SET ultimo_entrante = now() WHERE linea_id = $lN");
+$datosIa = $CP::datos($db, $lineaN);
+ok(str_contains($datosIa, '[id:' . $pedro['id'] . '] Pedro Llama') && str_contains($datosIa, 'Pedidos por estado') && str_contains($datosIa, 'Productos del catálogo') && str_contains($datosIa, 'Últimos 7 días'), 'la IA recibe cifras, catálogo y clientes recientes');
+ok($hijo === null || !str_contains($datosIa, '[id:' . $hijo['id'] . ']'), 'los contactos personales no van a la IA');
+limpiarSim();
+$db->prepare('UPDATE lineas SET ia_tono = ? WHERE id = ?')->execute(['Cercano, de tú, sin emojis', $lN]);
+$lineaN = Lineas::buscar($db, $lN);
+$q1 = $CP::preguntar($db, $lineaN, '¿Quiénes están listos para comprar?', $idAna);
+$idsQ = array_column($q1['contactos'], 'id');
+ok(count($q1['contactos']) === 2 && !in_array(999999, $idsQ, true) && $q1['contactos'][0]['motivo'] === 'Preguntó precios' && $q1['contactos'][0]['nombre'] !== '', 'responde con clientes que existen (lo inventado se descarta)');
+igual($q1['etiqueta'], 'listos-para-comprar', 'la etiqueta queda limpia');
+$sisIa = array_values(array_filter(sim(), fn ($x) => $x['ruta'] === '/v1/messages'))[0]['cuerpo']['system'] ?? '';
+ok(str_contains(is_string($sisIa) ? $sisIa : json_encode($sisIa), 'Cercano, de tú, sin emojis'), 'usa el tono de la marca');
+igual($CP::guardarEtiqueta($db, $lineaN, $q1['id'], $q1['etiqueta']), 2, 'guardar a esos clientes con la etiqueta');
+$CP::guardarEtiqueta($db, $lineaN, $q1['id'], $q1['etiqueta']);
+$conEt = Contactos::buscar($db, $lN, $idsQ[0]);
+igual(substr_count($conEt['etiquetas'], 'listos-para-comprar'), 1, 'no se repite la etiqueta');
+igual((int) (Contactos::etiquetasUsadas($db, $lN)['listos-para-comprar'] ?? 0), 2, 'la etiqueta aparece para elegirla en Campañas');
+$q2 = $CP::preguntar($db, $lineaN, 'Arma una campaña para los que no escriben hace un mes', $idAna);
+ok($q2['campania'] !== null && $q2['campania']['nombre'] === 'vuelve_pronto' && str_starts_with($q2['campania']['texto'], 'Hola, te extrañamos') && $q2['campania']['categoria'] === 'MARKETING' && $q2['etiqueta'] === 'reactivar', 'arma la campaña con nombre de plantilla válido y sin variables');
+igual($CP::consulta($db, $lN, $q2['id'])['campania']['nombre'], 'vuelve_pronto', 'la consulta queda guardada para usarla después');
+igual($CP::consulta($db, $lid, $q2['id']), null, 'otro número no ve la consulta');
+$q3 = $CP::preguntar($db, $lineaN, '¿Cómo nos fue esta semana?', $idAna);
+ok($q3['contactos'] === [] && $q3['campania'] === null && str_contains($q3['respuesta'], 'Esta semana'), 'pregunta de cifras: solo la respuesta');
+try { $CP::preguntar($db, $lineaN, 'romper', $idAna); ok(false, 'si la IA falla'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'no pudimos procesar'), 'si la IA falla: mensaje neutro'); }
+try { $CP::preguntar($db, $lineaN, '  ', $idAna); ok(false, 'pregunta vacía'); } catch (RuntimeException $e) { ok(true, 'pregunta vacía'); }
+igual(count($CP::historial($db, $lN)), 3, 'historial de preguntas');
+Modulos::guardar($db, $eN, []);
+try { $CP::preguntar($db, $lineaN, '¿Cómo nos fue?', $idAna); ok(false, 'sin el extra de IA'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'no está incluida'), 'sin el extra de IA no pregunta'); }
+$sinIa = $CP::hacerResumen($db, $lineaN);
+ok(!$sinIa['con_ia'] && str_contains($sinIa['texto'], 'Ayer te escribieron') && str_contains($sinIa['texto'], 'Pendientes de pago'), 'sin IA: el resumen trae igual las cifras');
+Modulos::guardar($db, $eN, ['ia']);
+ok(array_key_exists('sin_responder', $CP::cifrasDeAyer($db, $lineaN, new DateTimeImmutable())), 'cifras de ayer');
+$conIa = $CP::hacerResumen($db, $lineaN);
+ok($conIa['con_ia'] && str_contains($conIa['texto'], 'Para hoy'), 'con IA: resumen con 3 cosas para hoy');
+igual($CP::resumenDeHoy($db, $lN)['texto'], $conIa['texto'], 'queda guardado el de hoy');
+$db->prepare("DELETE FROM ia_resumenes WHERE linea_id = ?")->execute([$lN]);
+$db->prepare("UPDATE lineas SET resumen_diario = true, resumen_hora = '07:30' WHERE id = ?")->execute([$lN]);
+$manana = new DateTimeImmutable('today 07:00');
+igual($CP::procesarResumenes($db, $manana), 0, 'antes de la hora no se manda');
+$manana = new DateTimeImmutable('today 07:31');
+igual($CP::procesarResumenes($db, $manana), 1, 'a la hora: se hace el resumen y se avisa');
+igual($CP::procesarResumenes($db, $manana->modify('+5 minutes')), 0, 'una sola vez por día');
+putenv('TUKAN_IA_CLAVE=');
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

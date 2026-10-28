@@ -27,6 +27,12 @@
 </form>
 
 <section class="tarjeta">
+<h2>✨ Pregúntale a la IA</h2>
+<p class="pequeno">Pregunta en palabras sobre tu negocio: "¿quiénes están listos para comprar?", "arma una campaña para los que no escriben hace un mes".
+Te deja la lista de clientes, la etiqueta y la campaña listas, y cada mañana un resumen al celular. <a href="<?= e(url('asistente')) ?>">Abrir</a></p>
+</section>
+
+<section class="tarjeta">
 <h2>En cada chat</h2>
 <ul>
     <li><b>✨ Sugerir respuesta</b>: la IA lee la conversación y deja un borrador en la caja de texto. Tú lo revisas y lo mandas.</li>
@@ -46,5 +52,8 @@ Horario: lunes a viernes de 8:00 a 18:00.
 Pagos: transferencia o tarjeta (Plux).
 Preguntas frecuentes:
 - ¿Tiene contrato? No, se paga mes a mes."><?= e((string) $linea['ia_conocimiento']) ?></textarea>
+    <label for="ia_tono">Tono de tu marca (opcional)</label>
+    <input id="ia_tono" name="ia_tono" maxlength="300" value="<?= e((string) $linea['ia_tono']) ?>" placeholder="Cercano y alegre, de tú, con pocos emojis. Nunca prometemos descuentos.">
+    <p class="suave pequeno">La IA escribe siempre con este tono: al contestar, al sugerir respuestas y al armar campañas. Contesta en el idioma del cliente.</p>
     <button class="boton">Guardar</button>
 </form>

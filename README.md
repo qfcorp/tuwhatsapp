@@ -31,7 +31,7 @@ Todo viene en **un solo plan**. Lo único que se cobra aparte es el **agente con
 | Plan | Precio | Números | Usuarios | Incluye |
 |---|---|---|---|---|
 | Todo incluido | unos $20/mes | 1 | 50 | Todo lo de esta página, menos el agente con IA |
-| Todo incluido + IA | unos $25/mes | 1 | 50 | Todo + agente con IA que contesta solo, ✨ Sugerir respuesta y Resumir |
+| Todo incluido + IA | unos $25/mes | 1 | 50 | Todo + agente con IA que contesta solo, ✨ Sugerir respuesta, Resumir, Pregúntale a la IA y resumen de cada mañana |
 
 Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. Las cuentas que tenían los planes viejos (Básico, Negocio, Pro) pasan solas a "Todo incluido" o a "Todo incluido + IA" según tuvieran IA. En **Más**, si la cuenta no tiene IA, el agente aparece con la etiqueta *Extra* y el botón **Pedir a Tukán**. En la web, las presentaciones y los manuales **no se publican precios** (regla de la marca): se pide cotización.
 
@@ -55,6 +55,7 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 | Integraciones | Excel de contactos y mensajes; aviso firmado a Make, Zapier o n8n | Más → Integraciones |
 | **Tienda en línea** | **Shopify** o **WooCommerce**: cada pedido le avisa al cliente por WhatsApp (pedido recibido, enviado) con plantillas aprobadas; con Shopify, recordatorio del carrito abandonado (lo manda el cron cada minuto) | Más → Tienda en línea |
 | **App en el celular** | Se instala desde el navegador (Android, iPhone, computadora) y avisa cada mensaje nuevo aunque esté cerrada (Web Push); el aviso le llega a quien tiene el chat | Más → App en el celular |
+| **Llamadas de WhatsApp** | Los clientes llaman con el botón 📞 de WhatsApp y suena en el panel (Contestar / Rechazar); se contesta en una ventanita (WebRTC, el audio va directo entre el navegador y Meta). Llamar al cliente después de que acepte el **pedido de permiso** (7 días o siempre). Historial, llamadas perdidas con aviso y mensaje automático. Gratis las que entran; Meta cobra por minuto las que salen | Más → Llamadas · Chat |
 
 ### El extra: agente con IA (`ia`)
 - Contesta solo con lo que el negocio escribe en **Lo que sabe la IA** y con el **catálogo** (precios y stock). Siempre o solo fuera del horario; con nombre propio y un máximo de respuestas al día por persona.
@@ -63,6 +64,9 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 - **Se calla** cuando alguien del equipo contesta (desde el panel o desde el celular), por las horas de silencio de Respuestas automáticas.
 - Si la IA falla o está fuera del horario elegido, siguen las respuestas automáticas de siempre.
 - Orden de lo que contesta: chatbot en curso → catálogo (palabras "catálogo", "comprar"…) → chatbot que se enciende → agente con IA → respuestas automáticas.
+- **Pregúntale a la IA** (como Wati AI, Más → Pregúntale a la IA): preguntas en palabras sobre el negocio ("¿quiénes están listos para comprar?", "arma una campaña para los que no escriben hace un mes", "¿cómo nos fue esta semana?"). Devuelve la respuesta, la lista de clientes con el porqué (se guarda como etiqueta para Campañas) y el texto de la campaña (se abre en Plantillas para la aprobación de Meta). No ve contactos personales ni manda nada sola.
+- **Resumen de cada mañana**: a la hora elegida, aviso al celular de los administradores con cómo fue ayer, lo pendiente y 3 cosas para hoy (lo hace el cron; sin IA manda solo las cifras).
+- **Tono de la marca** (Más → Agente con IA): lo usan el agente, Sugerir respuesta y las campañas.
 
 ### Configurar lo nuevo (una vez por número)
 1. **Más → Cobros y cotizaciones**: RUC, dirección, IVA (15 o 0), datos de transferencia y la tarjeta: **Pago Plux** (los 4 datos que da Plux; pasos en [docs/GUIA_PLUX.md](docs/GUIA_PLUX.md)) o el token y Store ID de **Payphone**.
@@ -72,6 +76,8 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 5. **Más → Agente con IA** (si lo contrató): escribe lo que sabe del negocio y enciéndelo.
 6. **Más → Tienda en línea** (si tiene Shopify o WooCommerce): copia la dirección y la clave que muestra la pantalla en el webhook de la tienda, y elige las plantillas.
 7. Cada persona del equipo: **Más → App en el celular** → instalar y **Activar avisos**.
+8. **Llamadas** (si las quiere): en Meta Developers → app **Tukan Mensajes** → WhatsApp → Configuración → Webhook → **Administrar** → suscribir el campo **calls** (una sola vez para todos los números). Después, en el programa: **Más → Llamadas → Encender llamadas en mi número**. Meta pide número en la API (no solo en la app del celular) y límite de 2.000 mensajes al día o más.
+9. **Resumen de cada mañana** (con IA): **Más → Pregúntale a la IA** → marcar *Mandarme el resumen al celular cada mañana* y la hora.
 
 
 ## Idiomas (botón 🌐)

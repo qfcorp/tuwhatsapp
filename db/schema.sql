@@ -180,9 +180,9 @@ CREATE INDEX IF NOT EXISTS usuarios_empresa ON usuarios (empresa_id);
 -- ---------------------------------------------------------------------
 -- Campañas masivas con plantillas, permiso de promociones y etiquetas
 -- ---------------------------------------------------------------------
-ALTER TABLE mensajes DROP CONSTRAINT IF EXISTS mensajes_origen_check;
+ALTER TABLE mensajes DROP CONSTRAINT IF EXISTS mensajes_origen_check;   -- con TODOS los orígenes (también los de más abajo), para que se pueda correr otra vez con datos
 ALTER TABLE mensajes ADD CONSTRAINT mensajes_origen_check
-    CHECK (origen IN ('cliente', 'panel', 'auto', 'celular', 'pendiente', 'campania'));
+    CHECK (origen IN ('cliente', 'panel', 'auto', 'celular', 'pendiente', 'campania', 'bot', 'flujo', 'tienda'));
 
 -- marketing: sin_dato | acepta (dio permiso para promociones) | baja (pidió no recibir más)
 ALTER TABLE contactos ADD COLUMN IF NOT EXISTS marketing    text NOT NULL DEFAULT 'sin_dato';
@@ -620,3 +620,57 @@ UPDATE contactos SET notas = replace(replace(notas, '<!--notr-->', ''), '<!--/no
 UPDATE pedidos SET notas = replace(replace(notas, '<!--notr-->', ''), '<!--/notr-->', '') WHERE notas LIKE '%notr-->%';
 UPDATE empresas SET notas = replace(replace(notas, '<!--notr-->', ''), '<!--/notr-->', '') WHERE notas LIKE '%notr-->%';
 UPDATE respuestas_rapidas SET texto = replace(replace(texto, '<!--notr-->', ''), '<!--/notr-->', '') WHERE texto LIKE '%notr-->%';
+
+-- ---------------------------------------------------------------------
+-- 28 oct 2026 (tarde): llamadas de WhatsApp (Calling API) desde el panel
+-- ---------------------------------------------------------------------
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS llamadas_activo  boolean NOT NULL DEFAULT false;
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS llamadas_error   text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS llamadas_perdida text NOT NULL DEFAULT '';   -- texto que se manda si no se contestó (vacío = nada)
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS llamar_permiso   text NOT NULL DEFAULT '';  -- '' | temporal | permanente | rechazado
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS llamar_hasta     timestamptz;
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS llamar_pedido_en timestamptz;
+CREATE TABLE IF NOT EXISTS llamadas (
+    id            serial PRIMARY KEY,
+    linea_id      integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    contacto_id   integer REFERENCES contactos(id) ON DELETE SET NULL,
+    call_id       text NOT NULL,
+    direccion     text NOT NULL CHECK (direccion IN ('entra', 'sale')),
+    estado        text NOT NULL DEFAULT 'sonando'
+                  CHECK (estado IN ('sonando', 'contestando', 'en_curso', 'terminada', 'perdida', 'rechazada', 'fallida')),
+    sdp_oferta    text NOT NULL DEFAULT '',
+    sdp_respuesta text NOT NULL DEFAULT '',
+    usuario_id    integer REFERENCES usuarios(id) ON DELETE SET NULL,
+    creado        timestamptz NOT NULL DEFAULT now(),
+    contestada    timestamptz,
+    terminada     timestamptz,
+    duracion      integer,
+    error         text NOT NULL DEFAULT '',
+    UNIQUE (linea_id, call_id)
+);
+CREATE INDEX IF NOT EXISTS llamadas_linea ON llamadas (linea_id, creado DESC);
+CREATE INDEX IF NOT EXISTS llamadas_contacto ON llamadas (contacto_id, creado DESC);
+
+-- ---------------------------------------------------------------------
+-- 28 oct 2026 (tarde): "Pregúntale a la IA" (como Wati AI) y resumen de cada mañana
+-- ---------------------------------------------------------------------
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS ia_tono        text NOT NULL DEFAULT '';        -- tono de la marca para la IA
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS resumen_diario boolean NOT NULL DEFAULT false;
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS resumen_hora   text NOT NULL DEFAULT '07:30';
+CREATE TABLE IF NOT EXISTS ia_consultas (
+    id         serial PRIMARY KEY,
+    linea_id   integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    usuario_id integer REFERENCES usuarios(id) ON DELETE SET NULL,
+    pregunta   text NOT NULL,
+    respuesta  jsonb NOT NULL DEFAULT '{}',
+    creado     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ia_consultas_linea ON ia_consultas (linea_id, creado DESC);
+CREATE TABLE IF NOT EXISTS ia_resumenes (
+    linea_id integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    fecha    date NOT NULL,
+    texto    text NOT NULL,
+    con_ia   boolean NOT NULL DEFAULT true,
+    creado   timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (linea_id, fecha)
+);

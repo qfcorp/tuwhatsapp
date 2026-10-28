@@ -54,7 +54,23 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 <p class="nota pequeno">📣 Llegó desde <?= $c['origen_tipo'] === 'publicacion' ? 'una publicación' : 'el anuncio' ?> <b><?= u($c['origen_titulo'] ?: $c['origen_id']) ?></b><?= $c['origen_en'] ? ' el ' . e((new DateTimeImmutable($c['origen_en']))->format('d/m/Y')) : '' ?><?= $c['origen_url'] ? ' · <a href="' . e($c['origen_url']) . '" target="_blank" rel="noopener">ver</a>' : '' ?>.</p>
 <?php endif; ?>
 
-<ol class="mensajes" id="mensajes" data-contacto="<?= (int) $c['id'] ?>" data-ultimo="<?= (int) (end($mensajes)['id'] ?? 0) ?>">
+<?php if (!empty($linea['llamadas_activo']) && $c['tipo'] !== 'personal'): $puedeLlamar = \TuWhatsApp\Llamadas::puedeLlamar($c); ?>
+<div class="nota llamar-chat">
+    <?php if ($puedeLlamar): ?>
+    <button type="button" class="boton boton-verde" onclick="window.open('<?= e(url('llamar', ['c' => $c['id']])) ?>', 'llamada_c<?= (int) $c['id'] ?>', 'width=380,height=620')">📞 Llamar</button>
+    <span class="suave pequeno">Te dio permiso<?= $c['llamar_permiso'] === 'temporal' && $c['llamar_hasta'] ? ' hasta ' . e(hora_corta((string) $c['llamar_hasta'])) : ' (siempre)' ?>.</span>
+    <?php else: ?>
+    <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="pedir_llamada">
+        <button class="boton boton-claro" <?= $ventana ? '' : 'disabled' ?>>📞 Pedir permiso para llamar</button></form>
+    <span class="suave pequeno"><?= $c['llamar_permiso'] === 'rechazado' ? 'No aceptó la última vez.' : ($ventana ? 'Le llega un botón de WhatsApp para aceptar.' : 'Se puede pedir cuando te escriba (24 horas).') ?></span>
+    <?php endif; ?>
+    <?php foreach ($llamadas as $l): ?>
+    <span class="pequeno ll-reciente"><?= $l['estado'] === 'perdida' ? '📵 Perdida' : ($l['direccion'] === 'entra' ? '↙ Te llamó' : '↗ Llamaste') ?><?= $l['duracion'] !== null ? ' · ' . e(\TuWhatsApp\Llamadas::duracion((int) $l['duracion'])) : '' ?> · <?= e(hora_corta((string) $l['creado'])) ?></span>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<ol class="mensajes" id="mensajes"data-contacto="<?= (int) $c['id'] ?>" data-ultimo="<?= (int) (end($mensajes)['id'] ?? 0) ?>">
     <?php foreach ($mensajes as $m): ?>
     <li class="burbuja <?= $m['direccion'] === 'entra' ? 'entra' : 'sale origen-' . e($m['origen']) ?> <?= in_array($m['estado'], ['fallido', 'bloqueado'], true) ? 'fallo' : '' ?>">
         <?php if ($m['plantilla']): ?><span class="etiqueta">Plantilla <?= e($m['plantilla']) ?></span><?php endif; ?>

@@ -18,6 +18,31 @@ if ($ruta === '/v1/messages' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $d = json_decode($cuerpo, true) ?: [];
     $sis = (string) ($d['system'] ?? '');
+    if (str_contains($sis, 'COPILOTO_TUKAN')) {   // "Pregúntale a la IA": JSON según la pregunta, con ids que vienen en los datos
+        $texto = (string) ($d['messages'][0]['content'] ?? '');
+        if (is_array($d['messages'][0]['content'] ?? null)) {
+            $texto = (string) json_encode($d['messages'][0]['content'], JSON_UNESCAPED_UNICODE);
+        }
+        preg_match_all('/\[id:(\d+)\]/', $texto, $mm);
+        $pregunta = mb_strtolower((string) preg_replace('/^.*Pregunta: /su', '', $texto));
+        $j = ['respuesta' => 'Esta semana te escribieron varias personas.', 'contactos' => [], 'etiqueta' => null, 'campania' => null];
+        if (str_contains($pregunta, 'listos')) {
+            $j = ['respuesta' => 'Estos clientes preguntaron precios y tienen carrito.', 'contactos' => array_merge(array_map(fn ($i) => ['id' => (int) $i, 'motivo' => 'Preguntó precios'], array_slice($mm[1], 0, 2)), [['id' => 999999, 'motivo' => 'inventado']]),
+                  'etiqueta' => 'Listos para Comprar!', 'campania' => null];
+        } elseif (str_contains($pregunta, 'campaña')) {
+            $j = ['respuesta' => 'Te armé una campaña para reactivarlos.', 'contactos' => array_map(fn ($i) => ['id' => (int) $i, 'motivo' => 'No escribe hace tiempo'], array_slice($mm[1], 0, 3)),
+                  'etiqueta' => 'reactivar', 'campania' => ['nombre' => 'Vuelve Pronto!', 'texto' => 'Hola {{1}}, te extrañamos. Esta semana tenemos novedades para ti.', 'categoria' => 'MARKETING']];
+        } elseif (str_contains($pregunta, 'romper')) {
+            sale(529, ['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]);
+        }
+        sale(200, ['id' => 'msg_3', 'type' => 'message', 'role' => 'assistant', 'model' => $d['model'] ?? '', 'content' => [['type' => 'text', 'text' => json_encode($j, JSON_UNESCAPED_UNICODE)]],
+                   'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 3000, 'output_tokens' => 300]]);
+    }
+    if (str_contains($sis, 'RESUMEN_DIARIO_TUKAN')) {
+        sale(200, ['id' => 'msg_4', 'type' => 'message', 'role' => 'assistant', 'model' => $d['model'] ?? '',
+                   'content' => [['type' => 'text', 'text' => "Ayer fue un buen día.\nPara hoy:\n1. Contesta a los que esperan.\n2. Cobra los pendientes.\n3. Devuelve las llamadas perdidas."]],
+                   'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 2000, 'output_tokens' => 80]]);
+    }
     if (str_contains($sis, 'AGENTE_IA_TUKAN')) {   // agente con IA: contesta en JSON según lo último que dijo el cliente
         $todo = (string) json_encode($d['messages'] ?? [], JSON_UNESCAPED_UNICODE);
         if (str_contains($todo, 'ROMPER')) {
@@ -159,6 +184,26 @@ if (preg_match('#^/v[\d.]+/(\d+)/messages$#', $ruta, $m) && $_SERVER['REQUEST_ME
         sale(400, ['error' => ['message' => 'Re-engagement message', 'code' => 131047]]);
     }
     sale(200, ['messaging_product' => 'whatsapp', 'contacts' => [['input' => $d['to'], 'wa_id' => $d['to']]], 'messages' => [['id' => 'wamid.SIM' . bin2hex(random_bytes(6))]]]);
+}
+if (preg_match('#^/v[\d.]+/(\d+)/calls$#', $ruta) && $_SERVER['REQUEST_METHOD'] === 'POST') {   // llamadas
+    $d = json_decode($cuerpo, true) ?: [];
+    if (($d['action'] ?? '') === 'connect') {
+        if (str_ends_with((string) ($d['to'] ?? ''), '6006')) {
+            sale(400, ['error' => ['message' => 'No call permission', 'code' => 138006]]);
+        }
+        sale(200, ['messaging_product' => 'whatsapp', 'calls' => [['id' => 'wacid.SIM' . bin2hex(random_bytes(5))]]]);
+    }
+    if (in_array($d['action'] ?? '', ['pre_accept', 'accept'], true) && !str_contains((string) ($d['session']['sdp'] ?? ''), 'm=audio')) {
+        sale(400, ['error' => ['message' => 'Invalid SDP', 'code' => 100]]);
+    }
+    sale(200, ['messaging_product' => 'whatsapp', 'success' => true]);
+}
+if (preg_match('#^/v[\d.]+/(\d+)/settings$#', $ruta) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $d = json_decode($cuerpo, true) ?: [];
+    if (($d['calling']['status'] ?? '') === 'ENABLED' && str_starts_with($ruta, '/v24.0/555')) {
+        sale(400, ['error' => ['message' => 'Calling not available', 'code' => 100, 'error_user_msg' => 'El número necesita un límite de 2000 mensajes']]);
+    }
+    sale(200, ['success' => true]);
 }
 if (preg_match('#^/v[\d.]+/(\d+)/message_templates$#', $ruta)) {
     $archivo = $log . '.plantillas.json';

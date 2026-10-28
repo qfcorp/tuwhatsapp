@@ -100,6 +100,17 @@ final class Mensajeria
             $origen, $usuarioId, fn (Meta $m) => $m->enviarPlantilla((string) $contacto['telefono'], (string) $p['nombre'], (string) $p['idioma'], $datos));
     }
 
+    /** Botón de Meta para que el cliente dé permiso de llamarlo (solo con la ventana de 24 horas abierta). */
+    public function permisoLlamada(array $linea, array $contacto, string $texto, string $origen, ?int $usuarioId = null): array
+    {
+        if (!Gasto::ventanaAbierta($contacto, $this->ahora())) {
+            return ['ok' => false, 'ventana' => true,
+                    'error' => 'El pedido de permiso para llamar solo se puede mandar si el cliente te escribió en las últimas 24 horas.'];
+        }
+        return $this->enviar($linea, $contacto, 'servicio', ['tipo' => 'texto', 'texto' => '📞 ' . $texto . ' [botón: permiso para llamar]', 'plantilla' => null], $origen, $usuarioId,
+            fn (Meta $m) => $m->pedirPermisoLlamada((string) $contacto['telefono'], $texto));
+    }
+
     private function enviar(array $linea, array $contacto, string $categoria, array $msg, string $origen, ?int $usuarioId, callable $llamar): array
     {
         if (!Empresas::alDiaPorLinea($this->db, $linea)) {
