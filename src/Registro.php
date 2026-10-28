@@ -100,7 +100,17 @@ final class Registro
         if ($existe && (int) $existe['empresa_id'] !== $empresaId) {
             return ['ok' => false, 'error' => 'Ese número ya está conectado en otra cuenta. Si es tuyo, escribe a Tukán.'];
         }
-        if (!$existe && !Empresas::puedeAgregarNumero($db, $empresaId)) {
+        // El mismo número de esta empresa que estaba en la app del celular (coexistencia) y ahora vuelve como "solo API"
+        // (por ejemplo, para tener llamadas) con otro identificador de Meta: se usa el mismo número del panel y se
+        // conservan sus chats y contactos.
+        $mismo = null;
+        $telPre = Telefono::normalizar((string) ($info['datos']['display_phone_number'] ?? $infoNum['display_phone_number'] ?? ''));
+        if (!$existe && !$coex && $evento === 'FINISH' && $telPre !== null) {
+            $st = $db->prepare('SELECT id FROM lineas WHERE empresa_id = ? AND telefono = ? AND coexistencia ORDER BY id LIMIT 1');
+            $st->execute([$empresaId, $telPre]);
+            $mismo = $st->fetchColumn() ?: null;
+        }
+        if (!$existe && $mismo === null && !Empresas::puedeAgregarNumero($db, $empresaId)) {
             return ['ok' => false, 'error' => 'Tu plan no permite más números. Pide a Tukán que te agregue uno.'];
         }
 
@@ -132,6 +142,11 @@ final class Registro
         $ahora ??= new DateTimeImmutable();
 
         $existe = Lineas::porPhoneNumberId($db, $pnid);
+        if (!$existe && $mismo !== null) {
+            $db->prepare('UPDATE lineas SET phone_number_id = ? WHERE id = ?')->execute([$pnid, (int) $mismo]);
+            $existe = Lineas::porPhoneNumberId($db, $pnid);
+            $avisos[] = 'Es el mismo número que ya tenías: se conservan sus chats y contactos.';
+        }
         if ($existe) {
             $id = (int) $existe['id'];
             $db->prepare("UPDATE lineas SET waba_id = ?, token_cifrado = ?, telefono = CASE WHEN ? <> '' THEN ? ELSE telefono END,

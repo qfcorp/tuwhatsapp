@@ -18,6 +18,7 @@ $esQr = $editar && $editar['conectado_por'] === 'qr';
 <section class="tarjeta">
     <h2>Conectado con código QR</h2>
     <p><?= $editar['coexistencia'] ? 'Este número <b>sigue funcionando en la app WhatsApp Business del celular</b> y también aquí. Lo que mandas desde el celular aparece en el chat (gratis).' : 'Número nuevo conectado solo a este programa.' ?></p>
+    <?php if ($editar['coexistencia']): ?><p class="suave pequeno">📞 Así Meta no permite llamadas de WhatsApp. Para tenerlas, mira cómo pasarlo a "solo API" en <a href="<?= e(url('llamadas')) ?>">Más → Llamadas</a>.</p><?php endif; ?>
     <?php if ($editar['conectado_en']): ?><p class="suave pequeno">Conectado el <?= e((new DateTimeImmutable($editar['conectado_en']))->format('j/n/Y H:i')) ?></p><?php endif; ?>
     <?php if ($editar['coexistencia']): ?>
     <ul class="lista-simple">

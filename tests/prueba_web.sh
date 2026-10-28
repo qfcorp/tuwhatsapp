@@ -773,6 +773,7 @@ echo "== Llamadas de WhatsApp"
 SQLW() { PGPASSWORD="${PGPASSWORD:-}" psql -tAc "$1" -d tuwhatsapp_prueba; }
 get "/?r=llamadas"
 ok '[ "$CODIGO" = 200 ] && tiene "Llamadas de WhatsApp" && tiene "Apagadas" && tiene "Encender llamadas en mi número" && tiene "2.000 personas al día"' "pantalla de llamadas (apagadas, con lo que pide Meta)"
+ok 'tiene "Tu número también está en la app WhatsApp Business del celular" && tiene "Eliminar mi cuenta" && tiene "agregar tu número"' "explica cómo pasar el número a solo API (coexistencia)"
 post "/?r=llamadas" --data-urlencode "accion=encender"
 ok 'tiene "Llamadas encendidas" && tiene "Encendidas" && grep -q "100.\{1,2\}settings" "$SIM_LOG"' "encender las llamadas en Meta"
 SDP='v=0\r\no=- 1 2 IN IP4 157.240.1.1\r\ns=-\r\nt=0 0\r\nm=audio 3480 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 157.240.1.1\r\na=rtpmap:111 opus/48000/2\r\n'

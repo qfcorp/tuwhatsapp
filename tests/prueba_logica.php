@@ -1977,6 +1977,17 @@ igual($CP::procesarResumenes($db, $manana), 1, 'a la hora: se hace el resumen y 
 igual($CP::procesarResumenes($db, $manana->modify('+5 minutes')), 0, 'una sola vez por día');
 putenv('TUKAN_IA_CLAVE=');
 
+echo "== Pasar de la app del celular a solo API (para llamadas): mismo número\n";
+$db->prepare('UPDATE lineas SET coexistencia = true WHERE id = ?')->execute([$lN]);
+$chatsAntes = (int) $db->query("SELECT count(*) FROM contactos WHERE linea_id = $lN")->fetchColumn();
+limpiarSim();
+$rm = Registro::completar($db, ['code' => 'codigo_bueno_1234567', 'evento' => 'FINISH', 'waba_id' => '200', 'phone_number_id' => '402'], null, $eN);
+$lm = Lineas::buscar($db, $lN);
+ok($rm['ok'] && $rm['linea_id'] === $lN && $lm['phone_number_id'] === '402' && !$lm['coexistencia'], 'se usa el mismo número del panel (no se crea otro)');
+ok(in_array('Es el mismo número que ya tenías: se conservan sus chats y contactos.', $rm['avisos'], true), 'avisa que se conservan los chats');
+igual((int) $db->query("SELECT count(*) FROM contactos WHERE linea_id = $lN")->fetchColumn(), $chatsAntes, 'los contactos siguen en el mismo número');
+ok($rm['pin'] !== '' && count(array_filter(sim(), fn ($x) => str_ends_with((string) $x['ruta'], '/402/register'))) === 1, 'como número solo API se registra con PIN');
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

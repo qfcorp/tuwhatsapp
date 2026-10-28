@@ -456,3 +456,5 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .lista-ia { padding-left: 18px; }
 .lista-ia li { margin: 4px 0; }
 .burbuja-propuesta { background: #e7f6ec; border-radius: 12px; padding: 10px 12px; white-space: normal; }
+.explica-llamadas p { margin: 0 0 6px; }
+.explica-llamadas ol { margin: 6px 0; padding-left: 20px; }

@@ -248,6 +248,12 @@ if (preg_match('#^/v[\d.]+/(\d+)/message_templates$#', $ruta)) {
     sale(200, ['data' => array_merge($fijas, $creadas)]);
 }
 if (preg_match('#^/v[\d.]+/(\d+)$#', $ruta, $m)) {
+    if (($m[1] ?? '') === '401') {   // chip nuevo (otro número)
+        sale(200, ['display_phone_number' => '+593 98 000 0401', 'verified_name' => 'Chip nuevo', 'is_on_biz_app' => false, 'id' => '401']);
+    }
+    if (($m[1] ?? '') === '402') {   // Boutique Mía, que pasó de la app del celular a "solo API"
+        sale(200, ['display_phone_number' => '+593 99 640 1111', 'verified_name' => 'Boutique Mía', 'is_on_biz_app' => false, 'id' => '402']);
+    }
     sale(200, ['display_phone_number' => '+593 99 640 8397', 'verified_name' => 'Tukán Software', 'quality_rating' => 'GREEN', 'id' => $m[1] ?? '']);
 }
 sale(404, ['error' => ['message' => 'ruta desconocida ' . $ruta, 'code' => 100]]);

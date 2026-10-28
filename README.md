@@ -76,7 +76,7 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 5. **Más → Agente con IA** (si lo contrató): escribe lo que sabe del negocio y enciéndelo.
 6. **Más → Tienda en línea** (si tiene Shopify o WooCommerce): copia la dirección y la clave que muestra la pantalla en el webhook de la tienda, y elige las plantillas.
 7. Cada persona del equipo: **Más → App en el celular** → instalar y **Activar avisos**.
-8. **Llamadas** (si las quiere): en Meta Developers → app **Tukan Mensajes** → WhatsApp → Configuración → Webhook → **Administrar** → suscribir el campo **calls** (una sola vez para todos los números). Después, en el programa: **Más → Llamadas → Encender llamadas en mi número**. Meta pide número en la API (no solo en la app del celular) y límite de 2.000 mensajes al día o más.
+8. **Llamadas** (si las quiere): en Meta Developers → app **Tukan Mensajes** → WhatsApp → Configuración → Webhook → **Administrar** → suscribir el campo **calls** (una sola vez para todos los números). Después, en el programa: **Más → Llamadas → Encender llamadas en mi número**. Meta pide el número **solo en la API** (si también está en la app WhatsApp Business del celular, hay que pasarlo: guía para el cliente en [docs/GUIA_LLAMADAS.md](docs/GUIA_LLAMADAS.md); el programa conserva sus chats) y límite de 2.000 mensajes al día o más.
 9. **Resumen de cada mañana** (con IA): **Más → Pregúntale a la IA** → marcar *Mandarme el resumen al celular cada mañana* y la hora.
 
 

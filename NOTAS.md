@@ -58,6 +58,13 @@ En el servidor (`/var/www/tuwhatsapp/config/.env`) ya están: META_APP_ID, META_
 **Lo que nosotros tenemos y ellos cobran aparte o no tienen:** todo en un plan (~$20) con hasta 50 usuarios; 0 % de recargo sobre Meta y tope de gasto; mes a mes; agente IA ~$5 (Wati $99–399); cobro con tarjeta por Plux/Payphone (Ecuador) con pedido que pasa solo a Pagado; cotización PDF con RUC e IVA; catálogo con stock; botón "enviar gratis desde el celular"; español y soporte en Ecuador.
 Pendiente: Dimitry elige cuáles de las que faltan se hacen.
 
+## 📞 Guía para pasar el número a "solo API" (28 oct 2026, noche)
+Pedido de Dimitry: "tenla lista y hay que poner en algún lado un explicativo".
+- **Guía para el cliente:** [docs/GUIA_LLAMADAS.md](docs/GUIA_LLAMADAS.md) (por qué, qué cambia, 5 pasos: borrar cuenta en la app → esperar 3 min → Conectar con WhatsApp Business eligiendo "agregar tu número" → revisar → encender llamadas).
+- **Explicativo dentro del programa:** en **Más → Llamadas** sale un cuadro azul "Tu número también está en la app WhatsApp Business del celular… no permite llamadas" con los pasos (desplegable) si el número está en coexistencia; en **Números conectados** una nota corta. También en el manual (cap. 12) y en sus preguntas frecuentes.
+- **Mismo número = mismos chats:** al volver a conectar el número como solo API, el programa reconoce que es el mismo (mismo teléfono de una línea en coexistencia) y lo reemplaza en esa línea: se conservan chats, contactos y ajustes, y no cuenta como número nuevo del plan.
+- Pruebas: idiomas 43, lógica 743, Panel Central 163, pantallas 361, todo bien.
+
 ## 📞 Llamadas de WhatsApp y "Pregúntale a la IA" (28 oct 2026, tarde)
 Pedido de Dimitry: hacer las llamadas de WhatsApp y copiar Wati AI (sin grupos ni encuestas).
 - **Llamadas** (Calling API de Meta, WebRTC en el navegador): suena en el panel ("📞 Llamada de…", Contestar/Rechazar), se contesta en una ventanita que sigue aunque cambies de página; la primera persona que contesta se la lleva; perdidas con aviso al celular y mensaje automático opcional; llamar al cliente después de su permiso (botón de Meta, 7 días o siempre; 1 pedido al día); historial en Más → Llamadas y en cada chat. Probado de punta a punta en Chromium: audio conectado entre el panel y un "Meta" falso.
