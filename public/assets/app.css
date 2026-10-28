@@ -407,3 +407,4 @@ fieldset.paso legend { padding: 0 6px; }
 .carrito-chat .fila-botones { margin-bottom: 10px; }
 button[disabled] { opacity: .5; cursor: not-allowed; }
 @media (max-width: 480px) { .prod-acciones { flex-direction: column; gap: 4px; } }
+.carrito-chat form.formulario { margin-top: 14px; }

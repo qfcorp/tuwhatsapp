@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual de WhatsApp Tukán</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+  :root { --azul: #14213D; --naranja: #FF8A1F; --amarillo: #FFC93C; --fondo: #F7F7F4; --gris: #5A6170; }
+  * { box-sizing: border-box; }
+  body { font-family: 'DM Sans', 'Segoe UI', Roboto, system-ui, sans-serif; color: #1d2433; font-size: 10.5pt; line-height: 1.5; margin: 0; }
+  h1, h2, h3 { font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif; color: var(--azul); line-height: 1.2; }
+  h1 { font-size: 30pt; margin: 0 0 8px; }
+  h2 { font-size: 18pt; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 3px solid var(--naranja); page-break-after: avoid; }
+  h3 { font-size: 12.5pt; margin: 16px 0 6px; page-break-after: avoid; }
+  p { margin: 0 0 8px; }
+  ul, ol { margin: 0 0 10px; padding-left: 20px; }
+  li { margin-bottom: 3px; }
+  b { color: var(--azul); }
+  .portada { height: 255mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+  .portada .marca { font-size: 13pt; color: var(--naranja); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .portada .lema { font-size: 14pt; color: var(--gris); max-width: 130mm; }
+  .portada .barra { height: 10px; width: 80mm; background: linear-gradient(90deg, var(--naranja), var(--amarillo)); border-radius: 5px; margin: 26px 0; }
+  .portada .datos { margin-top: 50px; color: var(--gris); font-size: 10pt; }
+  .capitulo { page-break-before: always; }
+  .dos { display: grid; grid-template-columns: 1fr 62mm; gap: 8mm; align-items: start; }
+  .dos { page-break-inside: avoid; }
+  .dos img, .captura { width: 62mm; max-height: 205mm; object-fit: cover; object-position: top; border-radius: 10px; border: 1px solid #ddd; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+  .captura.grande { width: 78mm; }
+  .caja { background: var(--fondo); border-left: 4px solid var(--naranja); padding: 8px 12px; border-radius: 6px; margin: 10px 0; page-break-inside: avoid; }
+  .caja.azul { border-left-color: var(--azul); }
+  .chip { display: inline-block; background: #FFE9D3; color: #B85C00; border-radius: 999px; padding: 0 8px; font-size: 9pt; font-weight: 700; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 12px; font-size: 9.5pt; page-break-inside: avoid; }
+  th, td { text-align: left; padding: 5px 7px; border-bottom: 1px solid #e3e3e3; vertical-align: top; }
+  th { background: var(--azul); color: #fff; font-weight: 600; }
+  .indice li { margin-bottom: 4px; }
+  .pie { color: var(--gris); font-size: 9pt; }
+  .nuevo { color: #fff; background: var(--naranja); border-radius: 4px; padding: 0 6px; font-size: 8.5pt; font-weight: 700; vertical-align: 2px; }
+</style>
+</head>
+<body>
+
+<section class="portada">
+  <div class="marca">Tukán Software</div>
+  <h1>WhatsApp Tukán</h1>
+  <p class="lema">Manual para vender y atender por WhatsApp con tu equipo: bandeja compartida, catálogo, carrito, cobros, cotizaciones, chatbots, agente con IA, reparto automático y app en el celular.</p>
+  <div class="barra"></div>
+  <p class="lema"><b>Todo el programa viene incluido.</b> Lo único que se activa aparte es el Agente con IA.</p>
+  <p class="datos">Versión del 28 de octubre de 2026 · Los nombres y datos de las capturas son ficticios.<br>
+  ¿Dudas? WhatsApp 099 640 8397 · info@tukansoftware.com · tukansoftware.com</p>
+</section>
+
+<section>
+  <h2>Contenido</h2>
+  <ol class="indice">
+    <li>Novedades de esta versión</li>
+    <li>Cómo está organizado el programa</li>
+    <li>Bandeja y chat</li>
+    <li>Catálogo de productos</li>
+    <li>Carrito, pedidos y cotización en PDF</li>
+    <li>Cobros: Payphone, enlace de pago y transferencia</li>
+    <li>El cliente compra solo por WhatsApp</li>
+    <li>Chatbots por pasos</li>
+    <li>Agente con IA que contesta solo (extra)</li>
+    <li>Qué contesta primero (orden de lo automático)</li>
+    <li>Equipo, reparto automático y vista del supervisor</li>
+    <li>Campos personalizados</li>
+    <li>Reportes y de qué anuncio llegó cada cliente</li>
+    <li>Tienda en línea: Shopify y WooCommerce</li>
+    <li>App en el celular y avisos</li>
+    <li>Preguntas frecuentes</li>
+  </ol>
+  <div class="caja azul">
+    <b>Lo de siempre sigue igual:</b> conectar tu número con código QR, plantillas de Meta, campañas, seguimientos, embudo, enlaces y QR, integraciones,
+    gasto con tope y las respuestas automáticas con menú. Este manual explica sobre todo lo nuevo.
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>1. Novedades de esta versión</h2>
+  <table>
+    <tr><th>Nuevo</th><th>Para qué te sirve</th><th>Dónde está</th></tr>
+    <tr><td><b>Todo incluido</b></td><td>Ya no se cobra por módulos: campañas, varios agentes, embudo, catálogo, pedidos, chatbots, reportes y todo lo demás vienen en el mismo plan.</td><td>—</td></tr>
+    <tr><td><b>Catálogo</b></td><td>Tus productos o servicios con foto, precio y stock.</td><td>Más → Catálogo</td></tr>
+    <tr><td><b>Carrito y pedidos</b></td><td>Arma el pedido del cliente desde el chat; él también puede comprar tocando.</td><td>Chat → Carrito · Pedidos</td></tr>
+    <tr><td><b>Cobros</b></td><td>Enlace de Payphone por pedido, enlace fijo (DeUna, PayPal…) o datos de transferencia.</td><td>Más → Cobros y cotizaciones</td></tr>
+    <tr><td><b>Cotización en PDF</b></td><td>Se arma sola con tus datos, IVA y validez, y se manda por WhatsApp.</td><td>Chat → Carrito</td></tr>
+    <tr><td><b>Chatbots</b></td><td>Conversaciones por pasos con botones y preguntas, sin programar.</td><td>Más → Chatbots</td></tr>
+    <tr><td><b>Agente con IA</b> <span class="chip">Extra</span></td><td>Contesta solo las 24 horas, arma el carrito y pasa a una persona cuando hace falta.</td><td>Más → Agente con IA</td></tr>
+    <tr><td><b>Reparto automático</b></td><td>Cada conversación nueva llega sola a una persona disponible del equipo.</td><td>Más → Equipo y reparto</td></tr>
+    <tr><td><b>Campos personalizados</b></td><td>Guarda ciudad, cédula, talla, cumpleaños… de cada cliente.</td><td>Más → Campos personalizados</td></tr>
+    <tr><td><b>Origen por anuncio</b></td><td>Sabes de qué anuncio de Facebook o Instagram llegó cada cliente y cuánto vendiste por anuncio.</td><td>Chat · Reportes</td></tr>
+    <tr><td><b>Tienda en línea</b></td><td>Shopify y WooCommerce: aviso de pedido por WhatsApp y recordatorio de carrito abandonado.</td><td>Más → Tienda en línea</td></tr>
+    <tr><td><b>App en el celular</b></td><td>Instálalo como app y recibe avisos aunque el navegador esté cerrado.</td><td>Más → App en el celular</td></tr>
+  </table>
+</section>
+
+<section class="capitulo">
+  <h2>2. Cómo está organizado el programa</h2>
+  <div class="dos">
+    <div>
+      <p>Abajo tienes el menú con lo que más usas: <b>Bandeja</b>, <b>Pedidos</b> (o Pendientes, si tu número también está en la app del celular), <b>Contactos</b>, <b>Embudo</b>, <b>Automático</b> y <b>Más</b>.</p>
+      <p>En <b>Más</b> está todo lo demás, ordenado en cuatro grupos:</p>
+      <ul>
+        <li><b>Vender:</b> pedidos, catálogo, cobros y cotizaciones, campañas, seguimientos, enlaces y QR, tienda en línea.</li>
+        <li><b>Automático:</b> respuestas automáticas, chatbots y agente con IA.</li>
+        <li><b>Equipo:</b> equipo y reparto, reportes y la app en el celular.</li>
+        <li><b>Ajustes:</b> campos personalizados, plantillas, respuestas rápidas, integraciones, gasto, números y tu cuenta.</li>
+      </ul>
+      <div class="caja">Los agentes del equipo ven solo lo que necesitan para atender (bandeja, pedidos, contactos, embudo, seguimientos, la app). Lo de configurar lo ve el administrador.</div>
+    </div>
+    <img src="img/mas.jpg" alt="Pantalla Más">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>3. Bandeja y chat</h2>
+  <div class="dos">
+    <div>
+      <p>En la <b>Bandeja</b> llegan todas las conversaciones. Puedes filtrar por <b>Sin leer</b>, <b>Míos</b>, <b>Sin asignar</b>, clientes, desconocidos o personales.</p>
+      <p>Al abrir un chat ves:</p>
+      <ul>
+        <li><b>Quién atiende</b> la conversación (y el botón <i>Atender yo</i>).</li>
+        <li>Si llegó desde un <b>anuncio</b> 📣, con el nombre del anuncio.</li>
+        <li>Los mensajes, con quién los mandó: <i>Agente con IA</i>, <i>Chatbot</i>, <i>Automático</i>, <i>Por el sistema</i> o <i>Desde el celular</i>.</li>
+        <li>Abajo: <b>Carrito y cotización</b>, la etapa del embudo, seguimientos y <b>Datos y notas</b> (con tus campos personalizados).</li>
+      </ul>
+      <div class="caja">Cuando alguien del equipo contesta (desde aquí o desde el celular), <b>lo automático se calla</b> unas horas para no interrumpir. Se cambia en Automático.</div>
+    </div>
+    <img src="img/chat_mensajes.jpg" alt="Chat">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>4. Catálogo de productos</h2>
+  <div class="dos">
+    <div>
+      <p>En <b>Más → Catálogo</b> agregas lo que vendes:</p>
+      <ol>
+        <li>Escribe el <b>nombre</b> y el <b>precio</b> (con coma: 12,50).</li>
+        <li><b>Stock</b>: cuántos tienes. Déjalo vacío si no lo quieres controlar (por ejemplo, servicios).</li>
+        <li>Opcional: código, descripción y una <b>foto</b> JPG o PNG.</li>
+        <li>Toca <b>Guardar</b>.</li>
+      </ol>
+      <p>Para subir muchos de una vez: <b>Subir muchos productos con Excel</b>. En Excel pon las columnas <i>nombre, precio, stock, código, descripción</i> y guarda como <b>CSV</b>. Si un código ya existe, se actualiza ese producto.</p>
+      <div class="caja">Lo que no está "Disponible para vender" o tiene stock 0 no se ofrece al cliente ni lo usa el agente con IA.</div>
+    </div>
+    <img src="img/catalogo.jpg" alt="Catálogo">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>5. Carrito, pedidos y cotización en PDF</h2>
+  <div class="dos">
+    <div>
+      <h3>Desde el chat</h3>
+      <p>Abre <b>🛒 Carrito y cotización</b>:</p>
+      <ul>
+        <li><b>Agregar producto</b> con su cantidad (respeta el stock).</li>
+        <li><b>Mandar resumen y cómo pagar</b>: le llega el detalle, el total y tus formas de pago.</li>
+        <li><b>Mandar cotización PDF</b>: le llega como documento. El embudo pasa a "Cotizado".</li>
+        <li><b>Descargar PDF</b>, por si quieres mandarlo tú desde el celular.</li>
+        <li><b>Mandar producto</b> (con foto y precio) o <b>Mandar catálogo para elegir</b>.</li>
+      </ul>
+      <h3>Pedidos</h3>
+      <p>En <b>Pedidos</b> ves todos, por estado: <i>Carrito → Pendiente de pago → Pagado → Enviado → Entregado</i> (o Cancelado).</p>
+      <ul>
+        <li>Al <b>confirmar</b> se descuenta el stock; al <b>cancelar</b> se devuelve.</li>
+        <li>Al marcar <b>Pagado</b>, la venta pasa a "Ganado" en el embudo.</li>
+        <li>Puedes agregar algo que no está en el catálogo (un envío, una instalación) y escribir notas que salen en la cotización.</li>
+      </ul>
+    </div>
+    <img src="img/carrito.jpg" alt="Carrito en el chat">
+  </div>
+  <div class="dos" style="margin-top:8mm">
+    <div>
+      <h3>La cotización</h3>
+      <p>Lleva tu nombre, RUC, dirección y WhatsApp; los datos del cliente; los productos; subtotal, IVA y total; hasta cuándo es válida; el enlace de pago, los datos de transferencia y tus condiciones.</p>
+      <p>Esos datos se ponen una vez en <b>Más → Cobros y cotizaciones</b>.</p>
+    </div>
+    <img src="img/cotizacion.jpg" alt="Cotización en PDF">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>6. Cobros: Payphone, enlace de pago y transferencia</h2>
+  <div class="dos">
+    <div>
+      <p>En <b>Más → Cobros y cotizaciones</b>:</p>
+      <ul>
+        <li><b>IVA que se suma</b>: pon 0 si tus precios ya son finales, o 15 para sumar el 15 %.</li>
+        <li><b>Datos para transferencia</b>: banco, tipo y número de cuenta, a nombre de quién.</li>
+        <li><b>Enlace de pago fijo</b> (DeUna, PayPal, Kushki…). Puedes usar <code>{total}</code> y <code>{pedido}</code> dentro del enlace.</li>
+        <li><b>Payphone</b>: pega el <b>token</b> y el <b>Store ID</b> de tu aplicación en Payphone Developer. Así cada pedido tiene su propio enlace con el monto exacto.</li>
+      </ul>
+      <div class="caja">El token de Payphone se guarda cifrado. Cuando el cliente paga, revisa el pago en Payphone y marca el pedido como <b>Pagado</b>.</div>
+    </div>
+    <img src="img/cobros.jpg" alt="Cobros">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>7. El cliente compra solo por WhatsApp</h2>
+  <p>Sin que nadie del equipo intervenga (y sin necesidad de IA):</p>
+  <ol>
+    <li>El cliente escribe <b>catálogo</b> (o "productos"). Le llega una lista con tus productos y su precio.</li>
+    <li>Toca uno: se agrega a su carrito y se le dice cuánto lleva.</li>
+    <li>Escribe <b>comprar</b>: el pedido queda <i>Pendiente de pago</i> y le llega el resumen con el total y cómo pagar.</li>
+    <li>Tú lo ves en <b>Pedidos</b> y lo marcas pagado cuando llegue el pago.</li>
+  </ol>
+  <div class="caja">A los contactos marcados como <b>Personal</b> nunca se les manda nada solo.</div>
+</section>
+
+<section class="capitulo">
+  <h2>8. Chatbots por pasos</h2>
+  <div class="dos">
+    <div>
+      <p>Un chatbot es una conversación armada por pasos. Cada paso puede ser:</p>
+      <table>
+        <tr><th>Paso</th><th>Qué hace</th></tr>
+        <tr><td>Mensaje</td><td>Manda un texto y sigue.</td></tr>
+        <tr><td>Pregunta con botones</td><td>Hasta 10 opciones; cada una lleva a otro paso.</td></tr>
+        <tr><td>Pregunta abierta</td><td>Guarda la respuesta en el nombre, las notas o un campo personalizado (si no es válida, vuelve a preguntar).</td></tr>
+        <tr><td>Pasar a una persona</td><td>Se calla y reparte la conversación al equipo.</td></tr>
+        <tr><td>Terminar</td><td>Manda un texto y termina.</td></tr>
+      </table>
+      <p>Cada paso también puede poner una <b>etiqueta</b> y mover al cliente en el <b>embudo</b>.</p>
+      <h3>Cómo crear uno</h3>
+      <ol>
+        <li><b>Más → Chatbots</b> → nombre y con qué se activa: <i>palabras clave</i> (hola, info…) o <i>el primer mensaje del cliente</i>.</li>
+        <li>Viene con un ejemplo de 3 pasos: cámbialo, usa <b>+ Agregar paso</b> y <b>Guardar</b>.</li>
+        <li>Usa <b>Probar</b> para simular la conversación sin mandar nada.</li>
+        <li>Marca <b>Encendido</b> y guarda.</li>
+      </ol>
+    </div>
+    <img src="img/flujo.jpg" alt="Editor de chatbot">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>9. Agente con IA que contesta solo <span class="chip">Extra</span></h2>
+  <div class="dos">
+    <div>
+      <p>Contesta a tus clientes con lo que escribes en <b>Lo que sabe la IA de tu negocio</b> y con tu <b>catálogo</b> (precios y stock). Contesta en el idioma del cliente.</p>
+      <ul>
+        <li>Puede <b>armar el carrito</b> y, cuando el cliente confirma, mandarle el resumen con cómo pagar (el pedido queda pendiente de pago).</li>
+        <li>Si el cliente pide hablar con alguien, está molesto o pregunta algo que no está en tu información, <b>pasa la conversación a una persona</b>.</li>
+        <li>Puedes elegir que conteste <b>siempre</b> o <b>solo fuera de tu horario</b>, cómo se presenta y cuántas veces al día como máximo por persona.</li>
+      </ul>
+      <h3>Para encenderlo</h3>
+      <ol>
+        <li>Escribe todo lo importante en <b>Lo que sabe la IA</b>: qué vendes, horarios, dirección, envíos, formas de pago, cambios y devoluciones, preguntas frecuentes.</li>
+        <li>Marca <b>Encendido</b> y guarda.</li>
+      </ol>
+      <div class="caja">En cada chat siguen los botones <b>✨ Sugerir respuesta</b> y <b>Resumir</b>. Si la IA no puede contestar en algún momento, siguen las respuestas automáticas de siempre: el cliente no nota nada.</div>
+    </div>
+    <img src="img/ia.jpg" alt="Agente con IA">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>10. Qué contesta primero</h2>
+  <div class="dos">
+    <div>
+      <p>Cuando te escribe alguien, el programa decide en este orden:</p>
+      <ol>
+        <li><b>Catálogo</b>: si escribió "catálogo", tocó un producto o escribió "comprar".</li>
+        <li><b>Chatbots</b>: si alguno se activa con lo que escribió (o ya está en medio de uno).</li>
+        <li><b>Agente con IA</b>, si lo tienes encendido.</li>
+        <li><b>El menú de respuestas automáticas</b>, con sus reglas (horario, palabras clave, solo clientes…).</li>
+      </ol>
+      <p>Ninguno contesta a <b>contactos personales</b>, ni mientras <b>alguien del equipo atiende</b> la conversación.</p>
+      <p>Esto se explica también arriba de la pantalla <b>Automático</b>, donde está la opción <i>Callarse cuando contesta alguien del equipo</i>.</p>
+    </div>
+    <img src="img/reglas.jpg" alt="Automático">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>11. Equipo, reparto automático y vista del supervisor</h2>
+  <div class="dos">
+    <div>
+      <p>En <b>Más → Equipo y reparto</b>:</p>
+      <h3>Ahora mismo</h3>
+      <p>Por cada persona: conversaciones <b>esperando respuesta</b> (y desde cuándo la más vieja), asignadas, sin leer, a cuántos atendió hoy y cuánto tarda en dar la primera respuesta. Arriba, cuántas esperan sin nadie asignado.</p>
+      <h3>Reparto automático</h3>
+      <ul>
+        <li><b>A mano</b>: cada uno toma las suyas.</li>
+        <li><b>Por turnos</b>: una a cada uno, en orden.</li>
+        <li><b>Al que tenga menos chats esperando</b>.</li>
+        <li><b>Por tema</b>: si el mensaje dice ciertas palabras ("factura, cambio"), va a una persona.</li>
+      </ul>
+      <p>Solo reciben quienes están <b>Disponibles</b> y marcados en "Quién recibe conversaciones". Con <b>Pasar conversaciones</b> mueves todas las de alguien a otra persona (por ejemplo, en vacaciones).</p>
+    </div>
+    <img src="img/equipo.jpg" alt="Equipo y reparto">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>12. Campos personalizados</h2>
+  <div class="dos">
+    <div>
+      <p>Datos propios que quieres guardar de cada cliente: ciudad, cédula, talla, fecha de cumpleaños, placa del carro…</p>
+      <ol>
+        <li><b>Más → Campos personalizados</b> → nombre y tipo: texto, número, fecha o lista de opciones.</li>
+        <li>En cada chat aparecen en <b>Datos y notas</b>.</li>
+        <li>Un chatbot también puede preguntarlos (paso "Pregunta abierta").</li>
+      </ol>
+      <p>Salen en la descarga a Excel de contactos (Más → Integraciones).</p>
+    </div>
+    <img src="img/campos.jpg" alt="Campos personalizados">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>13. Reportes y de qué anuncio llegó cada cliente</h2>
+  <div class="dos">
+    <div>
+      <p>Cuando alguien te escribe desde un anuncio de Facebook o Instagram con el botón "Enviar mensaje de WhatsApp", Meta avisa de qué anuncio vino. El programa lo guarda solo:</p>
+      <ul>
+        <li>En el chat ves <b>📣 Llegó desde el anuncio…</b></li>
+        <li>En <b>Reportes</b>, por cada anuncio: cuántas personas escribieron, cuántas se volvieron clientes, ventas ganadas del embudo y pedidos pagados.</li>
+      </ul>
+      <p>Reportes también muestra los <b>pedidos pagados del período</b> y el ticket promedio, además de lo de siempre (mensajes por día, tiempo de respuesta y por persona del equipo).</p>
+      <div class="caja">Así sabes qué anuncio te trae ventas de verdad y dónde poner tu dinero de publicidad.</div>
+    </div>
+    <img src="img/reportes.jpg" alt="Reportes">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>14. Tienda en línea: Shopify y WooCommerce</h2>
+  <div class="dos">
+    <div>
+      <ol>
+        <li>En <b>Más → Tienda en línea</b> elige tu tienda y pega la <b>clave secreta</b> con la que firma.</li>
+        <li>Elige las plantillas aprobadas para <b>pedido recibido</b>, <b>pedido enviado</b> y <b>carrito abandonado</b> (solo Shopify), y en cuántas horas avisar.</li>
+        <li>Guarda: aparece la <b>dirección</b> que debes pegar en tu tienda, con los pasos para Shopify o WooCommerce.</li>
+      </ol>
+      <p>Desde ahí:</p>
+      <ul>
+        <li>Cada pedido de la tienda aparece en <b>Pedidos</b> y al comprador le llega el WhatsApp de "recibimos tu pedido".</li>
+        <li>Cuando lo envías, le llega "tu pedido va en camino".</li>
+        <li>Si alguien deja el carrito sin pagar, a las horas que elegiste le llega un recordatorio con el enlace para terminar la compra. Si ya compró o pidió no recibir promociones, no se le manda.</li>
+      </ul>
+      <div class="caja">Datos de la plantilla, en orden: {{1}} nombre, {{2}} número de pedido (o total en el carrito), {{3}} total (o enlace en el carrito), {{4}} enlace del pedido.</div>
+    </div>
+    <img src="img/tienda.jpg" alt="Tienda en línea">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>15. App en el celular y avisos</h2>
+  <div class="dos">
+    <div>
+      <h3>Instalar como app</h3>
+      <ul>
+        <li><b>Android (Chrome):</b> menú ⋮ → <b>Instalar app</b>.</li>
+        <li><b>iPhone (Safari):</b> Compartir ⬆️ → <b>Agregar a inicio</b>, y ábrela desde ese ícono.</li>
+        <li><b>Computadora:</b> el ícono de instalar en la barra de direcciones.</li>
+      </ul>
+      <h3>Avisos con el navegador cerrado</h3>
+      <ol>
+        <li>Entra a <b>Más → App en el celular</b> desde el celular.</li>
+        <li>Toca <b>Activar avisos en este celular</b> y permite las notificaciones.</li>
+        <li>Toca <b>Mandarme un aviso de prueba</b>.</li>
+      </ol>
+      <p>Te avisa cada mensaje nuevo de las conversaciones que atiendes; si nadie la atiende, avisa a todo el equipo que recibe chats.</p>
+    </div>
+    <img src="img/app.jpg" alt="App en el celular">
+  </div>
+</section>
+
+<section class="capitulo">
+  <h2>16. Preguntas frecuentes</h2>
+  <h3>¿Tengo que pagar aparte por usuarios o por contactos?</h3>
+  <p>No. El plan incluye todo el programa, con varios usuarios y contactos ilimitados. Lo único que se activa aparte es el Agente con IA.</p>
+  <h3>¿Quién cobra los mensajes de WhatsApp?</h3>
+  <p>Meta, directo a tu tarjeta en tu cuenta de Meta, sin recargo de Tukán. Recibir mensajes y contestar desde la app del celular es gratis. El tope de gasto del mes lo pones tú en Gasto.</p>
+  <h3>¿Puedo mandar la cotización si pasaron más de 24 horas?</h3>
+  <p>Por el sistema, Meta solo deja mandar una plantilla aprobada pasadas 24 horas. Descarga el PDF y mándalo desde el celular, o manda primero una plantilla.</p>
+  <h3>El agente con IA dijo algo que no debía.</h3>
+  <p>La IA usa solo lo que escribes en "Lo que sabe la IA". Revisa y completa esa información. Si algo no está ahí, la IA pasa la conversación a una persona.</p>
+  <h3>¿Qué pasa si el cliente escribe mientras alguien del equipo lo atiende?</h3>
+  <p>Lo automático se calla durante las horas que configures en Automático, para no interrumpir.</p>
+  <h3>¿Puedo tener mi número también en la app WhatsApp Business del celular?</h3>
+  <p>Sí: al conectarlo con código QR sigue funcionando en el celular y además aparece aquí, con sus contactos e historial.</p>
+  <p class="pie" style="margin-top:20mm">Tukán Software · Sistemas que trabajan por tu negocio · WhatsApp 099 640 8397 · info@tukansoftware.com · tukansoftware.com</p>
+</section>
+
+</body>
+</html>

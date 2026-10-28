@@ -124,7 +124,7 @@ $codigo($pedir('capacidades', [], ['inst' => 'tusalon']), 401, 'inst', 'otra ins
 $t = time();
 $codigo($pedir('capacidades', [], ['iat' => $t - 200, 'exp' => $t - 150]), 401, 'vencido', 'token vencido');
 $codigo($pedir('capacidades', [], ['iat' => $t + 200, 'exp' => $t + 250]), 401, 'futuro', 'token con fecha futura');
-$codigo($pedir('capacidades', [], ['exp' => $t + 61]), 401, 'invalido', 'lectura que dura 61 s');
+$codigo($pedir('capacidades', [], ['iat' => $t, 'exp' => $t + 61]), 401, 'invalido', 'lectura que dura 61 s');
 $r = $ejecutar('nota_interna', ['texto' => 'x'], (string) $eActiva);   // control: vida 30 sí sirve
 igual($r[0], 200, 'ejecutar con vida de 30 s');
 $cu = json_encode(['operacion_id' => bin2hex(random_bytes(16)), 'accion' => 'nota_interna', 'cliente_id' => (string) $eActiva, 'datos' => ['texto' => 'y']], FLAGS);

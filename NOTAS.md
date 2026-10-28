@@ -1,5 +1,5 @@
 # WhatsApp Tukán — Estado y pasos para continuar
-*Actualizado: 27 oct 2026*
+*Actualizado: 28 oct 2026*
 
 ## Qué es
 Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de WhatsApp de Meta**, para el número de ventas de Tukán (+593 99 640 8397) y después QF Producciones (+593 98 683 3077) en el mismo programa.
@@ -8,7 +8,7 @@ Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de
 - Dirección: **https://whatsapp.tukanec.com** (ya funciona)
 - Servidor: **qfcorp** (usuario `qf`), túnel de Cloudflare `servidorqf` → `http://localhost:80`
 - Tecnología: PHP + PostgreSQL + nginx
-- Pruebas (Meta simulado): **idiomas 43, lógica 446, Panel Central v2 162 y pantallas 212, todo bien** (27 oct 2026)
+- Pruebas (Meta simulado): **idiomas 43, lógica 635, Panel Central v2 163 y pantallas 286, todo bien** (28 oct 2026)
 
 ## Qué hace el programa
 - **Bandeja** y **chat** con 2 botones: "Enviar desde el celular" (gratis) y "Enviar por el sistema" (pagado, muestra el costo).
@@ -50,6 +50,24 @@ Recibir mensajes y enviar desde la app del celular es **gratis**.
 En el servidor (`/var/www/tuwhatsapp/config/.env`) ya están: META_APP_ID, META_ES_CONFIG_ID=1865337081309109 y la clave secreta. ✅
 
 ---
+
+## 🛒 Todo incluido + agente con IA (28 oct 2026)
+Decisión de Dimitry: **ya no va por módulos**. Un solo plan **Todo incluido (unos $20/mes)**; lo único aparte es la **IA (unos $5 más)**. Precios en `src/Modulos.php`. En piezas de venta no se publican precios (regla de la marca).
+
+Hecho (tomado de la revisión de Mercately, todo menos Instagram/Messenger):
+- **Agente con IA que contesta solo** (Más → Agente con IA): 24 h o fuera de horario, usa "Lo que sabe la IA" + catálogo, arma el carrito, confirma el pedido y manda cómo pagar, pasa a una persona, se calla cuando alguien del equipo contesta.
+- **Reparto automático y supervisor** (Más → Equipo y reparto): a mano, por turnos o al de menos carga; reglas por tema; disponible sí/no; tablero de chats esperando; pasar chats.
+- **Catálogo** con fotos, stock y CSV; **carrito y pedidos** (menú Pedidos); **cobros** con Payphone (enlace por pedido), enlace fijo o transferencia; **cotización PDF**.
+- **Chatbots por pasos** con botones y listas (Más → Chatbots).
+- **Campos propios** de contactos (Más → Campos de contactos).
+- **Origen por anuncio** (clic a WhatsApp) en el chat y en Reportes.
+- **Shopify y WooCommerce**: avisos de pedido y envío; carritos abandonados de Shopify (cron cada minuto).
+- **App instalable con avisos** (Web Push) para cada persona del equipo.
+- Manual nuevo: `docs/manual/manual.html` y **`docs/Manual_WhatsApp_Tukan.pdf`** (18 páginas, con capturas).
+- Presentación de ventas en Claude (Slides): "WhatsApp Tukán — Presentación de ventas" (14 diapositivas).
+- Pruebas (Meta, IA, Payphone y avisos simulados): **idiomas 43, lógica 635, Panel Central v2 163 y pantallas 286, todo bien**.
+
+Para activarlo en el servidor: actualizar (línea de **Actualizar** abajo) y luego, por cada número, los 7 pasos de "Configurar lo nuevo" del README.
 
 ## 🧩 Panel Tukán Central v2: demos desde el panel (27 oct 2026)
 **Problema:** en el Panel Tukán Central, *Crear demo* no mostraba WhatsApp Tukán porque el conector solo hablaba el protocolo v1 (entrar y cifras).
@@ -194,7 +212,8 @@ Causa más probable: el número tiene **poco tiempo/actividad** en WhatsApp Busi
 ### 6. Después
 - Conectar el número de **QF Producciones** (ícono del celular arriba → **Conectar otro número** → botón QR).
 - Conectar TuSalón / Panel Tukán Central a la API (`/api.php`, token `TUWA_API_TOKEN` en `.env`).
-- Ofrecer WhatsApp como **módulo extra** en los programas Tukán (ya somos Tech Provider).
+- Ofrecer WhatsApp Tukán (todo incluido) junto a los programas Tukán. Para venderlo a otros negocios falta: terminar la **revisión de la app** de Meta y **enviar la verificación de Tech Provider** (formulario ya llenado como borrador; fecha límite 27/12/2026).
+- Traducir al inglés, francés, portugués e italiano las pantallas nuevas (hoy salen en español).
 
 ---
 

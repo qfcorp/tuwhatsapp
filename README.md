@@ -1,6 +1,6 @@
 # WhatsApp Tukán
 
-Bandeja propia de WhatsApp (como WhatChimp o Wati, pero nuestra, más barata y por módulos) conectada a la **API oficial de Meta**.
+Bandeja propia de WhatsApp (como WhatChimp, Wati o Mercately, pero nuestra, más barata y con todo incluido) conectada a la **API oficial de Meta**.
 Sirve para el número de ventas de Tukán y, después, para QF Producciones en el mismo programa (cada número con sus propias reglas, contactos y tope).
 
 Dirección: **whatsapp.tukanec.com** (servidor qfcorp, por el túnel de Cloudflare).
@@ -25,29 +25,54 @@ Dirección: **whatsapp.tukanec.com** (servidor qfcorp, por el túnel de Cloudfla
 - **Menú con botones de WhatsApp**: las opciones de la respuesta automática salen como botones (hasta 3) o como lista (hasta 10). El cliente toca en lugar de escribir el número.
 - **API** para otros programas (TuSalón, Panel Tukán Central): agregar pendientes y registrar clientes.
 
-## Módulos (se encienden o apagan por cliente)
-Lo básico (todo lo de arriba) siempre está. Lo demás son **módulos** que Tukán enciende en **Clientes de Tukán → ficha del cliente → Módulos del plan** (o con un toque en un plan). Lo que el cliente no tiene se ve en **Más** con la etiqueta *No incluido* y el botón **Pedir a Tukán**.
+## Plan: todo incluido (desde el 28 oct 2026 ya no va por módulos)
+Todo viene en **un solo plan**. Lo único que se cobra aparte es el **agente con IA**.
 
-| Módulo | Qué hace | Dónde |
-|---|---|---|
-| Campañas masivas | Plantilla a muchos contactos, por etiqueta, con costo antes de enviar | Más → Campañas |
-| Varios agentes | Asignar conversaciones, filtros Míos / Sin asignar | Chat → Atiende |
-| **Embudo de ventas** | Tablero Nuevo → Interesado → Cotizado → Ganado / Perdido con el valor de cada venta. Quien escribe entra solo a Nuevo (los personales no) | Menú de abajo → Embudo, y en cada chat |
-| **Seguimientos** | "Si no responde en 2 días, escribirle": mensajes programados. Si ya respondió no se manda; si pasaron 24 h queda en Pendientes para mandarlo gratis desde el celular | Chat → Programar seguimiento; Más → Seguimientos |
-| **Reportes** | Personas que escribieron, contactos nuevos, mensajes por día, tiempo de respuesta del equipo, % atendidos, ventas ganadas, por persona del equipo | Más → Reportes |
-| **Asistente con IA** | ✨ Sugerir respuesta (deja un borrador, siempre lo manda una persona) y Resumir. Usa lo que el negocio escribe en "Lo que sabe la IA" y la IA compartida de Tukán (tope $3 al mes por cuenta, el cliente no lo ve) | Chat; Más → Asistente con IA |
-| **Enlaces, QR y botón web** | Enlace corto por cada lugar (Instagram, volante…) que abre WhatsApp con un texto listo y **cuenta los clics**; su código QR para imprimir; botón flotante para la página web | Más → Enlaces y QR |
-| **Integraciones** | Descargar contactos y mensajes a Excel; avisar a otro programa (Make, Zapier, n8n) cuando llega un mensaje, firmado con clave | Más → Integraciones |
-
-### Planes sugeridos (un toque en la ficha del cliente)
-| Plan | Precio | Números | Usuarios | Módulos |
+| Plan | Precio | Números | Usuarios | Incluye |
 |---|---|---|---|---|
-| Básico | $19/mes | 1 | 3 | Lo básico + Enlaces y QR |
-| Negocio | $35/mes | 1 | 5 | + Campañas, Varios agentes, Embudo, Seguimientos, Reportes |
-| Pro | $55/mes | 2 | 10 | Todo, con IA e Integraciones |
-Precios sin IVA, **mes a mes sin contrato**, **contactos ilimitados** y **0 % de recargo**: lo de Meta lo paga el cliente directo con su tarjeta en su cuenta de Meta. Los precios están en `src/Modulos.php` (PLANES) y se pueden cambiar.
+| Todo incluido | unos $20/mes | 1 | 50 | Todo lo de esta página, menos el agente con IA |
+| Todo incluido + IA | unos $25/mes | 1 | 50 | Todo + agente con IA que contesta solo, ✨ Sugerir respuesta y Resumir |
 
-**Comparación (octubre 2026):** WhatChimp $40 (2 usuarios), Wati $69 (3 usuarios y recargo sobre Meta), Callbell $15–20 **por usuario**, Kommo $25–45 **por usuario** con pago de 6 meses, Leadsales $97, Whaticket $49, Respond.io $99 sin campañas en el plan barato. Lo que más reclaman sus clientes: cobro por usuario, recargo escondido sobre Meta, límites de contactos, funciones quitadas del plan barato y contratos largos. Nosotros no tenemos ninguno de esos.
+Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. Las cuentas que tenían los planes viejos (Básico, Negocio, Pro) pasan solas a "Todo incluido" o a "Todo incluido + IA" según tuvieran IA. En **Más**, si la cuenta no tiene IA, el agente aparece con la etiqueta *Extra* y el botón **Pedir a Tukán**. En la web, las presentaciones y los manuales **no se publican precios** (regla de la marca): se pide cotización.
+
+### Lo que trae el plan (dónde está)
+| Función | Qué hace | Dónde |
+|---|---|---|
+| Campañas masivas | Plantilla a muchos contactos, por etiqueta, con el costo antes de enviar | Más → Campañas |
+| Varios agentes | Asignar conversaciones, filtros Míos / Sin asignar | Chat → Atiende |
+| **Reparto automático** | A mano, por turnos o a quien tenga menos chats; reglas por tema (palabras clave → persona); cada persona se marca *disponible*; el supervisor ve quién tiene cuántos chats esperando y pasa los chats de una persona a otra | Más → Equipo y reparto |
+| **Catálogo** | Productos o servicios con foto, precio, stock, código y descripción; se cargan uno por uno o con un CSV de Excel (nombre, precio, stock, código, descripción). El cliente escribe "catálogo" y elige tocando de una lista | Más → Catálogo |
+| **Carrito y pedidos** | Desde el chat se agregan productos al carrito y se manda el resumen con cómo pagar. Estados: carrito → pendiente de pago → pagado → enviado → entregado (o cancelado). El stock se descuenta solo y vuelve si se cancela | Chat → Carrito y cotización; menú de abajo → Pedidos (o Más → Pedidos) |
+| **Cobros** | Enlace de pago de **Payphone** por el total exacto de cada pedido, o un enlace fijo, o los datos de transferencia; IVA del negocio | Más → Cobros y cotizaciones |
+| **Cotización en PDF** | Con nombre, RUC, dirección, número, validez y condiciones al pie; se manda por el chat o se descarga | Chat → Mandar cotización PDF |
+| **Chatbots por pasos** | Mensaje, botones (hasta 3, o lista hasta 10), pregunta (guarda nombre, correo, notas o un campo propio) y pasar a una persona; etiquetas y etapa del embudo por opción. Se encienden con palabras clave o con el primer mensaje | Más → Chatbots |
+| **Campos propios** | Datos extra de cada contacto (texto, número, fecha o lista de opciones) que se llenan en el chat o con un chatbot y salen en el Excel | Más → Campos de contactos |
+| **Origen por anuncio** | Si el cliente llega desde un anuncio de clic a WhatsApp, el chat dice de qué anuncio y el reporte cuenta cuántos trajo cada uno | Chat y Más → Reportes |
+| Embudo de ventas | Nuevo → Interesado → Cotizado → Ganado / Perdido con el valor de cada venta | Menú de abajo → Embudo |
+| Seguimientos | "Si no responde en 2 días, escribirle" | Chat → Programar seguimiento |
+| Reportes | Personas que escribieron, mensajes, tiempo de respuesta, pedidos pagados, anuncios | Más → Reportes |
+| Enlaces, QR y botón web | Enlace corto que cuenta los clics, su QR y botón para la página web | Más → Enlaces y QR |
+| Integraciones | Excel de contactos y mensajes; aviso firmado a Make, Zapier o n8n | Más → Integraciones |
+| **Tienda en línea** | **Shopify** o **WooCommerce**: cada pedido le avisa al cliente por WhatsApp (pedido recibido, enviado) con plantillas aprobadas; con Shopify, recordatorio del carrito abandonado (lo manda el cron cada minuto) | Más → Tienda en línea |
+| **App en el celular** | Se instala desde el navegador (Android, iPhone, computadora) y avisa cada mensaje nuevo aunque esté cerrada (Web Push); el aviso le llega a quien tiene el chat | Más → App en el celular |
+
+### El extra: agente con IA (`ia`)
+- Contesta solo con lo que el negocio escribe en **Lo que sabe la IA** y con el **catálogo** (precios y stock). Siempre o solo fuera del horario; con nombre propio y un máximo de respuestas al día por persona.
+- Puede armar el carrito y, cuando el cliente confirma, deja el pedido en *pendiente de pago* y le manda el resumen con cómo pagar.
+- Pasa la conversación a una persona del equipo (con el reparto) si se la piden, si el cliente está molesto o si no sabe la respuesta.
+- **Se calla** cuando alguien del equipo contesta (desde el panel o desde el celular), por las horas de silencio de Respuestas automáticas.
+- Si la IA falla o está fuera del horario elegido, siguen las respuestas automáticas de siempre.
+- Orden de lo que contesta: chatbot en curso → catálogo (palabras "catálogo", "comprar"…) → chatbot que se enciende → agente con IA → respuestas automáticas.
+
+### Configurar lo nuevo (una vez por número)
+1. **Más → Cobros y cotizaciones**: RUC, dirección, IVA (15 o 0), datos de transferencia y, si tiene, la clave (token) y el Store ID de **Payphone** (Payphone Developer → Configuración → tu aplicación).
+2. **Más → Catálogo**: agrega productos o sube el CSV.
+3. **Más → Equipo y reparto**: elige cómo se reparten los chats y quién está disponible.
+4. **Más → Chatbots**: crea el primero (ya trae un ejemplo de 3 pasos) y enciéndelo.
+5. **Más → Agente con IA** (si lo contrató): escribe lo que sabe del negocio y enciéndelo.
+6. **Más → Tienda en línea** (si tiene Shopify o WooCommerce): copia la dirección y la clave que muestra la pantalla en el webhook de la tienda, y elige las plantillas.
+7. Cada persona del equipo: **Más → App en el celular** → instalar y **Activar avisos**.
+
 
 ## Idiomas (botón 🌐)
 
@@ -183,7 +208,7 @@ POST https://whatsapp.tukanec.com/api.php?accion=contacto
 ```
 `linea` es opcional (por defecto el primer número). Respuestas: 200 `{"ok":true,...}`, 401 token malo, 422 dato malo.
 
-## Asistente con IA (usa la IA compartida de Tukán)
+## Agente y asistente con IA (usa la IA compartida de Tukán)
 WhatsApp Tukán **no tiene clave propia**: usa la misma clave de Anthropic que todos los programas Tukán, guardada una sola vez en `/etc/tukan-ia.env` (la librería `src/tukan_ia.php` es copia exacta de `tukan-central/compartido/tukan_ia.php`).
 - Si ya se configuró en el Panel Tukán Central, no hay que hacer nada: el instalador dice `9) Asistente con IA: usa la clave compartida de Tukan`.
 - Si dice `apagado`, en el PuTTY de qfcorp (usuario qf) pega esta línea; toma la clave que ya está en TuHospedaje, sin pedirla ni mostrarla:
