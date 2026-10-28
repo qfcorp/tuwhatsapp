@@ -674,3 +674,9 @@ CREATE TABLE IF NOT EXISTS ia_resumenes (
     creado   timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (linea_id, fecha)
 );
+
+-- ---------------------------------------------------------------------
+-- 28 oct 2026: app de Android (Google Play). Cuenta de MUESTRA para el revisor de Google (deploy/demo_google.php):
+-- datos inventados y un número que no es de verdad (phone_number_id 'muestra-…'): nunca llama a Meta ni conecta números.
+-- ---------------------------------------------------------------------
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS muestra boolean NOT NULL DEFAULT false;

@@ -80,6 +80,13 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 9. **Resumen de cada mañana** (con IA): **Más → Pregúntale a la IA** → marcar *Mandarme el resumen al celular cada mañana* y la hora.
 
 
+## App de Android (Google Play): «Tukán Mensajes»
+App `com.tukansoftware.tuwhatsapp` (en qfcorp/tukan-apps) que abre `https://whatsapp.tukanec.com/?r=bandeja&app=play` a pantalla completa.
+En la tienda y dentro de la app se llama **Tukán Mensajes** (Google no deja usar la marca WhatsApp como nombre propio; en la web sigue «WhatsApp Tukán»).
+**Sin cobro dentro de la app** (1.0.0): no se ven los precios del plan ni «Pedir a Tukán» / «Escribir a Tukán por WhatsApp» para contratar o renovar;
+cobro con Google Play preparado y apagado (`TUWA_GOOGLE_PLAY_COBRO`). Cuenta de muestra para el revisor de Google (nunca llama a Meta):
+`php /var/www/tuwhatsapp/deploy/demo_google.php crear`. Todo en [docs/GOOGLE_PLAY.md](docs/GOOGLE_PLAY.md).
+
 ## Idiomas (botón 🌐)
 
 Arriba a la derecha está el botón **🌐**: el programa se usa en **español, inglés, francés, portugués o italiano**.
@@ -240,12 +247,15 @@ Idiomas: `php tests/prueba_idiomas.php` (motor + diccionarios). Para encontrar t
 ```
 PGPORT=5432 PGUSER=postgres bash tests/correr.sh
 ```
+En paralelo con otras pruebas: `TUWA_DB_PRUEBA=otra_base SIM_PUERTO=… WEB_PUERTO=… PLUX_PUERTO=… bash tests/correr.sh`.
+Al final corre `tests/prueba_app_android.sh` (assetlinks, privacidad, modo app y la cuenta de muestra del revisor de Google).
 Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`). Idiomas 43, lógica 446, Panel Tukán Central v2 162 y pantallas 212: deben terminar en `TODO BIEN`.
 
 ## Archivos
 - `public/index.php` panel · `public/webhook.php` lo que avisa Meta · `public/api.php` API
 - `src/Registro.php` botón QR (Embedded Signup: código → token, webhook, PIN, contactos e historial)
-- `public/privacidad.php` y `public/eliminar-datos.php` páginas públicas para Meta
+- `public/privacidad.php` y `public/eliminar-datos.php` páginas públicas para Meta y Google Play
+- `public/.well-known/assetlinks.json`, `deploy/app_android.sh`, `deploy/demo_google.php` y `src/DemoGoogle.php`: app de Android (docs/GOOGLE_PLAY.md)
 - `src/Reglas.php` decisión de responder · `src/Mensajeria.php` envíos con tope · `src/Gasto.php` precios y gasto · `src/Webhook.php` mensajes, estados y ecos · `src/Meta.php` conexión con Meta
 - `src/Modulos.php` módulos y planes · `src/Archivos.php` fotos, audios y documentos · `src/Embudo.php` · `src/Seguimientos.php` · `src/Reportes.php` · `src/Asistente.php` (IA) · `src/Enlaces.php` · `src/Integraciones.php`
 - `public/w.php` enlace corto · `public/boton.js` botón para páginas web · `public/assets/qrcode.js` códigos QR (MIT, Kazuhiko Arase)

@@ -31,7 +31,16 @@ final class Meta
         138006 => 'Este cliente no te ha dado permiso para llamarlo. Pídele permiso primero (botón "Pedir permiso para llamar").',
     ];
 
+    /** Números de la cuenta de muestra del revisor de Google (deploy/demo_google.php): no son de verdad y nunca llaman a Meta. */
+    public const PREFIJO_MUESTRA = 'muestra-';
+    public const AVISO_MUESTRA = 'Cuenta de demostración: no se envía nada a WhatsApp (Meta).';
+
     public function __construct(private string $phoneNumberId, private string $token, private string $wabaId = '') {}
+
+    private function esMuestra(): bool
+    {
+        return str_starts_with($this->phoneNumberId, self::PREFIJO_MUESTRA);
+    }
 
     public static function deLinea(array $linea): self
     {
@@ -111,6 +120,9 @@ final class Meta
     /** Sube un archivo a Meta y devuelve su id (sirve 30 días para enviarlo). */
     public function subirMedio(string $rutaCompleta, string $mime, string $nombre): array
     {
+        if ($this->esMuestra()) {
+            return ['ok' => false, 'error' => self::AVISO_MUESTRA];
+        }
         if ($this->token === '' || $this->phoneNumberId === '') {
             return ['ok' => false, 'error' => 'Este número no tiene token o Phone number ID. Complétalo en Números.'];
         }
@@ -318,6 +330,9 @@ final class Meta
 
     private function pedir(string $metodo, string $ruta, ?array $cuerpo = null): array
     {
+        if ($this->esMuestra()) {
+            return ['ok' => false, 'error' => self::AVISO_MUESTRA];
+        }
         if ($this->token === '' || $this->phoneNumberId === '') {
             return ['ok' => false, 'error' => 'Este número no tiene token o Phone number ID. Complétalo en Números.'];
         }

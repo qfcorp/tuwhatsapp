@@ -55,7 +55,7 @@ LLAVE="$(viejo TUWA_LLAVE)";        [ -n "$LLAVE" ]  || LLAVE="$(openssl rand -h
 VERIFY="$(viejo META_VERIFY_TOKEN)"; [ -n "$VERIFY" ] || VERIFY="tukan$(openssl rand -hex 12)"
 API="$(viejo TUWA_API_TOKEN)";       [ -n "$API" ]    || API="$(openssl rand -hex 24)"
 EXTRA=""
-[ -f "$ENVF" ] && EXTRA="$(grep -E '^(TUKAN_CENTRAL_ID|TUKAN_CENTRAL_SECRET|TUKAN_CENTRAL_URL|TUKAN_SOLO_CENTRAL|META_APP_SECRET|META_APP_ID|META_ES_CONFIG_ID|META_GRAPH_VERSION|META_GRAPH_URL|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID)=' "$ENVF" || true)"
+[ -f "$ENVF" ] && EXTRA="$(grep -E '^(TUKAN_CENTRAL_ID|TUKAN_CENTRAL_SECRET|TUKAN_CENTRAL_URL|TUKAN_SOLO_CENTRAL|META_APP_SECRET|META_APP_ID|META_ES_CONFIG_ID|META_GRAPH_VERSION|META_GRAPH_URL|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID|TUWA_GOOGLE_PLAY_COBRO)=' "$ENVF" || true)"
 {
   echo "TUWA_DB_HOST=127.0.0.1"
   echo "TUWA_DB_NAME=tuwhatsapp"
@@ -85,6 +85,13 @@ server {
     location /assets/ {
         expires 7d;
         try_files \$uri =404;
+    }
+    # tuwhatsapp-app-android: la app de Android (Google Play) verifica este archivo para abrir sin barra de navegador (no borrar)
+    location = /.well-known/assetlinks.json {
+        types { }
+        default_type application/json;
+        alias $APP/public/.well-known/assetlinks.json;
+        allow all;
     }
     location ~ /\. { deny all; }
     location ~ \.php\$ {
@@ -118,6 +125,8 @@ grep -q '^META_ES_CONFIG_ID=.' "$ENVF" && grep -q '^META_APP_ID=.' "$ENVF" && ec
 echo "8) Envio automatico (campanias y seguimientos): $(sudo crontab -u www-data -l 2>/dev/null | grep -c tuwhatsapp/bin/campanias) (debe ser 1)"
 sudo grep -q '^TUKAN_IA_CLAVE=.' /etc/tukan-ia.env 2>/dev/null && echo "9) Asistente con IA: usa la clave compartida de Tukan" || echo "9) Asistente con IA: apagado (se enciende una vez para todos en el Panel Tukan Central)"
 curl -s -o /dev/null -w "10) Pagina de pago con tarjeta (Plux): %{http_code} (debe ser 404 sin pedido)\n" -H "Host: $DOMINIO" "http://127.0.0.1/pagar.php"
+curl -s -o /dev/null -w "11) App de Android (assetlinks.json): %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/.well-known/assetlinks.json"
+curl -s -o /dev/null -w "12) Politica de privacidad: %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/privacidad.php"
 echo "================================="
 echo "Crear tu usuario:          php $APP/bin/crear_usuario.php"
 echo "Guardar la clave de Meta:  bash $APP/deploy/clave_meta.sh"

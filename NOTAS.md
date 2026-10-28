@@ -8,7 +8,7 @@ Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de
 - Dirección: **https://whatsapp.tukanec.com** (ya funciona)
 - Servidor: **qfcorp** (usuario `qf`), túnel de Cloudflare `servidorqf` → `http://localhost:80`
 - Tecnología: PHP + PostgreSQL + nginx
-- Pruebas (Meta, IA y Plux simulados): **idiomas 43, lógica 739, Panel Central v2 163 y pantallas 360, todo bien** (28 oct 2026)
+- Pruebas (Meta, IA y Plux simulados): **idiomas 43, lógica 743, Panel Central v2 163, pantallas 361 y app de Android 42, todo bien** (28 oct 2026)
 
 ## Qué hace el programa
 - **Bandeja** y **chat** con 2 botones: "Enviar desde el celular" (gratis) y "Enviar por el sistema" (pagado, muestra el costo).
@@ -50,6 +50,21 @@ Recibir mensajes y enviar desde la app del celular es **gratis**.
 En el servidor (`/var/www/tuwhatsapp/config/.env`) ya están: META_APP_ID, META_ES_CONFIG_ID=1865337081309109 y la clave secreta. ✅
 
 ---
+
+## 📱 App de Android para Google Play: «Tukán Mensajes» (28 oct 2026, noche)
+Pedido de Dimitry: todos los programas listos para Google Play (Producción, todos los países), **sin cobro dentro de la app** por ahora.
+- App en qfcorp/tukan-apps: `apps/tuwhatsapp` (paquete `com.tukansoftware.tuwhatsapp`, abre `/?r=bandeja&app=play`), `.aab` y `.apk` en `salidas/tuwhatsapp/`,
+  ficha en `tienda/tuwhatsapp/` (textos es/en, play.json, 8 capturas por idioma de la Tienda Muestra) y guía `PUBLICAR_TUWHATSAPP_CON_CLAUDE.md`.
+- **Nombre**: en la tienda «Tukán Mensajes: chats y ventas» y en el celular «Tukán Mensajes». Google rechaza apps que usan como nombre una marca de
+  otro (WhatsApp es de Meta). Dentro de la app (`?app=play`) el programa también se llama Tukán Mensajes (`nombre_programa()`); la web sigue igual.
+- **Modo app** (`en_app_android()`, cookie `tuwa_app`): sin «Pedir a Tukán» (IA), sin «Escribir a Tukán por WhatsApp» en la cuenta vencida, sin
+  «Escribe a Tukán para activarlo». Planes y precios sin cambios ($20 / $25, `src/Modulos.php`). Cobro con Google Play preparado y apagado (`TUWA_GOOGLE_PLAY_COBRO`).
+- **Privacidad** reescrita (mensajes, fotos, audios, videos, documentos, contactos de terceros por la API de Meta, IA de Anthropic, Plux/Payphone,
+  avisos, cómo borrar la cuenta) y eliminar-datos ampliada.
+- **assetlinks.json** con la huella de la llave de subida; nginx lo muestra (instalador y `deploy/app_android.sh`).
+- **Cuenta del revisor de Google**: `php /var/www/tuwhatsapp/deploy/demo_google.php crear | borrar` → «Tienda Muestra Tukán» (`empresas.muestra`),
+  número de ficción `muestra-…` que `src/Meta.php` nunca manda a Meta; no deja conectar números, cambiar la contraseña ni poner claves de cobro.
+- Pendiente (Dimitry): en el servidor `instalar.sh` → `sudo bash deploy/app_android.sh` → `demo_google.php crear`; subir a Play Console; luego la huella de Google.
 
 ## 🆚 Comparación con Wati y respond.io (28 oct 2026)
 **Wati** (wati.io, página Wati LATAM): Growth $69/mes ($59 anual, 3 usuarios, no se pueden agregar), Pro $149/mes ($119 anual, 5 usuarios, usuario extra $39), Business $279–349 (usuario extra $89). Aparte: número extra $29, IA $30 por 1.000 créditos, agente IA Astra $99 (Pro) o $399 (Business), automatizaciones $40 por 1.000, Shopify $4,99. **Recargo sobre Meta**: ~60 % marketing, ~79 % utilidad, ~21 % servicio. Pago anual, sin reembolso, cancelar escribiendo a facturación. Novedad en su página: "Wati AI — No hagas clic, solo pregunta" (segmentar clientes listos para comprar, crear campañas desde una idea, agentes que revisan la operación cada mañana).

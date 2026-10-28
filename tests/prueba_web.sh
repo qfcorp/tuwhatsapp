@@ -45,7 +45,7 @@ T=$(date +%s)
 MSG='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593996408397","phone_number_id":"100"},"contacts":[{"profile":{"name":"Peluquería Ana"},"wa_id":"593991111111"}],"messages":[{"from":"593991111111","id":"wamid.WEB1","timestamp":"'$T'","type":"text","text":{"body":"Hola, quiero <b>precios</b>"}}]}}]}]}'
 CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -H "X-Hub-Signature-256: sha256=000" --data-binary "$MSG" "$W/webhook.php")
 ok '[ "$CODIGO" = 401 ]' "sin firma correcta se rechaza"
-ok '[ "$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT count(*) FROM webhook_log WHERE error LIKE '"'"'Firma no valida%'"'"'" -d tuwhatsapp_prueba)" = 1 ]' "la firma mala queda anotada para revisar"
+ok '[ "$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT count(*) FROM webhook_log WHERE error LIKE '"'"'Firma no valida%'"'"'" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}")" = 1 ]' "la firma mala queda anotada para revisar"
 ok '[ "$(webhook "$MSG")" = 200 ]' "mensaje firmado aceptado"
 sleep 0.3
 
@@ -59,7 +59,7 @@ get "/?r=bandeja"
 C=$(grep -o 'r=chat&amp;c=[0-9]*' "$P" | head -1 | grep -o '[0-9]*$')
 get "/?r=chat&c=$C"
 ok 'tiene "Respuestas automáticas apagadas" && ! tiene "Enviar desde el celular" && ! tiene "Guardar en Pendientes"' "número solo API: sin botón del celular"
-PGPASSWORD="${PGPASSWORD:-}" psql -qc "UPDATE lineas SET coexistencia = true" -d tuwhatsapp_prueba
+PGPASSWORD="${PGPASSWORD:-}" psql -qc "UPDATE lineas SET coexistencia = true" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}"
 get "/?r=chat&c=$C"
 ok 'tiene "wa.me/593991111111" && tiene "Enviar desde el celular"' "con la app del celular (coexistencia): enlace gratis"
 ok 'tiene "Enviar por el sistema"' "ventana abierta: se puede enviar"
@@ -579,7 +579,7 @@ CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -b "$BELLA_J" "$W/?r=cotizacion&
 post "/?r=cobros" --data-urlencode "iva_pct=0" --data-urlencode "pago_enlace=" --data-urlencode "pago_transferencia="
 
 echo "== Cobro con tarjeta (Plux)"
-SQL() { PGPASSWORD="${PGPASSWORD:-}" psql -tAc "$1" -d tuwhatsapp_prueba; }
+SQL() { PGPASSWORD="${PGPASSWORD:-}" psql -tAc "$1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}"; }
 LID=$(SQL "SELECT id FROM lineas ORDER BY id LIMIT 1")
 get "/?r=cobros"
 ok 'tiene "Cómo inscribirte en Plux" && tiene "plux.ec/contactos" && tiene "Datos para darle a Plux"' "guía para inscribirse en Plux"
@@ -672,7 +672,7 @@ echo "== Chatbots"
 get "/?r=flujos"; ok 'tiene "Todavía no tienes chatbots"' "chatbots vacío"
 post "/?r=flujos" --data-urlencode "nombre=Bienvenida" --data-urlencode "disparador=palabras" --data-urlencode "palabras=hola, info"
 ok 'tiene "Chatbot creado con un ejemplo" && tiene "Paso 1" && tiene "Paso 3" && tiene "Ver productos"' "crear chatbot con ejemplo"
-FL=$(grep -o 'name="csrf"' "$P" | head -1 >/dev/null; PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM flujos ORDER BY id DESC LIMIT 1" -d tuwhatsapp_prueba)
+FL=$(grep -o 'name="csrf"' "$P" | head -1 >/dev/null; PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM flujos ORDER BY id DESC LIMIT 1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}")
 post "/?r=flujo&id=$FL" --data-urlencode "accion=probar" --data-urlencode "entradas=$(printf 'hola\n2')"
 ok 'tiene "Soy el asistente de Tukán ventas" && tiene "en un momento te atiende una persona" && tiene "Aquí pasa a una persona"' "probar el chatbot sin mandar nada"
 post "/?r=flujo&id=$FL" --data-urlencode "accion=agregar_paso" --data-urlencode "nombre=Bienvenida" --data-urlencode "disparador=palabras" --data-urlencode "palabras=hola, info" \
@@ -697,7 +697,7 @@ get "/?r=equipo"
 ok '[ "$CODIGO" = 200 ] && tiene "Reparto automático" && tiene "Esperando respuesta" && tiene "Luis"' "vista del supervisor"
 post "/?r=equipo" --data-urlencode "accion=reparto" --data-urlencode "reparto=turnos" --data-urlencode "regla_palabras[0]=factura" --data-urlencode "regla_usuario[0]=0"
 ok 'tiene "Reparto guardado" && tiene "value=\"turnos\" checked"' "guardar reparto por turnos"
-LU=$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM usuarios WHERE correo = 'luis@tukan.com'" -d tuwhatsapp_prueba)
+LU=$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM usuarios WHERE correo = 'luis@tukan.com'" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}")
 post "/?r=equipo" --data-urlencode "accion=persona" --data-urlencode "id=$LU" --data-urlencode "que=disponible" --data-urlencode "valor=0"
 ok 'tiene "Ausente"' "marcar ausente"
 post "/?r=equipo" --data-urlencode "accion=persona" --data-urlencode "id=$LU" --data-urlencode "que=disponible" --data-urlencode "valor=1"
@@ -770,7 +770,7 @@ post "/?r=push" --data-urlencode "accion=suscribir" --data-urlencode "datos={\"e
 ok 'tiene "\"ok\":false" && tiene "no es compatible"' "dirección de avisos rara: rechazada"
 
 echo "== Llamadas de WhatsApp"
-SQLW() { PGPASSWORD="${PGPASSWORD:-}" psql -tAc "$1" -d tuwhatsapp_prueba; }
+SQLW() { PGPASSWORD="${PGPASSWORD:-}" psql -tAc "$1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}"; }
 get "/?r=llamadas"
 ok '[ "$CODIGO" = 200 ] && tiene "Llamadas de WhatsApp" && tiene "Apagadas" && tiene "Encender llamadas en mi número" && tiene "2.000 personas al día"' "pantalla de llamadas (apagadas, con lo que pide Meta)"
 ok 'tiene "Tu número también está en la app WhatsApp Business del celular" && tiene "Eliminar mi cuenta" && tiene "agregar tu número"' "explica cómo pasar el número a solo API (coexistencia)"
@@ -815,12 +815,12 @@ get "/?r=asistente"
 ok '[ "$CODIGO" = 200 ] && tiene "Pregúntale a la IA" && tiene "¿Quiénes están listos para comprar?" && tiene "Resumen de hoy"' "pantalla para preguntarle a la IA"
 post "/?r=asistente" --data-urlencode "accion=preguntar" --data-urlencode "pregunta=¿Quiénes están listos para comprar?"
 ok 'tiene "Estos clientes preguntaron precios" && tiene "Guardar etiqueta" && tiene "value=\"listos-para-comprar\"" && ! tiene "inventado"' "responde con clientes y propone la etiqueta"
-Q=$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM ia_consultas ORDER BY id DESC LIMIT 1" -d tuwhatsapp_prueba)
+Q=$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM ia_consultas ORDER BY id DESC LIMIT 1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}")
 post "/?r=asistente" --data-urlencode "accion=etiqueta" --data-urlencode "q=$Q" --data-urlencode "etiqueta=listos-para-comprar"
 ok 'tiene "clientes guardados con la etiqueta &quot;listos-para-comprar&quot;"' "guardar a esos clientes con una etiqueta"
 post "/?r=asistente" --data-urlencode "accion=preguntar" --data-urlencode "pregunta=Arma una campaña para los que no escriben hace un mes"
 ok 'tiene "Campaña propuesta" && tiene "te extrañamos" && tiene "vuelve_pronto"' "arma una campaña"
-Q=$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM ia_consultas ORDER BY id DESC LIMIT 1" -d tuwhatsapp_prueba)
+Q=$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM ia_consultas ORDER BY id DESC LIMIT 1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}")
 post "/?r=asistente" --data-urlencode "accion=campania" --data-urlencode "q=$Q"
 ok 'tiene "La IA dejó lista la plantilla" && tiene "value=\"vuelve_pronto\"" && tiene "te extrañamos" && tiene "reactivar"' "crear la campaña: la plantilla queda escrita en Plantillas"
 get "/?r=campanias"; ok 'tiene "value=\"reactivar\""' "en Campañas ya está elegida la etiqueta"
@@ -849,7 +849,7 @@ echo "== Idiomas (botón 🌐)"
 get "/?r=bandeja&lang=en"
 ok 'tiene "<html lang=\"en\"" && tiene ">Inbox<" && tiene "tukan-idioma" && tiene "r=bandeja&amp;lang=fr"' "la bandeja en inglés con el botón 🌐"
 ok 'tiene "window.TUKAN_TR=" && tiene "\"Copiar\":\"Copy\""' "los textos del JavaScript también van en inglés"
-ok '[ "$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT count(*) FROM usuarios WHERE idioma = '"'"'en'"'"'" -d tuwhatsapp_prueba)" -ge 1 ]' "el idioma queda guardado en la cuenta del usuario"
+ok '[ "$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT count(*) FROM usuarios WHERE idioma = '"'"'en'"'"'" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}")" -ge 1 ]' "el idioma queda guardado en la cuenta del usuario"
 get "/?r=bandeja";  ok 'tiene ">Inbox<"' "sin ?lang sigue en inglés (se recuerda)"
 get "/?r=nuevos";   ok 'grep -q "\"sin_leer\"" "$P" && ! tiene "<html"' "las respuestas JSON no se tocan"
 get "/?r=bandeja&lang=fr"; ok 'tiene "<html lang=\"fr\"" && tiene ">Boîte de réception<"' "en francés"

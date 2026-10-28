@@ -15,7 +15,7 @@
 <main class="contenido documento">
     <p><a href="https://tukansoftware.com">Tukán Software</a></p>
     <?= $contenido ?>
-    <p class="suave pequeno">Última actualización: 21 de octubre de 2026 · <a href="/terminos.php">Términos y condiciones</a> · <a href="/tratamiento-datos.php">Tratamiento de datos</a> · <a href="/privacidad.php">Política de privacidad</a> · <a href="/eliminar-datos.php">Eliminar mis datos</a></p>
+    <p class="suave pequeno">Última actualización: <?= e($actualizado ?? '21 de octubre de 2026') ?> · <a href="/terminos.php">Términos y condiciones</a> · <a href="/tratamiento-datos.php">Tratamiento de datos</a> · <a href="/privacidad.php">Política de privacidad</a> · <a href="/eliminar-datos.php">Eliminar mis datos</a></p>
 </main>
 </body>
 </html>

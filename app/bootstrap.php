@@ -41,11 +41,50 @@ if (!defined('TUWA_SIN_SESION') && PHP_SAPI !== 'cli') {
     header('X-Frame-Options: DENY');
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: same-origin');
+    // App de Android (Google Play): abre /?r=bandeja&app=play. Se recuerda con una cookie para saber que estamos dentro de la app.
+    if (($_GET['app'] ?? '') === 'play') {
+        setcookie('tuwa_app', 'play', ['expires' => time() + 60 * 60 * 24 * 365, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax',
+            'secure' => (($_SERVER['HTTPS'] ?? '') === 'on') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')]);
+        $_COOKIE['tuwa_app'] = 'play';
+    }
 }
 
 // ---------------------------------------------------------------------
 // Funciones de ayuda
 // ---------------------------------------------------------------------
+
+/**
+ * ¿Se está usando dentro de la app de Android (Google Play)? Ahí no se muestran precios del programa ni botones o enlaces para
+ * pagarlo o pedirlo afuera (WhatsApp de ventas, transferencia, Payphone…), y el programa se llama «Tukán Mensajes» (Google no deja usar
+ * la marca WhatsApp como nombre propio). Lo que el negocio cobra a SUS clientes (catálogo, pedidos, Plux) sí se ve. Ver docs/GOOGLE_PLAY.md.
+ */
+function en_app_android(): bool
+{
+    return ($_COOKIE['tuwa_app'] ?? '') === 'play';
+}
+
+/** Nombre del programa en pantalla: «Tukán Mensajes» dentro de la app de Google Play, «WhatsApp Tukán» en la web. */
+function nombre_programa(): string
+{
+    return en_app_android() ? 'Tukán Mensajes' : 'WhatsApp Tukán';
+}
+
+/**
+ * Cobro del plan con Google Play dentro de la app: APAGADO (la app 1.0.0 es solo para entrar con la cuenta que da Tukán).
+ * Se prendería con TUWA_GOOGLE_PLAY_COBRO=1 en config/.env y "cobroGooglePlay": true en qfcorp/tukan-apps (apps/tuwhatsapp/app.json),
+ * después de programar la pantalla de planes y la verificación de compras (docs/GOOGLE_PLAY.md).
+ */
+function cobro_google_play(): bool
+{
+    return getenv('TUWA_GOOGLE_PLAY_COBRO') === '1';
+}
+
+/** ¿Es la cuenta de muestra del revisor de Google (deploy/demo_google.php)? Nunca envía nada a Meta ni conecta números. */
+function cuenta_muestra(?array $empresa = null): bool
+{
+    $empresa ??= empresa_actual();
+    return !empty($empresa['muestra']);
+}
 
 function db(): PDO
 {

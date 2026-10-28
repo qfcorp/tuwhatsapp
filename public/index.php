@@ -47,12 +47,24 @@ if (usuario()) {
     }
     // Módulo apagado para esta cuenta: se ofrece pedirlo a Tukán
     if ($nombreMod = \TuWhatsApp\Modulos::rutaBloqueada($empresaHoy, $ruta)) {
-        aviso('"' . $nombreMod . '" no está incluido en tu plan. Escribe a Tukán para activarlo.', 'info');
+        aviso('"' . $nombreMod . '" ' . (en_app_android() ? 'no está activo en tu cuenta.' : 'no está incluido en tu plan. Escribe a Tukán para activarlo.'), 'info');
         redirigir('mas');
     }
     // El administrador del cliente acepta los términos una vez por versión (la cuenta de Tukán no)
     if (!es_super() && !\TuWhatsApp\Terminos::aceptados($empresaHoy) && !in_array($ruta, ['salir', 'bloqueada', 'aceptar'], true)) {
         redirigir('aceptar');
+    }
+    // Cuenta de muestra del revisor de Google (deploy/demo_google.php): se puede mirar todo, pero no conectar números, cambiar la
+    // contraseña o el equipo, ni poner claves de cobro o avisos a otros sistemas. Los envíos a Meta los frena src/Meta.php.
+    if ($post && !es_super() && cuenta_muestra($empresaHoy)
+        && in_array($ruta, ['conectar_qr', 'linea', 'lineas', 'cuenta', 'integraciones', 'tienda', 'cobros'], true)) {
+        if ($ruta === 'conectar_qr') {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'error' => 'Cuenta de demostración: aquí no se conectan números.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        aviso('Cuenta de demostración: esto se puede ver, pero no se cambia.', 'info');
+        redirigir($ruta);
     }
 }
 if ($ruta === 'conectar_qr') {   // lo llama el botón "Conectar con WhatsApp Business" (responde JSON)

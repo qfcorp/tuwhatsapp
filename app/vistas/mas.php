@@ -45,7 +45,8 @@ $conIa = modulo('ia');
     <?php foreach ($items as [$ruta, $nombre, $texto, $soloAdmin]): if ($soloAdmin && !es_admin()) continue; ?>
     <?php if (in_array($ruta, ['ia', 'asistente'], true) && !$conIa): ?>
     <li class="bloqueado"><div><b><?= e($nombre) ?> <small class="chip">Extra</small></b><span><?= e($texto) ?></span>
-        <a class="pequeno" href="https://wa.me/593996408397?text=<?= rawurlencode('Hola, quiero activar el Agente con IA en WhatsApp Tukán.') ?>" target="_blank" rel="noopener">Pedir a Tukán</a></div></li>
+        <?php if (en_app_android()): /* app de Google Play: sin enlaces para pedir o pagar el programa afuera */ ?><span class="pequeno suave">No está activo en tu cuenta.</span>
+        <?php else: ?><a class="pequeno" href="https://wa.me/593996408397?text=<?= rawurlencode('Hola, quiero activar el Agente con IA en WhatsApp Tukán.') ?>" target="_blank" rel="noopener">Pedir a Tukán</a><?php endif; ?></div></li>
     <?php else: ?>
     <li><a href="<?= e(url($ruta)) ?>"><b><?= e($nombre) ?><?= in_array($ruta, ['ia', 'asistente'], true) ? ' <small class="chip chip-cliente">Activo</small>' : '' ?></b><span><?= e($texto) ?></span></a></li>
     <?php endif; ?>

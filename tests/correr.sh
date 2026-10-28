@@ -4,7 +4,8 @@
 set -u
 cd "$(dirname "$0")/.."
 export PGHOST="${PGHOST:-127.0.0.1}" PGPORT="${PGPORT:-5432}" PGUSER="${PGUSER:-postgres}"
-DB=tuwhatsapp_prueba
+DB="${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}"   # en paralelo con otras pruebas: TUWA_DB_PRUEBA=otra_base
+export TUWA_DB_PRUEBA="$DB"
 SIM_PUERTO="${SIM_PUERTO:-8097}"
 WEB_PUERTO="${WEB_PUERTO:-8096}"
 PLUX_PUERTO="${PLUX_PUERTO:-8098}"
@@ -70,6 +71,8 @@ TUWA_ENV="$ENVF" bash tests/prueba_web.sh
 R=$?
 # Actualizar sobre una base CON datos (como en el servidor): schema.sql tiene que correr sin errores
 if psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null 2>"$ENVF.schema"; then echo "schema.sql sobre una base con datos: bien"; else echo "FALLA: schema.sql sobre una base con datos"; cat "$ENVF.schema"; R=1; fi
+echo "######## App de Android (Google Play)"
+TUWA_ENV="$ENVF" bash tests/prueba_app_android.sh || R=1
 cp "$ENVF.log" /tmp/tuwa_err.log 2>/dev/null
 if [ -s "$ENVF.log" ]; then echo "Avisos de PHP:"; cat "$ENVF.log"; R=1; fi
 exit $R

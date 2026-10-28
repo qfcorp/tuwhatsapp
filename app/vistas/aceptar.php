@@ -1,7 +1,7 @@
 <?php /** @var array $empresa */ ?>
 <section class="tarjeta" style="max-width:560px;margin:4vh auto 0">
     <h1>Antes de empezar</h1>
-    <p>Hola, <b><?= u(usuario()['nombre']) ?></b>. Para usar WhatsApp Tukán en <b><?= u($empresa['nombre']) ?></b> necesitamos que el administrador acepte:</p>
+    <p>Hola, <b><?= u(usuario()['nombre']) ?></b>. Para usar <?= e(nombre_programa()) ?> en <b><?= u($empresa['nombre']) ?></b> necesitamos que el administrador acepte:</p>
     <ul>
         <li><a href="/terminos.php" target="_blank" rel="noopener">Términos y condiciones</a> (qué pagas a Tukán, qué pagas a Meta y las reglas de uso).</li>
         <li><a href="/tratamiento-datos.php" target="_blank" rel="noopener">Acuerdo de tratamiento de datos</a> (cómo cuidamos los datos de tus clientes, según la ley de Ecuador).</li>

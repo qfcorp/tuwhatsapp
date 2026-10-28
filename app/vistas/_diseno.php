@@ -45,21 +45,21 @@ if ($u && $linea) {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14211F">
 <meta name="robots" content="noindex, nofollow">
-<title><?= e($titulo) ?> · WhatsApp Tukán</title>
+<title><?= e($titulo) ?> · <?= e(nombre_programa()) ?></title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314211F'/%3E%3Cpath d='M7 25l2-5a9 9 0 1 1 3.5 3.3z' fill='%23F28C28'/%3E%3C/svg%3E">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="WhatsApp Tukán">
+<meta name="apple-mobile-web-app-title" content="<?= e(nombre_programa()) ?>">
 <link rel="stylesheet" href="/assets/app.css?v=16">
 <?= tukan_idioma_js(require RAIZ . '/app/frases_js.php') ?>
 </head>
-<body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?>"<?= $u && $linea && !empty($linea['llamadas_activo']) ? ' data-llamadas="1" data-csrf="' . e(csrf()) . '"' : '' ?>>
+<body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?><?= en_app_android() ? ' en-app' : '' ?>"<?= $u && $linea && !empty($linea['llamadas_activo']) ? ' data-llamadas="1" data-csrf="' . e(csrf()) . '"' : '' ?>>
 <?php if ($u): ?>
 <header class="barra">
     <a class="marca" href="<?= e(url('bandeja')) ?>" aria-label="Inicio">
         <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#F28C28"/><path d="M8 24.5l1.7-4.6a8.6 8.6 0 1 1 3.3 3.2z" fill="#14211F"/></svg>
-        <span>WhatsApp <b>Tukán</b></span>
+        <span><?= en_app_android() ? 'Tukán <b>Mensajes</b>' : 'WhatsApp <b>Tukán</b>' ?></span>
     </a>
     <?php if (count($lineas) > 1): ?>
     <form method="post" action="<?= e(url('cambiar_linea')) ?>" class="selector-linea">
