@@ -1,6 +1,14 @@
-/* WhatsApp Tukán: muestra los avisos de mensajes nuevos y abre el chat al tocarlos. */
+/* WhatsApp Tukán: muestra los avisos de mensajes nuevos (también con el navegador cerrado) y abre el chat al tocarlos. */
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
+self.addEventListener('push', function (e) {
+  var d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) { d = { texto: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.titulo || 'WhatsApp Tukán', {
+    body: d.texto || 'Mensaje nuevo', tag: d.tag || 'tuwa', renotify: true,
+    icon: '/assets/icono-192.png', badge: '/assets/icono-192.png', data: { url: d.url || '/?r=bandeja' }
+  }));
+});
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
   var url = (e.notification.data && e.notification.data.url) || '/?r=bandeja';

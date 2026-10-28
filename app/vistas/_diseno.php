@@ -4,6 +4,7 @@ $rutaActual = (string) ($_GET['r'] ?? 'bandeja');
 $menu = [
     'bandeja'    => ['Bandeja',    'M4 5h16v11H8l-4 4z'],
     'pendientes' => ['Pendientes', 'M9 11l3 3 8-8M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h11'],
+    'pedidos'    => ['Pedidos',    'M6 6h15l-1.5 8.5H7.5zM6 6 5 3H2M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM18 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2z'],
     'contactos'  => ['Contactos',  'M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 19v-1a4 4 0 0 0-3-3.9M15 4.1a3 3 0 0 1 0 5.8'],
     'embudo'     => ['Embudo',     'M3 4h18l-7 8v6l-4 2v-8z'],
     'reglas'     => ['Automático', 'M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5 6.8 15M17.2 9l2.6-1.5M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
@@ -15,9 +16,16 @@ if ($u && !es_admin()) {
 if ($u && !modulo('embudo')) {
     unset($menu['embudo']);
 }
-$activo = $rutaActual === 'chat' || $rutaActual === 'plantilla' ? 'bandeja' : $rutaActual;
+// Sin la app del celular (coexistencia) no hay nada que mandar "desde el celular": en su lugar va Pedidos
+if ($linea && empty($linea['coexistencia']) && \TuWhatsApp\Pendientes::contar(db(), (int) $linea['id']) === 0) {
+    unset($menu['pendientes']);
+} else {
+    unset($menu['pedidos']);
+}
+$activo = $rutaActual === 'chat' || $rutaActual === 'plantilla' ? 'bandeja' : ($rutaActual === 'pedido' ? 'pedidos' : ($rutaActual === 'flujo' || $rutaActual === 'flujos' ? 'reglas' : $rutaActual));
 if (!isset($menu[$activo]) && $activo !== 'bandeja') {
-    $activo = in_array($activo, ['campanias', 'campania', 'gasto', 'reportes', 'seguimientos', 'ia', 'enlaces', 'integraciones', 'respuestas', 'plantillas'], true) ? 'mas' : $activo;
+    $activo = in_array($activo, ['campanias', 'campania', 'gasto', 'reportes', 'seguimientos', 'ia', 'enlaces', 'integraciones', 'respuestas', 'plantillas',
+                                 'catalogo', 'cobros', 'pedidos', 'equipo', 'campos', 'tienda', 'app'], true) ? 'mas' : $activo;
 }
 $avisos = tomar_avisos();
 $empresaVista = $u ? empresa_actual() : null;
@@ -39,7 +47,11 @@ if ($u && $linea) {
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($titulo) ?> · WhatsApp Tukán</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314211F'/%3E%3Cpath d='M7 25l2-5a9 9 0 1 1 3.5 3.3z' fill='%23F28C28'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/assets/app.css?v=13">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="WhatsApp Tukán">
+<link rel="stylesheet" href="/assets/app.css?v=14">
 <?= tukan_idioma_js(require RAIZ . '/app/frases_js.php') ?>
 </head>
 <body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?>">
@@ -106,6 +118,6 @@ if ($u && $linea) {
     <?php endforeach; ?>
 </nav>
 <?php endif; ?>
-<script src="/assets/app.js?v=9" defer></script>
+<script src="/assets/app.js?v=10" defer></script>
 </body>
 </html>

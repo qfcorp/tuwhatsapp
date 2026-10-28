@@ -87,19 +87,21 @@ final class Meta
 
     /**
      * Mensaje con botones (hasta 3) o con lista (hasta 10 opciones). El cliente toca y llega como "interactive".
-     * @param list<array{id:string,titulo:string}> $opciones
+     * Con $forzarLista siempre va como lista (el catálogo: muestra el precio debajo de cada producto).
+     * @param list<array{id:string,titulo:string,descripcion?:string}> $opciones
      */
-    public function enviarBotones(string $para, string $texto, array $opciones, string $textoBotonLista = 'Ver opciones'): array
+    public function enviarBotones(string $para, string $texto, array $opciones, string $textoBotonLista = 'Ver opciones', bool $forzarLista = false): array
     {
         $opciones = array_slice(array_values($opciones), 0, 10);
-        if (count($opciones) <= 3) {
+        if (count($opciones) <= 3 && !$forzarLista) {
             $interactivo = ['type' => 'button', 'body' => ['text' => mb_substr($texto, 0, 1024)], 'action' => ['buttons' => array_map(
                 fn ($o) => ['type' => 'reply', 'reply' => ['id' => mb_substr($o['id'], 0, 256), 'title' => mb_substr($o['titulo'], 0, 20)]], $opciones)]];
         } else {
             $interactivo = ['type' => 'list', 'body' => ['text' => mb_substr($texto, 0, 1024)], 'action' => [
                 'button' => mb_substr($textoBotonLista, 0, 20),
                 'sections' => [['title' => 'Opciones', 'rows' => array_map(
-                    fn ($o) => ['id' => mb_substr($o['id'], 0, 200), 'title' => mb_substr($o['titulo'], 0, 24)], $opciones)]],
+                    fn ($o) => ['id' => mb_substr($o['id'], 0, 200), 'title' => mb_substr($o['titulo'], 0, 24)]
+                               + (isset($o['descripcion']) && $o['descripcion'] !== '' ? ['description' => mb_substr((string) $o['descripcion'], 0, 72)] : []), $opciones)]],
             ]];
         }
         return $this->enviar(['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $para, 'type' => 'interactive', 'interactive' => $interactivo]);

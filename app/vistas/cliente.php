@@ -48,22 +48,21 @@ $esTukan = (int) $e['id'] === Empresas::TUKAN;
 
 <form method="post" class="tarjeta formulario">
     <?= csrf_campo() ?>
-    <h2>Módulos del plan</h2>
+    <h2>Plan y extras</h2>
     <?php if ($esTukan): ?>
-    <p class="suave">La cuenta de Tukán tiene todos los módulos siempre.</p>
+    <p class="suave">La cuenta de Tukán tiene todo siempre, incluida la IA.</p>
     <?php else: $activos = \TuWhatsApp\Modulos::deEmpresa($e); ?>
     <div class="fila-botones planes">
         <?php foreach (\TuWhatsApp\Modulos::PLANES as $k => [$nombre, $precio, $nums, $usus]): ?>
         <button class="boton boton-claro" name="accion" value="plan:<?= e($k) ?>"><?= e($nombre) ?> <small>$<?= (int) $precio ?>/mes · <?= (int) $nums ?> nº · <?= (int) $usus ?> usuarios</small></button>
         <?php endforeach; ?>
     </div>
-    <p class="suave pequeno">Un toque aplica el plan completo. O marca a mano lo que incluye:</p>
-    <p class="suave pequeno">Lo básico (bandeja, chat con fotos y audios, contactos, pendientes, respuestas automáticas con botones, plantillas, respuestas rápidas y gasto) siempre está. Marca lo que incluye su plan:</p>
+    <p class="suave pequeno">Un toque aplica el plan. <b>Todo el programa viene incluido</b> (campañas, agentes y reparto, embudo, catálogo y pedidos, cobros, cotizaciones, chatbots, reportes, tiendas, app). Lo único que se cobra aparte:</p>
     <?php foreach (\TuWhatsApp\Modulos::LISTA as $k => [$nombre, $texto]): ?>
     <label class="casilla"><input type="checkbox" name="modulos[]" value="<?= e($k) ?>" <?= in_array($k, $activos, true) ? 'checked' : '' ?>>
         <span><b><?= e($nombre) ?></b><br><small class="suave"><?= e($texto) ?></small></span></label>
     <?php endforeach; ?>
-    <button class="boton" name="accion" value="modulos">Guardar módulos</button>
+    <button class="boton" name="accion" value="modulos">Guardar extras</button>
     <?php endif; ?>
 </form>
 

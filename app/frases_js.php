@@ -29,4 +29,7 @@ return [
     "Leyendo {s}…",
     "(toca \"Enviar por el sistema\")",
     "Escribe el texto…",
+    "No se pudo conectar. Intenta de nuevo.",
+    "Este navegador no permite avisos con la app cerrada. En iPhone, primero agrégala a la pantalla de inicio y ábrela desde ahí.",
+    "No se pudieron activar los avisos en este navegador.",
 ];

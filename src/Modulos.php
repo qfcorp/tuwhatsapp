@@ -6,53 +6,50 @@ namespace TuWhatsApp;
 use PDO;
 
 /**
- * Módulos que se encienden o apagan por cliente (empresa) para cobrar más o menos.
- * Lo básico (bandeja, chat con fotos y audios, contactos, pendientes, respuestas automáticas con botones,
- * plantillas, respuestas rápidas, gasto) siempre está. Lo de abajo es extra.
+ * Precio TODO INCLUIDO (decisión de Dimitry, 28 oct 2026): un solo plan con todo el programa por unos $20 al mes,
+ * para romper el mercado (Mercately cobra desde $299). El ÚNICO extra que se cobra aparte es la IA
+ * (asistente que sugiere y resume + agente IA que contesta solo 24/7), unos $5 más.
+ *
+ * Todo lo demás (campañas, varios agentes, reparto automático, embudo, seguimientos, reportes, enlaces y QR, integraciones,
+ * catálogo, pedidos, cobros, cotizaciones en PDF, chatbots por pasos, campos personalizados, anuncios, tiendas Shopify y
+ * WooCommerce, app en el celular) viene siempre: Modulos::activo() devuelve true para cualquier clave que no sea un extra.
  * La cuenta de Tukán (empresa 1) tiene todo siempre.
  */
 final class Modulos
 {
-    /** clave => [nombre, para qué sirve, rutas que necesita] */
+    /** Extras que se encienden o apagan por cliente: clave => [nombre, para qué sirve, rutas que necesita] */
     public const LISTA = [
-        'campanias'     => ['Campañas masivas', 'Enviar una plantilla a muchos clientes a la vez, con permiso de promociones y etiquetas.', ['campanias']],
-        'agentes'       => ['Varios agentes', 'Asignar conversaciones a cada persona del equipo y ver "Míos" y "Sin asignar".', []],
-        'embudo'        => ['Embudo de ventas', 'Tablero con etapas (nuevo, interesado, cotizado, ganado, perdido) y valor de cada venta.', ['embudo']],
-        'seguimientos'  => ['Seguimientos automáticos', 'Mensajes programados y recordatorios: escribir solo a quien no respondió.', ['seguimientos']],
-        'reportes'      => ['Reportes', 'Mensajes por día, tiempo de respuesta, conversaciones por agente y ventas del embudo.', ['reportes']],
-        'ia'            => ['Asistente con IA', 'Sugiere la respuesta y resume la conversación con IA (siempre la manda una persona).', ['ia']],
-        'enlaces'       => ['Enlaces, QR y botón web', 'Enlace corto, código QR y botón flotante de WhatsApp para la página web.', ['enlaces']],
-        'integraciones' => ['Integraciones', 'Avisar a otros programas (webhook), exportar contactos y conversaciones a Excel.', ['integraciones']],
+        'ia' => ['Asistente con IA y agente que contesta solo',
+                 'Agente con IA que contesta solo las 24 horas con lo que sabe tu negocio y tu catálogo, y pasa a una persona cuando hace falta. Además sugiere respuestas y resume conversaciones.',
+                 ['ia']],
     ];
 
     /**
-     * Planes de venta sugeridos (precio mensual en dólares, sin IVA, sin contrato; Meta cobra aparte directo a la tarjeta del cliente, sin recargo).
-     * clave => [nombre, precio, números, usuarios, módulos, tope de IA en dólares]
+     * Planes de venta (precio mensual en dólares, sin IVA, sin contrato; Meta cobra aparte directo a la tarjeta del cliente, sin recargo).
+     * clave => [nombre, precio, números, usuarios, extras incluidos, tope de IA en dólares]
      */
     public const PLANES = [
-        'basico'  => ['Básico', 19, 1, 3, ['enlaces'], 3],
-        'negocio' => ['Negocio', 35, 1, 5, ['enlaces', 'campanias', 'agentes', 'embudo', 'seguimientos', 'reportes'], 3],
-        'pro'     => ['Pro', 55, 2, 10, ['enlaces', 'campanias', 'agentes', 'embudo', 'seguimientos', 'reportes', 'ia', 'integraciones'], 3],
+        'todo'    => ['Todo incluido', 20, 1, 50, [], 3],
+        'todo_ia' => ['Todo incluido + IA', 25, 1, 50, ['ia'], 3],
     ];
 
-    /**
-     * Precio mensual de cada módulo suelto (dólares, sin IVA), para el Panel Tukán Central (Anexo B):
-     * un módulo encendido fuera del plan se suma y uno del plan que se apaga se descuenta.
-     * PROVISIONALES: los decide Dimitry (los planes de arriba siguen siendo el precio normal).
-     */
-    public const PRECIOS = ['enlaces' => 3, 'campanias' => 6, 'agentes' => 5, 'embudo' => 4, 'seguimientos' => 4, 'reportes' => 3, 'ia' => 12, 'integraciones' => 8];
-    /** Ícono y grupo de cada módulo (solo para mostrar en el Panel Tukán Central). */
-    public const GRUPOS = [
-        'campanias' => ['📣', 'Ventas'], 'embudo' => ['📊', 'Ventas'], 'seguimientos' => ['⏰', 'Ventas'],
-        'agentes' => ['👥', 'Equipo'], 'reportes' => ['📈', 'Equipo'],
-        'ia' => ['✨', 'Extras'], 'enlaces' => ['🔗', 'Extras'], 'integraciones' => ['🔌', 'Extras'],
-    ];
+    /** Precio mensual de cada extra (dólares, sin IVA): se suma si se enciende fuera del plan y se descuenta si se apaga. */
+    public const PRECIOS = ['ia' => 5];
+    /** Ícono y grupo de cada extra (solo para mostrar en el Panel Tukán Central). */
+    public const GRUPOS = ['ia' => ['✨', 'Extras']];
     /** Lo que todo cliente tiene siempre (no se apaga). */
-    public const BASE = ['Bandeja y chat con fotos, audios y documentos', 'Contactos (traer del celular)', 'Pendientes para enviar gratis desde el celular',
-                         'Respuestas automáticas con botones', 'Plantillas de Meta', 'Respuestas rápidas', 'Gasto en Meta con tope'];
+    public const BASE = [
+        'Bandeja y chat con fotos, audios, notas de voz y documentos', 'Contactos (traer del celular) con campos personalizados',
+        'Pendientes para enviar gratis desde el celular', 'Respuestas automáticas con botones', 'Chatbots por pasos (sin programar)',
+        'Plantillas de Meta', 'Respuestas rápidas', 'Gasto en Meta con tope', 'Varios agentes con reparto automático y vista del supervisor',
+        'Campañas masivas', 'Embudo de ventas', 'Seguimientos automáticos', 'Reportes y origen de cada cliente por anuncio',
+        'Catálogo, carrito y pedidos en el chat', 'Enlaces de pago (Payphone, DeUna, transferencia)', 'Cotizaciones en PDF',
+        'Tienda en línea: Shopify y WooCommerce', 'Enlaces, QR y botón para la web', 'Integraciones (Excel, Make, Zapier, n8n)',
+        'App en el celular con avisos',
+    ];
 
     /**
-     * Pone el plan: números, usuarios y tope de IA, y sus módulos.
+     * Pone el plan: números, usuarios y tope de IA, y sus extras.
      * $modulos: si viene, se encienden esos en vez de los del plan (demo con todo, o cambiar de plan conservando lo encendido).
      */
     public static function aplicarPlan(PDO $db, int $empresaId, string $plan, ?array $modulos = null): array
@@ -67,35 +64,18 @@ final class Modulos
     }
 
     /**
-     * El plan de una empresa: el guardado; si no hay (cuentas de antes), el plan con esos mismos módulos,
-     * o el más barato que los tenga todos (el Pro los tiene todos).
+     * El plan de una empresa: el guardado; si no hay o es uno viejo (básico, negocio, pro), el que tiene esos mismos extras.
      */
     public static function planDe(array $e): string
     {
         if (isset(self::PLANES[(string) ($e['plan'] ?? '')])) {
             return (string) $e['plan'];
         }
-        $activos = self::deEmpresa($e);
-        sort($activos);
-        foreach (self::PLANES as $k => $p) {
-            $m = $p[4];
-            sort($m);
-            if ($m === $activos) {
-                return $k;
-            }
-        }
-        $planes = self::PLANES;
-        uasort($planes, fn ($a, $b) => $a[1] <=> $b[1]);
-        foreach ($planes as $k => $p) {
-            if (!array_diff($activos, $p[4])) {
-                return $k;
-            }
-        }
-        return array_key_last($planes);
+        return self::activo($e, 'ia') ? 'todo_ia' : 'todo';
     }
 
     /**
-     * Precio del mes según los módulos (Anexo B): plan + módulos encendidos fuera del plan − módulos del plan apagados (mínimo 0).
+     * Precio del mes: plan + extras encendidos fuera del plan − extras del plan apagados (mínimo 0).
      * @return array{plan:string, del_plan:list<string>, extra:list<string>, quitados:list<string>, activos:list<string>,
      *               precio_plan:float, precio_extra:float, descuento:float, mensual:float}
      */
@@ -113,13 +93,13 @@ final class Modulos
                 'precio_plan' => round($pp, 2), 'precio_extra' => round($pe, 2), 'descuento' => round($de, 2), 'mensual' => round(max(0, $pp + $pe - $de), 2)];
     }
 
-    /** Lo que se enciende al crear una demo: todo, para que el cliente vea el programa completo. */
+    /** Lo que se enciende al crear una demo: todo, para que el cliente vea el programa completo (incluida la IA). */
     public static function todos(): array
     {
         return array_keys(self::LISTA);
     }
 
-    /** @return list<string> */
+    /** @return list<string> extras encendidos */
     public static function deEmpresa(?array $e): array
     {
         if (!$e) {
@@ -131,12 +111,16 @@ final class Modulos
         return self::limpiar((string) ($e['modulos'] ?? ''));
     }
 
+    /** ¿Tiene esta función? Todo lo que no es un extra viene siempre incluido. */
     public static function activo(?array $e, string $clave): bool
     {
+        if (!isset(self::LISTA[$clave])) {
+            return $e !== null;
+        }
         return in_array($clave, self::deEmpresa($e), true);
     }
 
-    /** Ruta del panel que pertenece a un módulo apagado. */
+    /** Ruta del panel que pertenece a un extra apagado. */
     public static function rutaBloqueada(?array $e, string $ruta): ?string
     {
         foreach (self::LISTA as $clave => [$nombre, , $rutas]) {

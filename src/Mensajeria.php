@@ -72,7 +72,7 @@ final class Mensajeria
      * Mensaje con botones (hasta 3) o lista (hasta 10). Lo usan las respuestas automáticas.
      * @param list<array{id:string,titulo:string}> $opciones
      */
-    public function botones(array $linea, array $contacto, string $texto, array $opciones, string $origen, ?int $usuarioId = null): array
+    public function botones(array $linea, array $contacto, string $texto, array $opciones, string $origen, ?int $usuarioId = null, string $textoBoton = 'Ver opciones', bool $forzarLista = false): array
     {
         if (!$opciones) {
             return $this->texto($linea, $contacto, $texto, $origen, $usuarioId);
@@ -82,7 +82,7 @@ final class Mensajeria
         }
         $resumen = $texto . "\n" . implode("\n", array_map(fn ($o) => '▸ ' . $o['titulo'], $opciones));
         return $this->enviar($linea, $contacto, 'servicio', ['tipo' => 'botones', 'texto' => mb_substr($resumen, 0, 4096), 'plantilla' => null], $origen, $usuarioId,
-            fn (Meta $m) => $m->enviarBotones((string) $contacto['telefono'], $texto, $opciones));
+            fn (Meta $m) => $m->enviarBotones((string) $contacto['telefono'], $texto, $opciones, $textoBoton, $forzarLista));
     }
 
     /** @param array{nombre:string,idioma:string,categoria:string,cuerpo:string} $p */

@@ -415,3 +415,184 @@ CREATE TABLE IF NOT EXISTS tukan_central_registro (
     texto      text NOT NULL
 );
 CREATE INDEX IF NOT EXISTS tukan_central_registro_empresa ON tukan_central_registro (empresa_id, momento);
+
+
+-- =====================================================================
+-- 28 oct 2026: TODO INCLUIDO (un solo plan de ~$20; solo la IA se cobra aparte) y las funciones para competir con Mercately.
+-- =====================================================================
+ALTER TABLE empresas ALTER COLUMN modulos SET DEFAULT '';            -- extras encendidos (hoy solo "ia")
+
+ALTER TABLE mensajes DROP CONSTRAINT IF EXISTS mensajes_origen_check;
+ALTER TABLE mensajes ADD CONSTRAINT mensajes_origen_check
+    CHECK (origen IN ('cliente', 'panel', 'auto', 'celular', 'pendiente', 'campania', 'bot', 'flujo', 'tienda'));
+
+-- Agente con IA que contesta solo (extra "ia")
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS bot_activo        boolean NOT NULL DEFAULT false;
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS bot_cuando        text NOT NULL DEFAULT 'siempre';     -- siempre | fuera_horario
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS bot_nombre        text NOT NULL DEFAULT '';            -- cómo se presenta
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS bot_max_dia       integer NOT NULL DEFAULT 20;          -- respuestas del bot por persona al día
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS bot_vende         boolean NOT NULL DEFAULT true;        -- puede armar el carrito con el catálogo
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS callar_al_atender boolean NOT NULL DEFAULT true;        -- si alguien del equipo contesta, lo automático se calla
+DO $$ BEGIN
+    ALTER TABLE lineas ADD CONSTRAINT lineas_bot_cuando CHECK (bot_cuando IN ('siempre', 'fuera_horario'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE lineas ADD CONSTRAINT lineas_bot_max_dia CHECK (bot_max_dia BETWEEN 1 AND 100);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Reparto automático de conversaciones
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS reparto        text NOT NULL DEFAULT 'manual';          -- manual | turnos | menos_carga
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS reparto_reglas text NOT NULL DEFAULT '[]';               -- [{"palabras":"factura, pago","usuario_id":3}]
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS reparto_ultimo integer;                                  -- a quién le tocó la última (turnos)
+DO $$ BEGIN
+    ALTER TABLE lineas ADD CONSTRAINT lineas_reparto CHECK (reparto IN ('manual', 'turnos', 'menos_carga'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE usuarios  ADD COLUMN IF NOT EXISTS disponible   boolean NOT NULL DEFAULT true;          -- "Disponible / Ausente"
+ALTER TABLE usuarios  ADD COLUMN IF NOT EXISTS recibe_chats boolean NOT NULL DEFAULT true;          -- entra en el reparto
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS asignado_en  timestamptz;
+
+-- Campos personalizados del cliente
+CREATE TABLE IF NOT EXISTS campos (
+    id       serial PRIMARY KEY,
+    linea_id integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    clave    text NOT NULL,
+    nombre   text NOT NULL,
+    tipo     text NOT NULL DEFAULT 'texto' CHECK (tipo IN ('texto', 'numero', 'fecha', 'lista')),
+    opciones text NOT NULL DEFAULT '',            -- para "lista": separadas por coma
+    orden    integer NOT NULL DEFAULT 0,
+    UNIQUE (linea_id, clave)
+);
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS datos jsonb NOT NULL DEFAULT '{}';
+
+-- De qué anuncio llegó cada cliente (Meta manda "referral" en el primer mensaje desde un anuncio "Enviar WhatsApp")
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS origen_tipo   text;          -- anuncio | publicacion
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS origen_id     text;
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS origen_titulo text;
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS origen_url    text;
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS origen_en     timestamptz;
+CREATE TABLE IF NOT EXISTS anuncios_llegadas (
+    id          bigserial PRIMARY KEY,
+    linea_id    integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    contacto_id integer NOT NULL REFERENCES contactos(id) ON DELETE CASCADE,
+    anuncio_id  text NOT NULL,
+    titulo      text NOT NULL DEFAULT '',
+    url         text NOT NULL DEFAULT '',
+    tipo        text NOT NULL DEFAULT 'anuncio',
+    creado      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS anuncios_llegadas_linea ON anuncios_llegadas (linea_id, creado);
+
+-- Catálogo, carrito y pedidos
+CREATE TABLE IF NOT EXISTS productos (
+    id          serial PRIMARY KEY,
+    linea_id    integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    codigo      text NOT NULL DEFAULT '',
+    nombre      text NOT NULL,
+    descripcion text NOT NULL DEFAULT '',
+    precio      numeric(12,2) NOT NULL DEFAULT 0 CHECK (precio >= 0),
+    stock       integer,                       -- null = no se controla
+    activo      boolean NOT NULL DEFAULT true,
+    foto_ruta   text,
+    creado      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS productos_linea ON productos (linea_id, activo);
+
+CREATE TABLE IF NOT EXISTS pedidos (
+    id             serial PRIMARY KEY,
+    linea_id       integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    contacto_id    integer REFERENCES contactos(id) ON DELETE SET NULL,
+    numero         integer NOT NULL,
+    estado         text NOT NULL DEFAULT 'carrito'
+                   CHECK (estado IN ('carrito', 'pendiente', 'pagado', 'enviado', 'entregado', 'cancelado')),
+    subtotal       numeric(12,2) NOT NULL DEFAULT 0,
+    iva            numeric(12,2) NOT NULL DEFAULT 0,
+    total          numeric(12,2) NOT NULL DEFAULT 0,
+    notas          text NOT NULL DEFAULT '',
+    enlace_pago    text NOT NULL DEFAULT '',
+    metodo         text NOT NULL DEFAULT '',
+    origen         text NOT NULL DEFAULT 'chat',          -- chat | bot | shopify | woocommerce
+    externo_id     text,
+    externo_url    text NOT NULL DEFAULT '',
+    cliente_nombre text NOT NULL DEFAULT '',
+    usuario_id     integer REFERENCES usuarios(id) ON DELETE SET NULL,
+    descontado     boolean NOT NULL DEFAULT false,         -- ya se bajó el stock
+    creado         timestamptz NOT NULL DEFAULT now(),
+    actualizado    timestamptz NOT NULL DEFAULT now(),
+    pagado_en      timestamptz,
+    UNIQUE (linea_id, numero)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS pedidos_externo ON pedidos (linea_id, origen, externo_id) WHERE externo_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS pedidos_contacto ON pedidos (contacto_id, estado);
+CREATE TABLE IF NOT EXISTS pedido_items (
+    id          serial PRIMARY KEY,
+    pedido_id   integer NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+    producto_id integer REFERENCES productos(id) ON DELETE SET NULL,
+    nombre      text NOT NULL,
+    precio      numeric(12,2) NOT NULL DEFAULT 0,
+    cantidad    integer NOT NULL DEFAULT 1 CHECK (cantidad BETWEEN 1 AND 9999)
+);
+CREATE INDEX IF NOT EXISTS pedido_items_pedido ON pedido_items (pedido_id);
+
+-- Cobros y cotizaciones (por número)
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS iva_pct            numeric(5,2) NOT NULL DEFAULT 0;   -- 0 = precios finales (no se desglosa)
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS pago_transferencia text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS pago_enlace        text NOT NULL DEFAULT '';          -- DeUna, PayPal… ({total} = total)
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS payphone_token     text NOT NULL DEFAULT '';          -- cifrado
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS payphone_store     text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS negocio_ruc        text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS negocio_direccion  text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS cotizacion_dias    integer NOT NULL DEFAULT 15;
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS cotizacion_pie     text NOT NULL DEFAULT '';
+
+-- Chatbots por pasos (sin programar)
+CREATE TABLE IF NOT EXISTS flujos (
+    id         serial PRIMARY KEY,
+    linea_id   integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    nombre     text NOT NULL,
+    activo     boolean NOT NULL DEFAULT false,
+    disparador text NOT NULL DEFAULT 'palabras' CHECK (disparador IN ('palabras', 'nuevo')),
+    palabras   text NOT NULL DEFAULT '',
+    pasos      text NOT NULL DEFAULT '[]',
+    usos       integer NOT NULL DEFAULT 0,
+    creado     timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS flujo_id    integer REFERENCES flujos(id) ON DELETE SET NULL;
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS flujo_paso  text;
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS flujo_hasta timestamptz;
+
+-- Tienda en línea (Shopify o WooCommerce): pedidos y carritos abandonados por WhatsApp
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS tienda_tipo             text NOT NULL DEFAULT '';     -- '' | shopify | woocommerce
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS tienda_clave            text NOT NULL DEFAULT '';     -- va en la dirección del aviso
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS tienda_secreto          text NOT NULL DEFAULT '';     -- cifrado: con esto firma la tienda
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS tienda_plantilla_pedido text NOT NULL DEFAULT '';     -- "nombre|idioma"
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS tienda_plantilla_envio  text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS tienda_plantilla_carrito text NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS tienda_carrito_horas    integer NOT NULL DEFAULT 2;
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS tienda_error            text NOT NULL DEFAULT '';
+CREATE TABLE IF NOT EXISTS tienda_carritos (
+    id         serial PRIMARY KEY,
+    linea_id   integer NOT NULL REFERENCES lineas(id) ON DELETE CASCADE,
+    externo_id text NOT NULL,
+    telefono   text NOT NULL DEFAULT '',
+    nombre     text NOT NULL DEFAULT '',
+    total      numeric(12,2) NOT NULL DEFAULT 0,
+    url        text NOT NULL DEFAULT '',
+    avisar_en  timestamptz NOT NULL,
+    estado     text NOT NULL DEFAULT 'esperando' CHECK (estado IN ('esperando', 'avisado', 'compro', 'sin_telefono', 'omitido', 'fallido')),
+    resultado  text NOT NULL DEFAULT '',
+    creado     timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (linea_id, externo_id)
+);
+CREATE INDEX IF NOT EXISTS tienda_carritos_por_avisar ON tienda_carritos (avisar_en) WHERE estado = 'esperando';
+
+-- App en el celular: avisos aunque el navegador esté cerrado (Web Push)
+CREATE TABLE IF NOT EXISTS push_suscripciones (
+    id          serial PRIMARY KEY,
+    usuario_id  integer NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    endpoint    text NOT NULL UNIQUE,
+    p256dh      text NOT NULL,
+    auth        text NOT NULL,
+    creado      timestamptz NOT NULL DEFAULT now(),
+    ultimo_ok   timestamptz,
+    errores     integer NOT NULL DEFAULT 0
+);

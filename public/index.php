@@ -14,7 +14,8 @@ use TuWhatsApp\Registro;
 
 $rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr', 'plantillas',
           'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan', 'campanias', 'respuestas', 'aceptar', 'mas', 'archivo',
-          'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones'];
+          'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones',
+          'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda', 'app', 'push'];
 $ruta = (string) ($_GET['r'] ?? 'bandeja');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
@@ -27,7 +28,8 @@ $post = $_SERVER['REQUEST_METHOD'] === 'POST';
 
 // Permisos: lo de Tukán solo para su personal; la configuración solo para administradores de la cuenta
 $soloSuper = ['clientes', 'cliente', 'ver_cuenta'];
-$soloAdmin = ['reglas', 'lineas', 'linea', 'conectar_qr', 'campanias', 'respuestas', 'reportes', 'ia', 'enlaces', 'integraciones'];
+$soloAdmin = ['reglas', 'lineas', 'linea', 'conectar_qr', 'campanias', 'respuestas', 'reportes', 'ia', 'enlaces', 'integraciones',
+              'catalogo', 'cobros', 'flujos', 'flujo', 'equipo', 'campos', 'tienda'];
 if (usuario()) {
     if (in_array($ruta, $soloSuper, true) && !es_super()) {
         http_response_code(403);
@@ -106,7 +108,8 @@ function vista(string $nombre, string $titulo, array $datos = []): never
 // Páginas que necesitan un número conectado
 $linea = usuario() ? linea_actual() : null;
 if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas', 'campanias', 'respuestas',
-                                    'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones'], true)) {
+                                    'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones',
+                                    'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda'], true)) {
     if (!es_admin()) {
         aviso('El administrador de tu cuenta todavía no conecta el número de WhatsApp.', 'info');
         redirigir('cuenta');
@@ -115,6 +118,48 @@ if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendie
     redirigir('linea');
 }
 $lid = $linea ? (int) $linea['id'] : 0;
+
+/** Manda por WhatsApp el resumen del pedido con cómo pagar (crea el enlace de pago si hace falta). */
+function enviar_resumen(array $linea, array $contacto, array $pedido): array
+{
+    $enlace = '';
+    try {
+        $enlace = \TuWhatsApp\Pedidos::enlacePago(db(), $linea, $pedido);
+    } catch (\RuntimeException $ex) {
+        aviso('No se pudo crear el enlace de pago: ' . $ex->getMessage(), 'error');
+    }
+    $pedido = \TuWhatsApp\Pedidos::buscar(db(), (int) $linea['id'], (int) $pedido['id']);
+    $texto = \TuWhatsApp\Pedidos::resumen($linea, $pedido, \TuWhatsApp\Pedidos::items(db(), (int) $pedido['id']), $enlace);
+    $r = (new Mensajeria(db()))->texto($linea, $contacto, $texto, 'panel', (int) usuario()['id']);
+    if ($r['ok']) {
+        Contactos::callar(db(), $linea, (int) $contacto['id']);
+    }
+    return $r;
+}
+
+/** Arma la cotización en PDF y la manda por WhatsApp como documento; el embudo pasa a "Cotizado". */
+function enviar_cotizacion(array $linea, array $contacto, array $pedido): array
+{
+    $archivo = \TuWhatsApp\Cotizacion::archivo(db(), $linea, $pedido);
+    $r = (new Mensajeria(db()))->medio($linea, $contacto, $archivo, 'Cotización N.º ' . $pedido['numero'] . ' · ' . $linea['nombre'], 'panel', (int) usuario()['id']);
+    if ($r['ok']) {
+        Contactos::callar(db(), $linea, (int) $contacto['id']);
+        if (in_array($contacto['etapa'] ?? null, [null, 'nuevo', 'interesado'], true) && $contacto['tipo'] !== 'personal') {
+            \TuWhatsApp\Embudo::mover(db(), (int) $linea['id'], (int) $contacto['id'], 'cotizado', number_format((float) $pedido['total'], 2, '.', ''));
+        }
+    }
+    return $r;
+}
+
+/** Aviso del resultado de un envío por el sistema. */
+function aviso_envio(array $r, string $que = 'Enviado'): void
+{
+    if ($r['ok']) {
+        aviso($que . ($r['costo'] > 0 ? ' (' . dinero($r['costo'], true) . ')' : ' (gratis)') . '.');
+    } else {
+        aviso($r['error'], 'error');
+    }
+}
 
 try {
     switch ($ruta) {
@@ -220,6 +265,9 @@ try {
             } elseif ($accion === 'datos') {
                 Contactos::guardar(db(), $lid, (string) $c['telefono'], (string) ($_POST['nombre'] ?? ''), (string) $c['tipo'], (string) ($_POST['notas'] ?? ''));
                 Contactos::guardarEtiquetas(db(), $lid, $cid, (string) ($_POST['etiquetas'] ?? ''));
+                if (isset($_POST['campo']) && is_array($_POST['campo'])) {
+                    \TuWhatsApp\Campos::guardarValores(db(), $lid, $cid, $_POST['campo']);
+                }
                 aviso('Datos guardados.');
             } elseif ($accion === 'silencio') {
                 $horas = (int) ($_POST['horas'] ?? 0);
@@ -240,6 +288,7 @@ try {
                 }
                 if ($r['ok']) {
                     Contactos::tomarSiLibre(db(), $cid, (int) usuario()['id']);
+                    Contactos::callar(db(), $linea, $cid);
                     aviso('Enviado' . ($r['costo'] > 0 ? ' (' . dinero($r['costo'], true) . ')' : ' (gratis)') . '.');
                 } else {
                     $_SESSION['borrador'][$cid] = (string) ($_POST['texto'] ?? '');
@@ -257,6 +306,39 @@ try {
                 aviso('Seguimiento programado para el ' . $cuando->format('d/m/Y \a \l\a\s H:i') . '.');
             } elseif ($accion === 'cancelar_seguimiento' && modulo('seguimientos')) {
                 aviso(\TuWhatsApp\Seguimientos::cancelar(db(), $lid, (int) ($_POST['id'] ?? 0)) ? 'Seguimiento cancelado.' : 'Ese seguimiento ya no se puede cancelar.', 'info');
+            } elseif ($accion === 'carrito_agregar') {
+                $car = \TuWhatsApp\Pedidos::agregar(db(), $linea, $cid, (int) ($_POST['producto_id'] ?? 0), (int) ($_POST['cantidad'] ?? 1), 'chat', (int) usuario()['id']);
+                aviso('Agregado al carrito. Total ' . dinero($car['total']) . '.');
+            } elseif (in_array($accion, ['carrito_resumen', 'carrito_cotizacion'], true)) {
+                $car = \TuWhatsApp\Pedidos::carrito(db(), $linea, $cid, false);
+                if (!$car || !\TuWhatsApp\Pedidos::items(db(), (int) $car['id'])) {
+                    throw new RuntimeException('El carrito está vacío.');
+                }
+                aviso_envio($accion === 'carrito_resumen' ? enviar_resumen($linea, $c, $car) : enviar_cotizacion($linea, $c, $car),
+                            $accion === 'carrito_resumen' ? 'Resumen enviado' : 'Cotización enviada');
+            } elseif ($accion === 'enviar_producto') {
+                $p = \TuWhatsApp\Catalogo::buscar(db(), $lid, (int) ($_POST['producto_id'] ?? 0));
+                if (!$p) {
+                    throw new RuntimeException('Ese producto no existe.');
+                }
+                $ficha = \TuWhatsApp\Catalogo::ficha($p, $linea);
+                $foto = $p['foto_ruta'] ? \TuWhatsApp\Archivos::ruta((string) $p['foto_ruta']) : null;
+                $r = $foto
+                    ? (new Mensajeria(db()))->medio($linea, $c, ['tipo' => 'imagen', 'mime' => str_ends_with($foto, '.png') ? 'image/png' : 'image/jpeg',
+                        'nombre' => basename($foto), 'bytes' => (int) filesize($foto), 'ruta' => (string) $p['foto_ruta']], $ficha, 'panel', (int) usuario()['id'])
+                    : (new Mensajeria(db()))->texto($linea, $c, $ficha, 'panel', (int) usuario()['id']);
+                if ($r['ok']) {
+                    Contactos::callar(db(), $linea, $cid);
+                }
+                aviso_envio($r, 'Producto enviado');
+            } elseif ($accion === 'enviar_catalogo') {
+                $prods = \TuWhatsApp\Catalogo::lista(db(), $lid, true, '', 10);
+                if (!$prods) {
+                    throw new RuntimeException('No hay productos disponibles en el catálogo.');
+                }
+                $r = (new Mensajeria(db()))->botones($linea, $c, 'Estos son nuestros productos. Toca uno para agregarlo a tu carrito 👇',
+                                                    \TuWhatsApp\Catalogo::filasLista($prods, $linea), 'panel', (int) usuario()['id'], 'Ver productos', true);
+                aviso_envio($r, 'Catálogo enviado');
             } elseif (in_array($accion, ['ia_sugerir', 'ia_resumir'], true) && modulo('ia')) {
                 $r = $accion === 'ia_sugerir'
                     ? \TuWhatsApp\Asistente::sugerir(db(), $linea, $c, (int) usuario()['id'])
@@ -287,6 +369,11 @@ try {
             'precio' => Gasto::estimar(db(), 'servicio', $c, new DateTimeImmutable()),
             'seguimientos' => modulo('seguimientos') ? \TuWhatsApp\Seguimientos::deContacto(db(), $cid) : [],
             'resumenIa' => $resumenIa,
+            'productos' => \TuWhatsApp\Catalogo::lista(db(), $lid, true, '', 300),
+            'carrito' => $car = \TuWhatsApp\Pedidos::carrito(db(), $linea, $cid, false),
+            'itemsCarrito' => $car ? \TuWhatsApp\Pedidos::items(db(), (int) $car['id']) : [],
+            'pedidosCliente' => \TuWhatsApp\Pedidos::deContacto(db(), $cid),
+            'campos' => \TuWhatsApp\Campos::lista(db(), $lid),
         ]);
 
     case 'plantilla':
@@ -312,6 +399,7 @@ try {
                 }
                 $res = (new Mensajeria(db()))->plantilla($linea, $c, $elegida, $datos, 'panel', (int) usuario()['id']);
                 if ($res['ok']) {
+                    Contactos::callar(db(), $linea, (int) $c['id']);
                     aviso('Plantilla enviada' . ($res['costo'] > 0 ? ' (' . dinero($res['costo'], true) . ')' : ' (gratis)') . '.');
                     redirigir('chat', ['c' => $c['id']]);
                 }
@@ -580,13 +668,23 @@ try {
         ]);
 
     case 'reportes':
-        vista('reportes', 'Reportes', ['linea' => $linea, 'r' => \TuWhatsApp\Reportes::resumen(db(), $lid, (int) ($_GET['d'] ?? 7))]);
+        $rep = \TuWhatsApp\Reportes::resumen(db(), $lid, (int) ($_GET['d'] ?? 7));
+        $st = db()->prepare("SELECT count(*), COALESCE(sum(total), 0) FROM pedidos WHERE linea_id = ? AND estado IN ('pagado', 'enviado', 'entregado') AND pagado_en >= ?");
+        $st->execute([$lid, $rep['desde']->format('Y-m-d')]);
+        [$np, $tp] = $st->fetch(PDO::FETCH_NUM);
+        vista('reportes', 'Reportes', ['linea' => $linea, 'r' => $rep, 'anuncios' => \TuWhatsApp\Anuncios::reporte(db(), $lid, $rep['dias']),
+                                       'pedidosRep' => ['n' => (int) $np, 'total' => (float) $tp]]);
 
     case 'ia':
         $emp = empresa_actual();
         if ($post) {
-            \TuWhatsApp\Asistente::guardarConocimiento(db(), $lid, (string) ($_POST['conocimiento'] ?? ''));
-            aviso('Guardado. La IA usará esta información para sugerir respuestas.');
+            if (($_POST['accion'] ?? '') === 'bot') {
+                \TuWhatsApp\Bot::guardar(db(), $lid, $_POST);
+                aviso(!empty($_POST['bot_activo']) ? 'Agente con IA encendido: desde ahora contesta solo.' : 'Agente con IA guardado (apagado).');
+            } else {
+                \TuWhatsApp\Asistente::guardarConocimiento(db(), $lid, (string) ($_POST['conocimiento'] ?? ''));
+                aviso('Guardado. La IA usará esta información para contestar y sugerir respuestas.');
+            }
             redirigir('ia');
         }
         vista('ia', 'Asistente con IA', [
@@ -631,6 +729,269 @@ try {
             $linea = Lineas::buscar(db(), $lid);
         }
         vista('integraciones', 'Integraciones', ['linea' => $linea, 'secreto' => $secreto]);
+
+    case 'catalogo':
+        if ($post) {
+            $accion = (string) ($_POST['accion'] ?? '');
+            if ($accion === 'borrar') {
+                \TuWhatsApp\Catalogo::borrar(db(), $lid, (int) ($_POST['id'] ?? 0));
+                aviso('Producto borrado.');
+            } elseif ($accion === 'importar') {
+                $f = $_FILES['archivo'] ?? null;
+                if (!is_array($f) || ($f['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name']) || $f['size'] > 5 * 1024 * 1024) {
+                    throw new RuntimeException('No llegó el archivo (máximo 5 MB). Vuelve a elegirlo.');
+                }
+                $r = \TuWhatsApp\Catalogo::importarCsv(db(), $lid, (string) file_get_contents($f['tmp_name']));
+                aviso("Listo: {$r['nuevos']} productos nuevos, {$r['cambiados']} actualizados" . ($r['malos'] ? ", {$r['malos']} filas con errores se saltaron" : '') . '.',
+                      $r['nuevos'] + $r['cambiados'] > 0 ? 'ok' : 'info');
+            } else {
+                $id = \TuWhatsApp\Catalogo::guardar(db(), $lid, $_POST + ['activo' => null], isset($_POST['id']) ? (int) $_POST['id'] : null);
+                $foto = $_FILES['foto'] ?? null;
+                if (is_array($foto) && ($foto['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                    $a = \TuWhatsApp\Archivos::deSubida($foto, (int) $linea['empresa_id']);
+                    if ($a['tipo'] !== 'imagen') {
+                        throw new RuntimeException('La foto debe ser JPG o PNG.');
+                    }
+                    \TuWhatsApp\Catalogo::guardarFoto(db(), $lid, $id, $a['ruta']);
+                }
+                aviso('Producto guardado.');
+            }
+            redirigir('catalogo');
+        }
+        $buscar = trim((string) ($_GET['b'] ?? ''));
+        vista('catalogo', 'Catálogo', ['linea' => $linea, 'buscar' => $buscar, 'productos' => \TuWhatsApp\Catalogo::lista(db(), $lid, false, $buscar),
+                                       'editar' => isset($_GET['editar']) ? \TuWhatsApp\Catalogo::buscar(db(), $lid, (int) $_GET['editar']) : null]);
+
+    case 'foto_producto':
+        $p = \TuWhatsApp\Catalogo::buscar(db(), $lid, (int) ($_GET['id'] ?? 0));
+        $ruta = $p && $p['foto_ruta'] ? \TuWhatsApp\Archivos::ruta((string) $p['foto_ruta']) : null;
+        if ($ruta === null) {
+            http_response_code(404);
+            exit('No existe');
+        }
+        header('Content-Type: ' . (str_ends_with($ruta, '.png') ? 'image/png' : 'image/jpeg'));
+        header('Content-Length: ' . filesize($ruta));
+        header('Cache-Control: private, max-age=3600');
+        readfile($ruta);
+        exit;
+
+    case 'cobros':
+        if ($post) {
+            $iva = \TuWhatsApp\Embudo::valor((string) ($_POST['iva_pct'] ?? '0'));
+            if ($iva > 30) {
+                throw new RuntimeException('El IVA no puede ser más de 30 %.');
+            }
+            $enlace = trim((string) ($_POST['pago_enlace'] ?? ''));
+            if ($enlace !== '' && !preg_match('#^https://\S+$#', $enlace)) {
+                throw new RuntimeException('El enlace de pago debe empezar con https://');
+            }
+            db()->prepare('UPDATE lineas SET negocio_ruc = ?, negocio_direccion = ?, iva_pct = ?, cotizacion_dias = ?, cotizacion_pie = ?, pago_transferencia = ?, pago_enlace = ?, payphone_store = ? WHERE id = ?')
+                ->execute([mb_substr(trim((string) ($_POST['negocio_ruc'] ?? '')), 0, 20), mb_substr(trim((string) ($_POST['negocio_direccion'] ?? '')), 0, 200), $iva,
+                           max(1, min(365, (int) ($_POST['cotizacion_dias'] ?? 15))), mb_substr(trim((string) ($_POST['cotizacion_pie'] ?? '')), 0, 1000),
+                           mb_substr(trim((string) ($_POST['pago_transferencia'] ?? '')), 0, 1000), mb_substr($enlace, 0, 500),
+                           mb_substr(trim((string) ($_POST['payphone_store'] ?? '')), 0, 80), $lid]);
+            $tok = trim((string) ($_POST['payphone_token'] ?? ''));
+            if (!empty($_POST['quitar_payphone'])) {
+                db()->prepare("UPDATE lineas SET payphone_token = '' WHERE id = ?")->execute([$lid]);
+            } elseif ($tok !== '') {
+                db()->prepare('UPDATE lineas SET payphone_token = ? WHERE id = ?')->execute([\TuWhatsApp\Cifrado::cifrar($tok), $lid]);
+            }
+            aviso('Guardado.');
+            redirigir('cobros');
+        }
+        vista('cobros', 'Cobros y cotizaciones', ['linea' => $linea]);
+
+    case 'pedidos':
+        $estado = (string) ($_GET['e'] ?? '');
+        $buscar = trim((string) ($_GET['b'] ?? ''));
+        vista('pedidos', 'Pedidos', ['linea' => $linea, 'estado' => $estado, 'buscar' => $buscar,
+                                     'pedidos' => \TuWhatsApp\Pedidos::lista(db(), $lid, $estado, $buscar), 'cuentas' => \TuWhatsApp\Pedidos::cuentas(db(), $lid)]);
+
+    case 'pedido':
+    case 'cotizacion':
+        $p = \TuWhatsApp\Pedidos::buscar(db(), $lid, (int) ($_GET['id'] ?? 0));
+        if (!$p) {
+            aviso('Ese pedido no existe.', 'error');
+            redirigir('pedidos');
+        }
+        $pid = (int) $p['id'];
+        if ($ruta === 'cotizacion') {
+            $pdf = \TuWhatsApp\Cotizacion::pdf($linea, $p, \TuWhatsApp\Pedidos::items(db(), $pid));
+            header('Content-Type: application/pdf');
+            header('Content-Length: ' . strlen($pdf));
+            header("Content-Disposition: attachment; filename*=UTF-8''" . rawurlencode(\TuWhatsApp\Cotizacion::nombreArchivo($p)));
+            header('Cache-Control: no-store');
+            echo $pdf;
+            exit;
+        }
+        $cont = $p['contacto_id'] ? Contactos::buscar(db(), $lid, (int) $p['contacto_id']) : null;
+        if ($post) {
+            $accion = (string) ($_POST['accion'] ?? '');
+            if ($accion === 'cantidad') {
+                \TuWhatsApp\Pedidos::cambiarCantidad(db(), $linea, $pid, (int) ($_POST['item'] ?? 0), (int) ($_POST['cantidad'] ?? 0));
+                aviso('Cantidad cambiada.');
+            } elseif ($accion === 'agregar') {
+                if (!$p['contacto_id']) {
+                    throw new RuntimeException('Este pedido no tiene cliente.');
+                }
+                if ($p['estado'] !== 'carrito') {
+                    throw new RuntimeException('Solo se agregan productos mientras es carrito.');
+                }
+                \TuWhatsApp\Pedidos::agregar(db(), $linea, (int) $p['contacto_id'], (int) ($_POST['producto_id'] ?? 0), (int) ($_POST['cantidad'] ?? 1), 'chat', (int) usuario()['id']);
+                aviso('Agregado.');
+            } elseif ($accion === 'libre') {
+                \TuWhatsApp\Pedidos::agregarLibre(db(), $linea, $pid, (string) ($_POST['nombre'] ?? ''), (string) ($_POST['precio'] ?? '0'));
+                aviso('Agregado.');
+            } elseif (in_array($accion, ['enviar_resumen', 'enviar_cotizacion'], true)) {
+                if (!$cont) {
+                    throw new RuntimeException('Este pedido no tiene un número de WhatsApp.');
+                }
+                if (!\TuWhatsApp\Pedidos::items(db(), $pid)) {
+                    throw new RuntimeException('El pedido no tiene productos.');
+                }
+                aviso_envio($accion === 'enviar_resumen' ? enviar_resumen($linea, $cont, $p) : enviar_cotizacion($linea, $cont, $p),
+                            $accion === 'enviar_resumen' ? 'Resumen enviado' : 'Cotización enviada');
+            } elseif ($accion === 'estado') {
+                $nuevo = (string) ($_POST['estado'] ?? '');
+                $p = \TuWhatsApp\Pedidos::cambiarEstado(db(), $linea, $pid, $nuevo);
+                if ($cont && $cont['tipo'] !== 'personal' && in_array($nuevo, ['pagado', 'enviado', 'entregado'], true)) {
+                    \TuWhatsApp\Embudo::mover(db(), $lid, (int) $cont['id'], 'ganado', number_format((float) $p['total'], 2, '.', ''));
+                }
+                aviso('Pedido: ' . \TuWhatsApp\Pedidos::ESTADOS[$nuevo] . '.');
+            } elseif ($accion === 'notas') {
+                \TuWhatsApp\Pedidos::guardarNotas(db(), $lid, $pid, (string) ($_POST['notas'] ?? ''));
+                aviso('Notas guardadas.');
+            }
+            redirigir('pedido', ['id' => $pid]);
+        }
+        vista('pedido', 'Pedido #' . $p['numero'], ['linea' => $linea, 'p' => $p, 'items' => \TuWhatsApp\Pedidos::items(db(), $pid),
+            'productos' => \TuWhatsApp\Catalogo::lista(db(), $lid, true, '', 300), 'ventana' => $cont ? Gasto::ventanaAbierta($cont, new DateTimeImmutable()) : false]);
+
+    case 'flujos':
+        if ($post) {
+            $id = \TuWhatsApp\Flujos::crear(db(), $lid, (string) ($_POST['nombre'] ?? ''), (string) ($_POST['disparador'] ?? 'palabras'), (string) ($_POST['palabras'] ?? ''));
+            aviso('Chatbot creado con un ejemplo. Cámbialo a tu gusto y enciéndelo.');
+            redirigir('flujo', ['id' => $id]);
+        }
+        vista('flujos', 'Chatbots', ['linea' => $linea, 'flujos' => \TuWhatsApp\Flujos::lista(db(), $lid)]);
+
+    case 'flujo':
+        $f = \TuWhatsApp\Flujos::buscar(db(), $lid, (int) ($_GET['id'] ?? 0));
+        if (!$f) {
+            aviso('Ese chatbot no existe.', 'error');
+            redirigir('flujos');
+        }
+        $camposF = \TuWhatsApp\Campos::lista(db(), $lid);
+        $prueba = null;
+        $entradas = '';
+        if ($post) {
+            $accion = (string) ($_POST['accion'] ?? 'guardar');
+            if ($accion === 'borrar') {
+                \TuWhatsApp\Flujos::borrar(db(), $lid, (int) $f['id']);
+                aviso('Chatbot borrado.');
+                redirigir('flujos');
+            }
+            if ($accion === 'probar') {
+                $entradas = (string) ($_POST['entradas'] ?? '');
+                $lineasEntrada = array_values(array_filter(array_map('trim', preg_split('/\R/', $entradas) ?: []), fn ($x) => $x !== ''));
+                $prueba = $lineasEntrada ? \TuWhatsApp\Flujos::simular($f, $lineasEntrada, (string) $linea['nombre']) : [];
+            } else {
+                $datos = $_POST;
+                if ($accion === 'agregar_paso') {
+                    $actuales = \TuWhatsApp\Flujos::limpiarPasos((array) ($datos['paso'] ?? []), array_column($camposF, 'clave'), false);
+                    $datos['paso'] = array_merge(array_map(fn ($x) => $x + ['op_titulo' => array_column($x['opciones'] ?? [], 'titulo'), 'op_ir' => array_column($x['opciones'] ?? [], 'ir_a')], $actuales),
+                                                 [['id' => \TuWhatsApp\Flujos::idNuevo($actuales), 'tipo' => 'mensaje', 'texto' => '']]);
+                    $datos['activo'] = '';   // mientras se arma el paso nuevo, queda apagado
+                }
+                \TuWhatsApp\Flujos::guardar(db(), $lid, (int) $f['id'], $datos, array_column($camposF, 'clave'));
+                aviso($accion === 'agregar_paso' ? 'Paso agregado al final. El chatbot quedó apagado mientras lo completas: enciéndelo al guardar.' : 'Chatbot guardado.');
+                redirigir('flujo', ['id' => $f['id']]);
+            }
+        }
+        vista('flujo', $f['nombre'], ['linea' => $linea, 'f' => $f, 'pasos' => \TuWhatsApp\Flujos::pasos($f), 'campos' => $camposF, 'prueba' => $prueba, 'entradas' => $entradas]);
+
+    case 'equipo':
+        $emp = empresa_actual();
+        if ($post) {
+            $accion = (string) ($_POST['accion'] ?? '');
+            if ($accion === 'reparto') {
+                \TuWhatsApp\Reparto::guardar(db(), $linea, $_POST);
+                aviso('Reparto guardado.');
+            } elseif ($accion === 'persona') {
+                \TuWhatsApp\Reparto::cambiarPersona(db(), (int) $emp['id'], (int) ($_POST['id'] ?? 0), (string) ($_POST['que'] ?? ''), ($_POST['valor'] ?? '') === '1');
+                aviso('Cambiado.');
+            } elseif ($accion === 'recibe') {
+                $si = array_map('intval', (array) ($_POST['recibe'] ?? []));
+                foreach (Empresas::usuarios(db(), (int) $emp['id']) as $u) {
+                    \TuWhatsApp\Reparto::cambiarPersona(db(), (int) $emp['id'], (int) $u['id'], 'recibe_chats', in_array((int) $u['id'], $si, true));
+                }
+                aviso('Guardado.');
+            } elseif ($accion === 'pasar') {
+                $a = (string) ($_POST['a'] ?? '') === '' ? null : (int) $_POST['a'];
+                $n = \TuWhatsApp\Reparto::pasarTodas(db(), $lid, (int) $emp['id'], (int) ($_POST['de'] ?? 0), $a);
+                aviso($n === 1 ? '1 conversación pasada.' : $n . ' conversaciones pasadas.');
+            }
+            redirigir('equipo');
+        }
+        $st = db()->prepare('SELECT id, nombre, rol, disponible, recibe_chats FROM usuarios WHERE empresa_id = ? AND activo AND NOT super ORDER BY nombre');
+        $st->execute([(int) $emp['id']]);
+        vista('equipo', 'Equipo y reparto', ['linea' => Lineas::buscar(db(), $lid), 't' => \TuWhatsApp\Reparto::tablero(db(), $linea), 'equipo' => $st->fetchAll()]);
+
+    case 'campos':
+        if ($post) {
+            if (($_POST['accion'] ?? '') === 'borrar') {
+                \TuWhatsApp\Campos::borrar(db(), $lid, (int) ($_POST['id'] ?? 0));
+                aviso('Campo borrado.');
+            } else {
+                \TuWhatsApp\Campos::guardar(db(), $lid, (string) ($_POST['nombre'] ?? ''), (string) ($_POST['tipo'] ?? 'texto'), (string) ($_POST['opciones'] ?? ''));
+                aviso('Campo agregado. Ya aparece en cada chat, en "Datos y notas".');
+            }
+            redirigir('campos');
+        }
+        vista('campos', 'Campos personalizados', ['linea' => $linea, 'campos' => \TuWhatsApp\Campos::lista(db(), $lid)]);
+
+    case 'tienda':
+        if ($post) {
+            \TuWhatsApp\Tiendas::guardar(db(), $linea, $_POST);
+            aviso(($_POST['tienda_tipo'] ?? '') === '' ? 'Tienda desconectada.' : 'Guardado. Ahora pega la dirección de abajo en tu tienda.');
+            redirigir('tienda');
+        }
+        $lt = Lineas::buscar(db(), $lid);
+        $pl = Meta::deLinea($lt)->plantillas();
+        $st = db()->prepare("SELECT p.*, c.nombre AS c_nombre, c.nombre_whatsapp AS c_nombre_whatsapp, c.telefono AS c_telefono FROM pedidos p
+                             LEFT JOIN contactos c ON c.id = p.contacto_id WHERE p.linea_id = ? AND p.origen IN ('shopify', 'woocommerce') ORDER BY p.id DESC LIMIT 10");
+        $st->execute([$lid]);
+        vista('tienda', 'Tienda en línea', ['linea' => $lt, 'plantillas' => $pl['ok'] ? $pl['plantillas'] : [], 'errorMeta' => $pl['ok'] ? null : $pl['error'],
+                                            'carritos' => \TuWhatsApp\Tiendas::carritos(db(), $lid), 'pedidosTienda' => $st->fetchAll()]);
+
+    case 'app':
+        vista('app', 'App en el celular', ['vapid' => \TuWhatsApp\Push::clavePublica(db()), 'suscripciones' => \TuWhatsApp\Push::cuantas(db(), (int) usuario()['id'])]);
+
+    case 'push':   // el navegador activa, quita o prueba los avisos (JSON)
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        if (!$post) {
+            http_response_code(405);
+            exit;
+        }
+        $d = json_decode((string) ($_POST['datos'] ?? ''), true) ?: [];
+        $accion = (string) ($_POST['accion'] ?? '');
+        try {
+            if ($accion === 'suscribir') {
+                \TuWhatsApp\Push::suscribir(db(), (int) usuario()['id'], $d);
+                $r = ['ok' => true, 'mensaje' => tukan_tr('Listo: te llegarán avisos en este celular.')];
+            } elseif ($accion === 'quitar') {
+                \TuWhatsApp\Push::quitar(db(), (int) usuario()['id'], (string) ($d['endpoint'] ?? ''));
+                $r = ['ok' => true, 'mensaje' => tukan_tr('Avisos desactivados en este celular.')];
+            } else {
+                $n = \TuWhatsApp\Push::enviar(db(), [(int) usuario()['id']], ['titulo' => 'WhatsApp Tukán', 'texto' => tukan_tr('Así te llegarán los mensajes nuevos.'), 'url' => '/?r=bandeja', 'tag' => 'tuwa-prueba']);
+                $r = ['ok' => $n > 0, 'mensaje' => $n > 0 ? tukan_tr('Aviso de prueba enviado.') : tukan_tr('No se pudo mandar el aviso. Vuelve a activar los avisos.')];
+            }
+        } catch (\RuntimeException $ex) {
+            $r = ['ok' => false, 'mensaje' => tukan_tr($ex->getMessage())];
+        }
+        echo json_encode($r, JSON_UNESCAPED_UNICODE);
+        exit;
 
     case 'pendientes':
         if ($post) {

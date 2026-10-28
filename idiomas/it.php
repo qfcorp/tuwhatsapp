@@ -775,4 +775,7 @@ return [
     '🎤 Nota de voz' => '🎤 Nota vocale',
     '📎 Adjuntar' => '📎 Allega',
     '🔔 Avisarme cuando llegue un mensaje' => '🔔 Avvisami quando arriva un messaggio',
+    'No se pudo conectar. Intenta de nuevo.' => 'Impossibile connettersi. Riprova.',
+    'Este navegador no permite avisos con la app cerrada. En iPhone, primero agrégala a la pantalla de inicio y ábrela desde ahí.' => 'Questo browser non consente gli avvisi con l\'app chiusa. Su iPhone, prima aggiungila alla schermata Home e aprila da lì.',
+    'No se pudieron activar los avisos en este navegador.' => 'Impossibile attivare gli avvisi in questo browser.',
 ];

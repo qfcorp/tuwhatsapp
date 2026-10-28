@@ -72,10 +72,11 @@ final class Seguimientos
     }
 
     /** @return list<array> */
-    public static function deContacto(PDO $db, int $contactoId): array
+    public static function deContacto(PDO $db, int $contactoId, ?\DateTimeImmutable $ahora = null): array
     {
-        $st = $db->prepare("SELECT * FROM seguimientos WHERE contacto_id = ? AND (estado = 'programado' OR hecho_en > now() - interval '7 days') ORDER BY cuando");
-        $st->execute([$contactoId]);
+        $desde = ($ahora ?? new \DateTimeImmutable())->modify('-7 days')->format('c');
+        $st = $db->prepare("SELECT * FROM seguimientos WHERE contacto_id = ? AND (estado = 'programado' OR hecho_en > ?) ORDER BY cuando");
+        $st->execute([$contactoId, $desde]);
         return $st->fetchAll();
     }
 

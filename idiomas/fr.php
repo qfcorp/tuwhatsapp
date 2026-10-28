@@ -775,4 +775,7 @@ return [
     '🎤 Nota de voz' => '🎤 Note vocale',
     '📎 Adjuntar' => '📎 Joindre',
     '🔔 Avisarme cuando llegue un mensaje' => '🔔 M\'avertir à l\'arrivée d\'un message',
+    'No se pudo conectar. Intenta de nuevo.' => 'Connexion impossible. Réessaie.',
+    'Este navegador no permite avisos con la app cerrada. En iPhone, primero agrégala a la pantalla de inicio y ábrela desde ahí.' => 'Ce navigateur ne permet pas les notifications avec l\'appli fermée. Sur iPhone, ajoute-la d\'abord à l\'écran d\'accueil et ouvre-la depuis là.',
+    'No se pudieron activar los avisos en este navegador.' => 'Impossible d\'activer les notifications dans ce navigateur.',
 ];

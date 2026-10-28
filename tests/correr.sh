@@ -51,6 +51,8 @@ TUKAN_CENTRAL_URL=https://panel.ejemplo.com
 TUKAN_IA_CLAVE=sk-ant-prueba-buena-0123456789
 TUKAN_IA_URL=$SIM_URL
 TUKAN_IA_ESPERA_MS=0
+TUWA_PUSH_PRUEBA=$SIM_URL/push/
+PAYPHONE_URL=$SIM_URL
 EOF
 TUWA_ENV="$ENVF" php -d display_errors=0 -d log_errors=1 -d error_log="$ENVF.log" -S "127.0.0.1:$WEB_PUERTO" -t public > /dev/null 2>&1 &
 WEB=$!

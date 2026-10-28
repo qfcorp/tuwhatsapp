@@ -25,7 +25,7 @@ final class Reportes
         $st = $db->prepare("SELECT
                 count(*) FILTER (WHERE direccion = 'entra') AS entran,
                 count(*) FILTER (WHERE direccion = 'sale') AS salen,
-                count(*) FILTER (WHERE direccion = 'sale' AND origen = 'auto') AS automaticos,
+                count(*) FILTER (WHERE direccion = 'sale' AND origen IN ('auto', 'bot', 'flujo')) AS automaticos,
                 count(*) FILTER (WHERE direccion = 'sale' AND origen IN ('panel', 'celular', 'pendiente')) AS equipo,
                 count(DISTINCT contacto_id) FILTER (WHERE direccion = 'entra') AS conversaciones,
                 COALESCE(sum(costo) FILTER (WHERE direccion = 'sale'), 0) AS gasto

@@ -779,4 +779,7 @@ return [
     '🎤 Nota de voz' => '🎤 Voice note',
     '📎 Adjuntar' => '📎 Attach',
     '🔔 Avisarme cuando llegue un mensaje' => '🔔 Notify me when a message arrives',
+    'No se pudo conectar. Intenta de nuevo.' => 'Couldn\'t connect. Try again.',
+    'Este navegador no permite avisos con la app cerrada. En iPhone, primero agrégala a la pantalla de inicio y ábrela desde ahí.' => 'This browser doesn\'t allow alerts with the app closed. On iPhone, first add it to the home screen and open it from there.',
+    'No se pudieron activar los avisos en este navegador.' => 'Alerts couldn\'t be turned on in this browser.',
 ];

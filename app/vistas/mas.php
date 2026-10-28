@@ -1,37 +1,52 @@
 <?php
-use TuWhatsApp\Modulos;
-
-/** Todo lo que no cabe en la barra de abajo. Los módulos apagados se ven con candado para que el cliente sepa que existen. */
-$basico = [
-    ['plantillas', 'Plantillas', 'Mensajes aprobados por Meta para escribir pasadas 24 horas.', false],
-    ['respuestas', 'Respuestas rápidas', 'Textos guardados para pegar en el chat con un toque.', true],
-    ['gasto', 'Gasto en Meta', 'Cuánto llevas gastado este mes y el tope.', false],
-    ['lineas', 'Números conectados', 'Tus números de WhatsApp y cómo conectarlos.', true],
-    ['cuenta', 'Mi cuenta', 'Contraseña, equipo y token de la API.', false],
+/**
+ * Todo lo que no cabe en la barra de abajo. Todo el programa viene incluido; solo la IA se cobra aparte
+ * (si no la tiene, se ve con candado y el botón para pedirla).
+ * [ruta, nombre, para qué sirve, solo administrador]
+ */
+$grupos = [
+    'Vender' => [
+        ['pedidos', 'Pedidos', 'Carritos y pedidos de tus clientes: pendientes de pago, pagados, enviados.', false],
+        ['catalogo', 'Catálogo', 'Tus productos o servicios con precio y stock, para mandarlos por el chat.', true],
+        ['cobros', 'Cobros y cotizaciones', 'Enlace de pago (Payphone, DeUna), transferencia, IVA y cotización en PDF.', true],
+        ['campanias', 'Campañas', 'Mandar una plantilla a muchos clientes a la vez.', true],
+        ['seguimientos', 'Seguimientos', 'Mensajes programados: escribir solo a quien no respondió.', false],
+        ['enlaces', 'Enlaces y QR', 'Enlace corto, código QR y botón de WhatsApp para tu página web.', true],
+        ['tienda', 'Tienda en línea', 'Shopify o WooCommerce: avisos de pedido y carritos abandonados.', true],
+    ],
+    'Automático' => [
+        ['reglas', 'Respuestas automáticas', 'Menú con botones, horario y palabras clave.', true],
+        ['flujos', 'Chatbots', 'Conversaciones por pasos con botones y preguntas, sin programar.', true],
+        ['ia', 'Agente con IA', 'Contesta solo las 24 horas con lo que sabe tu negocio y tu catálogo.', true],
+    ],
+    'Equipo' => [
+        ['equipo', 'Equipo y reparto', 'Quién atiende qué, reparto automático y vista del supervisor.', true],
+        ['reportes', 'Reportes', 'Mensajes, tiempos de respuesta, ventas y de qué anuncio llegó cada cliente.', true],
+        ['app', 'App en el celular', 'Instálalo como app y recibe avisos aunque el navegador esté cerrado.', false],
+    ],
+    'Ajustes' => [
+        ['campos', 'Campos personalizados', 'Datos propios de cada cliente: ciudad, cédula, cumpleaños, talla…', true],
+        ['plantillas', 'Plantillas', 'Mensajes aprobados por Meta para escribir pasadas 24 horas.', false],
+        ['respuestas', 'Respuestas rápidas', 'Textos guardados para pegar en el chat con un toque.', true],
+        ['integraciones', 'Integraciones', 'Excel y avisos a otros programas (Make, Zapier, n8n).', true],
+        ['gasto', 'Gasto en Meta', 'Cuánto llevas gastado este mes y el tope.', false],
+        ['lineas', 'Números conectados', 'Tus números de WhatsApp y cómo conectarlos.', true],
+        ['cuenta', 'Mi cuenta', 'Contraseña, equipo y token de la API.', false],
+    ],
 ];
-$extras = [
-    'campanias' => 'campanias', 'embudo' => 'embudo', 'seguimientos' => 'seguimientos', 'reportes' => 'reportes',
-    'ia' => 'ia', 'enlaces' => 'enlaces', 'integraciones' => 'integraciones', 'agentes' => null,
-];
+$conIa = modulo('ia');
 ?>
 <div class="cabeza"><h1>Más</h1></div>
+<?php foreach ($grupos as $titulo => $items): ?>
+<h2 class="separador"><?= e($titulo) ?></h2>
 <ul class="mosaico">
-    <?php foreach ($basico as [$ruta, $nombre, $texto, $soloAdmin]): if ($soloAdmin && !es_admin()) continue; ?>
-    <li><a href="<?= e(url($ruta)) ?>"><b><?= e($nombre) ?></b><span><?= e($texto) ?></span></a></li>
+    <?php foreach ($items as [$ruta, $nombre, $texto, $soloAdmin]): if ($soloAdmin && !es_admin()) continue; ?>
+    <?php if ($ruta === 'ia' && !$conIa): ?>
+    <li class="bloqueado"><div><b><?= e($nombre) ?> <small class="chip">Extra</small></b><span><?= e($texto) ?></span>
+        <a class="pequeno" href="https://wa.me/593996408397?text=<?= rawurlencode('Hola, quiero activar el Agente con IA en WhatsApp Tukán.') ?>" target="_blank" rel="noopener">Pedir a Tukán</a></div></li>
+    <?php else: ?>
+    <li><a href="<?= e(url($ruta)) ?>"><b><?= e($nombre) ?><?= $ruta === 'ia' ? ' <small class="chip chip-cliente">Activo</small>' : '' ?></b><span><?= e($texto) ?></span></a></li>
+    <?php endif; ?>
     <?php endforeach; ?>
 </ul>
-
-<h2 class="separador">Módulos</h2>
-<ul class="mosaico">
-    <?php foreach ($extras as $clave => $ruta): [$nombre, $texto] = Modulos::LISTA[$clave]; $on = modulo($clave);
-        if ($on && in_array($clave, ['campanias', 'reportes', 'ia', 'enlaces', 'integraciones'], true) && !es_admin()) continue; ?>
-    <li class="<?= $on ? '' : 'bloqueado' ?>">
-        <?php if ($on && $ruta): ?>
-        <a href="<?= e(url($ruta)) ?>"><b><?= e($nombre) ?></b><span><?= e($texto) ?></span></a>
-        <?php else: ?>
-        <div><b><?= e($nombre) ?> <?= $on ? '<small class="chip chip-cliente">Activo</small>' : '<small class="chip">No incluido</small>' ?></b><span><?= e($texto) ?></span>
-        <?php if (!$on): ?><a class="pequeno" href="https://wa.me/593996408397?text=<?= rawurlencode('Hola, quiero activar el módulo "' . $nombre . '" en WhatsApp Tukán.') ?>" target="_blank" rel="noopener">Pedir a Tukán</a><?php endif; ?></div>
-        <?php endif; ?>
-    </li>
-    <?php endforeach; ?>
-</ul>
+<?php endforeach; ?>

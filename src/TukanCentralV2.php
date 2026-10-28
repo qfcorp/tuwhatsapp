@@ -45,7 +45,7 @@ final class TukanCentralV2
     public const ORDENES = ['vence', 'alta', 'nombre', 'actividad'];
     public const DIAS_DEMO = 7;          // como "Crear cliente nuevo" de Clientes de Tukán
     public const DIAS_PRUEBA_MAX = 90;
-    public const PLAN_DEMO = 'pro';      // la demo ve todo (todos los módulos) salvo que se elijan otros
+    public const PLAN_DEMO = 'todo_ia';   // la demo ve todo (incluida la IA) salvo que se elijan otros
     public const ID = '/^[A-Za-z0-9_.:-]{1,80}$/';
 
     private TukanCentral $v1;

@@ -160,11 +160,13 @@ final class Lineas
         $horas = max(1, min(168, (int) ($d['horas_silencio'] ?? 12)));
         $max = max(1, min(10, (int) ($d['max_auto'] ?? 3)));
         $db->prepare('UPDATE lineas SET auto_activo = ?, regla_solo_clientes = ?, regla_palabras = ?, palabras = ?, regla_horario = ?,
-                      horario = ?, regla_una_vez = ?, horas_silencio = ?, max_auto = ?, mensaje_menu = ?, opciones = ?, menu_botones = ? WHERE id = ?')
+                      horario = ?, regla_una_vez = ?, horas_silencio = ?, max_auto = ?, mensaje_menu = ?, opciones = ?, menu_botones = ?,
+                      callar_al_atender = ? WHERE id = ?')
            ->execute([
                self::b($d, 'auto_activo'), self::b($d, 'regla_solo_clientes'), self::b($d, 'regla_palabras'), $palabras,
                self::b($d, 'regla_horario'), json_encode($horario), self::b($d, 'regla_una_vez'), $horas, $max,
-               mb_substr($menu, 0, 1000), json_encode($opciones, JSON_UNESCAPED_UNICODE), self::b($d, 'menu_botones'), $id,
+               mb_substr($menu, 0, 1000), json_encode($opciones, JSON_UNESCAPED_UNICODE), self::b($d, 'menu_botones'),
+               self::b($d, 'callar_al_atender'), $id,
            ]);
     }
 

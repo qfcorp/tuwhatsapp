@@ -1,8 +1,9 @@
 <?php
-/** @var list<array> $equipo @var list<array> $respuestas @var array $linea @var array $c @var list<array> $mensajes @var string $borrador @var bool $ventana @var float $precio @var list<array> $seguimientos @var string $resumenIa */
+/** @var list<array> $equipo @var list<array> $respuestas @var array $linea @var array $c @var list<array> $mensajes @var string $borrador @var bool $ventana @var float $precio @var list<array> $seguimientos @var string $resumenIa
+ *  @var list<array> $productos @var ?array $carrito @var list<array> $itemsCarrito @var list<array> $pedidosCliente @var list<array> $campos */
 use TuWhatsApp\Contactos;
 use TuWhatsApp\Telefono;
-$origenes = ['cliente' => '', 'panel' => 'Por el sistema', 'auto' => 'Automático', 'celular' => 'Desde el celular', 'pendiente' => 'Pendiente'];
+$origenes = ['cliente' => '', 'panel' => 'Por el sistema', 'auto' => 'Automático', 'bot' => 'Agente con IA', 'flujo' => 'Chatbot', 'tienda' => 'Tienda en línea', 'campania' => 'Campaña', 'celular' => 'Desde el celular', 'pendiente' => 'Pendiente'];
 $estados = ['enviando' => 'Enviando…', 'enviado' => '✓', 'entregado' => '✓✓', 'leido' => '✓✓ leído', 'fallido' => 'No se envió', 'bloqueado' => 'Bloqueado por el tope'];
 $silencio = !empty($c['silencio_hasta']) && new DateTimeImmutable($c['silencio_hasta']) > new DateTimeImmutable();
 $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']) > new DateTimeImmutable();
@@ -48,6 +49,9 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 <?php endif; ?>
 <?php if ($gratis): ?>
 <p class="nota nota-ok">Llegó desde un anuncio: sus mensajes no se cobran hasta <?= e(hora_corta($c['gratis_hasta'])) ?>.</p>
+<?php endif; ?>
+<?php if (!empty($c['origen_id'])): ?>
+<p class="nota pequeno">📣 Llegó desde <?= $c['origen_tipo'] === 'publicacion' ? 'una publicación' : 'el anuncio' ?> <b><?= u($c['origen_titulo'] ?: $c['origen_id']) ?></b><?= $c['origen_en'] ? ' el ' . e((new DateTimeImmutable($c['origen_en']))->format('d/m/Y')) : '' ?><?= $c['origen_url'] ? ' · <a href="' . e($c['origen_url']) . '" target="_blank" rel="noopener">ver</a>' : '' ?>.</p>
 <?php endif; ?>
 
 <ol class="mensajes" id="mensajes" data-contacto="<?= (int) $c['id'] ?>" data-ultimo="<?= (int) (end($mensajes)['id'] ?? 0) ?>">
@@ -136,6 +140,51 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <?php if ($celular): ?><button class="enlace" name="accion" value="pendiente" formnovalidate>Guardar en Pendientes para enviarlo después</button><?php endif; ?>
 </form>
 
+
+<?php if ($c['tipo'] !== 'personal'): ?>
+<details class="tarjeta plegable carrito-chat" <?= $itemsCarrito ? 'open' : '' ?>>
+    <summary>🛒 Carrito y cotización<?= $carrito && $itemsCarrito ? ' · ' . e(dinero($carrito['total'])) : '' ?></summary>
+    <?php if (!$productos): ?>
+    <p class="suave pequeno">Primero agrega tus productos en el <a href="<?= e(url('catalogo')) ?>">Catálogo</a><?= es_admin() ? '' : ' (lo hace el administrador)' ?>.</p>
+    <?php else: ?>
+    <?php if ($itemsCarrito): ?>
+    <ul class="lista-simple items-pedido">
+        <?php foreach ($itemsCarrito as $i): ?><li><span><?= (int) $i['cantidad'] ?> x <?= u($i['nombre']) ?></span><b class="derecha"><?= e(dinero((float) $i['precio'] * (int) $i['cantidad'])) ?></b></li><?php endforeach; ?>
+    </ul>
+    <p class="totales"><?php if ((float) $carrito['iva'] > 0): ?>Subtotal <?= e(dinero($carrito['subtotal'])) ?> · IVA <?= e(dinero($carrito['iva'])) ?> · <?php endif; ?><b>Total <?= e(dinero($carrito['total'])) ?></b>
+        · <a href="<?= e(url('pedido', ['id' => $carrito['id']])) ?>">Cambiar cantidades</a></p>
+    <div class="fila-botones">
+        <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="carrito_resumen">
+            <button class="boton" <?= $ventana ? '' : 'disabled' ?>>Mandar resumen y cómo pagar</button></form>
+        <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="carrito_cotizacion">
+            <button class="boton boton-claro" <?= $ventana ? '' : 'disabled' ?>>Mandar cotización PDF</button></form>
+        <a class="boton boton-claro" href="<?= e(url('cotizacion', ['id' => $carrito['id']])) ?>">Descargar PDF</a>
+    </div>
+    <?php endif; ?>
+    <form method="post" class="formulario"><?= csrf_campo() ?><input type="hidden" name="accion" value="carrito_agregar">
+        <div class="fila-doble">
+            <label>Agregar producto<select name="producto_id" required><option value="">Elegir…</option>
+                <?php foreach ($productos as $x): ?><option value="<?= (int) $x['id'] ?>"><?= e($x['nombre']) ?> · <?= e(dinero($x['precio'])) ?><?= $x['stock'] !== null ? ' (quedan ' . (int) $x['stock'] . ')' : '' ?></option><?php endforeach; ?>
+            </select></label>
+            <label>Cantidad<input name="cantidad" type="number" min="1" max="999" value="1"></label>
+        </div>
+        <button class="boton boton-claro">Agregar al carrito</button>
+    </form>
+    <?php if ($ventana): ?>
+    <form method="post" class="formulario"><?= csrf_campo() ?><input type="hidden" name="accion" value="enviar_producto">
+        <label>Mandarle un producto (con foto y precio)<select name="producto_id" required><option value="">Elegir…</option>
+            <?php foreach ($productos as $x): ?><option value="<?= (int) $x['id'] ?>"><?= e($x['nombre']) ?></option><?php endforeach; ?>
+        </select></label>
+        <div class="fila-botones"><button class="boton boton-claro">Mandar producto</button>
+            <button class="boton boton-claro" name="accion" value="enviar_catalogo" formnovalidate>Mandar catálogo para elegir</button></div>
+    </form>
+    <?php endif; ?>
+    <?php endif; ?>
+    <?php if ($pedidosCliente): ?>
+    <p class="suave pequeno">Pedidos: <?php foreach ($pedidosCliente as $k => $pc): ?><?= $k ? ' · ' : '' ?><a href="<?= e(url('pedido', ['id' => $pc['id']])) ?>">#<?= (int) $pc['numero'] ?> <?= e(\TuWhatsApp\Pedidos::ESTADOS[$pc['estado']]) ?> <?= e(dinero($pc['total'])) ?></a><?php endforeach; ?></p>
+    <?php endif; ?>
+</details>
+<?php endif; ?>
 <?php if (modulo('embudo') && $c['tipo'] !== 'personal'): ?>
 <form method="post" class="tarjeta formulario embudo-chat">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="etapa">
@@ -180,6 +229,14 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         <label>Nombre<input name="nombre" maxlength="100" value="<?= e($c['nombre']) ?>" placeholder="<?= e($c['nombre_whatsapp']) ?>"></label>
         <label>Etiquetas (separadas por coma: vip, quito)<input name="etiquetas" maxlength="300" value="<?= e($c['etiquetas']) ?>"></label>
         <label>Notas<textarea name="notas" rows="3" maxlength="2000"><?= u($c['notas']) ?></textarea></label>
+        <?php $valores = \TuWhatsApp\Campos::de($c); foreach ($campos as $cp): $val = $valores[$cp['clave']] ?? ''; ?>
+        <label><?= e($cp['nombre']) ?>
+        <?php if ($cp['tipo'] === 'lista'): ?><select name="campo[<?= e($cp['clave']) ?>]"><option value="">—</option>
+            <?php foreach (array_map('trim', explode(',', $cp['opciones'])) as $o): ?><option <?= $val === $o ? 'selected' : '' ?>><?= e($o) ?></option><?php endforeach; ?></select>
+        <?php else: ?><input name="campo[<?= e($cp['clave']) ?>]" maxlength="300" value="<?= e($val) ?>" <?= $cp['tipo'] === 'fecha' ? 'type="date"' : ($cp['tipo'] === 'numero' ? 'inputmode="decimal"' : '') ?>><?php endif; ?>
+        </label>
+        <?php endforeach; ?>
+        <?php if (es_admin()): ?><p class="suave pequeno"><a href="<?= e(url('campos')) ?>">Agregar campos propios</a> (ciudad, cédula, cumpleaños…)</p><?php endif; ?>
         <button class="boton">Guardar</button>
     </form>
     <form method="post" class="formulario">

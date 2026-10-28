@@ -197,9 +197,10 @@ final class Webhook
         }
         $this->db->prepare('UPDATE contactos SET ultimo_entrante = GREATEST(COALESCE(ultimo_entrante, ?), ?) WHERE id = ?')
            ->execute([$cuando->format('c'), $cuando->format('c'), $contacto['id']]);
-        if (!empty($m['referral'])) {   // llegó desde un anuncio "Enviar WhatsApp": 72 horas gratis
+        if (!empty($m['referral'])) {   // llegó desde un anuncio "Enviar WhatsApp": 72 horas gratis y se anota de qué anuncio
             $this->db->prepare('UPDATE contactos SET gratis_hasta = ? WHERE id = ?')
                ->execute([$cuando->modify('+72 hours')->format('c'), $contacto['id']]);
+            Anuncios::registrar($this->db, (int) $linea['id'], $contacto, (array) $m['referral'], $cuando);
         }
         Embudo::entrar($this->db, (int) $contacto['id']);   // conversación nueva -> etapa "Nuevo" (los personales no)
         $contacto = Contactos::buscar($this->db, (int) $linea['id'], (int) $contacto['id']);
@@ -207,6 +208,13 @@ final class Webhook
             'id' => (int) $id, 'wamid' => $wamid, 'tipo' => self::tipoDe($m), 'texto' => mb_substr($texto, 0, 4096), 'creado' => $cuando->format('c'),
             'archivo' => $mediaId !== null ? ['mime' => $mediaMime, 'nombre' => $mediaNombre] : null,
         ]);
+        try {   // reparto automático y aviso al celular de quien atiende (si falla, el mensaje igual queda guardado)
+            Reparto::alLlegar($this->db, $linea, $contacto, $texto, $ahora);
+            $contacto = Contactos::buscar($this->db, (int) $linea['id'], (int) $contacto['id']);
+            Push::mensajeNuevo($this->db, $linea, $contacto, $texto, (int) $id);
+        } catch (\Throwable $e) {
+            error_log('tuwhatsapp reparto/aviso: ' . $e->getMessage());
+        }
 
         if (!in_array((string) ($m['type'] ?? ''), self::CON_RESPUESTA, true)) {
             $this->motivo((int) $id, 'No es texto: contestas tú');
@@ -217,17 +225,52 @@ final class Webhook
             $this->motivo((int) $id, 'Pidió no recibir más promociones: ya no entra en campañas');
             return;
         }
+        if (!Empresas::alDiaPorLinea($this->db, $linea)) {
+            $this->motivo((int) $id, 'La cuenta no está al día: no se contesta solo');
+            return;
+        }
+        $idBoton = (string) ($m['interactive']['button_reply']['id'] ?? $m['interactive']['list_reply']['id'] ?? '');
+        $libre = ($contacto['tipo'] ?? '') !== 'personal'
+              && !(!empty($contacto['silencio_hasta']) && new DateTimeImmutable((string) $contacto['silencio_hasta']) > $ahora);
+
+        // 1. Chatbots y catálogo. Si está en medio de un chatbot, el chatbot va primero (sus opciones pueden parecerse a
+        //    "ver productos"); si no, primero el catálogo (tocó un producto, pidió el catálogo o quiere comprar) y luego los chatbots.
+        if ($libre) {
+            $enFlujo = !empty($contacto['flujo_id']) && !empty($contacto['flujo_hasta']) && new DateTimeImmutable((string) $contacto['flujo_hasta']) > $ahora
+                       && !str_starts_with($idBoton, 'prod:');
+            $st = $this->db->prepare("SELECT count(*) FROM mensajes WHERE contacto_id = ? AND direccion = 'entra'");
+            $st->execute([$contacto['id']]);
+            $primero = (int) $st->fetchColumn() <= 1;
+            $chatbot = fn () => Flujos::responder($this->db, $linea, $contacto, $texto, $idBoton, $ahora, $primero);
+            if ($enFlujo && ($f = $chatbot()) !== null) {
+                $this->motivo((int) $id, $f['motivo']);
+                return;
+            }
+            if (($v = $this->catalogo($linea, $contacto, $texto, $idBoton, $ahora)) !== null) {
+                $this->motivo((int) $id, $v);
+                return;
+            }
+            if (!$enFlujo && ($f = $chatbot()) !== null) {
+                $this->motivo((int) $id, $f['motivo']);
+                return;
+            }
+        }
+        // 2. Agente con IA (si no está disponible, siguen las respuestas automáticas de siempre)
+        $b = Bot::responder($this->db, $linea, $contacto, $texto, $ahora);
+        if ($b !== null) {
+            $this->motivo((int) $id, $b['motivo']);
+            return;
+        }
+
+        // 3. Respuestas automáticas de siempre (menú)
         $st = $this->db->prepare("SELECT count(*) FROM mensajes WHERE contacto_id = ? AND origen = 'auto' AND estado NOT IN ('fallido', 'bloqueado') AND creado > ?");
         $st->execute([$contacto['id'], $ahora->modify('-' . (int) $linea['horas_silencio'] . ' hours')->format('c')]);
         // Si tocó un botón del menú (id op1, op2…), se decide con el número de la opción
         $paraDecidir = $texto;
-        $idBoton = (string) ($m['interactive']['button_reply']['id'] ?? $m['interactive']['list_reply']['id'] ?? '');
         if (preg_match('/^op(\d{1,2})$/', $idBoton, $mb)) {
             $paraDecidir = $mb[1];
         }
-        $d = Empresas::alDiaPorLinea($this->db, $linea)
-            ? Reglas::decidir($linea, $contacto, $paraDecidir, $ahora, (int) $st->fetchColumn())
-            : ['responder' => false, 'motivo' => 'La cuenta no está al día: no se contesta solo', 'texto' => null, 'humano' => false];
+        $d = Reglas::decidir($linea, $contacto, $paraDecidir, $ahora, (int) $st->fetchColumn());
         if (!$d['responder']) {
             $this->motivo((int) $id, $d['motivo']);
             return;
@@ -241,10 +284,73 @@ final class Webhook
             if ($d['humano']) {
                 $this->db->prepare('UPDATE contactos SET silencio_hasta = ? WHERE id = ?')
                    ->execute([$ahora->modify('+' . (int) $linea['horas_silencio'] . ' hours')->format('c'), $contacto['id']]);
+                Reparto::alLlegar($this->db, $linea, Contactos::buscar($this->db, (int) $linea['id'], (int) $contacto['id']), $texto, $ahora);
             }
         } else {
             $this->motivo((int) $id, !empty($r['bloqueado']) ? 'No se contestó: llegaste al tope del mes' : 'No se pudo contestar: ' . $r['error']);
         }
+    }
+
+    /** Palabras que entiende el carrito sin IA. */
+    public const PALABRAS_CATALOGO = ['catalogo', 'ver catalogo', 'productos', 'ver productos', 'menu de productos', 'lista de precios'];
+    public const PALABRAS_COMPRAR = ['comprar', 'confirmar', 'confirmo', 'pagar', 'finalizar compra', 'terminar compra', 'quiero pagar'];
+
+    /**
+     * Carrito por WhatsApp (funciona sin IA): "prod:N" agrega ese producto; "catálogo" manda la lista; "comprar" confirma el
+     * carrito y manda el resumen con cómo pagar. Devuelve el motivo o null si no era nada de esto.
+     */
+    private function catalogo(array $linea, array $contacto, string $texto, string $idBoton, DateTimeImmutable $ahora): ?string
+    {
+        $lid = (int) $linea['id'];
+        $cid = (int) $contacto['id'];
+        $simple = Reglas::simple($texto);
+        $mens = new Mensajeria($this->db, $this->ahora);
+        if (preg_match('/^prod:(\d+)$/', $idBoton, $mp)) {
+            try {
+                $carrito = Pedidos::agregar($this->db, $linea, $cid, (int) $mp[1], 1, 'chat');
+                $items = Pedidos::items($this->db, (int) $carrito['id']);
+                $n = array_sum(array_map(fn ($i) => (int) $i['cantidad'], $items));
+                $p = Catalogo::buscar($this->db, $lid, (int) $mp[1]);
+                $t = '✅ Agregué *' . ($p['nombre'] ?? 'el producto') . "* a tu carrito.\n🛒 " . $n . ($n === 1 ? ' producto' : ' productos')
+                   . ' · total $' . number_format((float) $carrito['total'], 2, ',', '.') . "\n\nEscribe *comprar* para terminar, o *catálogo* para elegir más.";
+            } catch (\RuntimeException $e) {
+                $t = $e->getMessage() . ' Escribe *catálogo* para ver lo disponible.';
+            }
+            $r = $mens->texto($linea, $contacto, $t, 'auto');
+            return $r['ok'] ? 'Eligió un producto del catálogo: se agregó al carrito' : 'No se pudo contestar: ' . $r['error'];
+        }
+        if (in_array($simple, self::PALABRAS_CATALOGO, true)) {
+            $productos = Catalogo::lista($this->db, $lid, true, '', 10);
+            if (!$productos) {
+                return null;
+            }
+            $r = $mens->botones($linea, $contacto, 'Estos son nuestros productos. Toca uno para agregarlo a tu carrito 👇', Catalogo::filasLista($productos, $linea), 'auto', null, 'Ver productos', true);
+            return $r['ok'] ? 'Pidió el catálogo: se le mandó la lista' : 'No se pudo contestar: ' . $r['error'];
+        }
+        if (in_array($simple, self::PALABRAS_COMPRAR, true)) {
+            $carrito = Pedidos::carrito($this->db, $linea, $cid, false);
+            if (!$carrito || !Pedidos::items($this->db, (int) $carrito['id'])) {
+                return null;
+            }
+            try {
+                $pedido = Pedidos::cambiarEstado($this->db, $linea, (int) $carrito['id'], 'pendiente', $ahora);
+            } catch (\RuntimeException $e) {
+                $r = $mens->texto($linea, $contacto, $e->getMessage(), 'auto');
+                return 'No se pudo confirmar el carrito: ' . $e->getMessage();
+            }
+            $enlace = '';
+            try {
+                $enlace = Pedidos::enlacePago($this->db, $linea, $pedido);
+            } catch (\RuntimeException $e) {
+                error_log('tuwhatsapp enlace de pago: ' . $e->getMessage());
+            }
+            $pedido = Pedidos::buscar($this->db, $lid, (int) $pedido['id']);
+            Embudo::mover($this->db, $lid, $cid, 'cotizado', number_format((float) $pedido['total'], 2, '.', ''));
+            $r = $mens->texto($linea, $contacto, Pedidos::resumen($linea, $pedido, Pedidos::items($this->db, (int) $pedido['id']), $enlace)
+                                                 . "\n\nCuando pagues, mándanos el comprobante por aquí. ¡Gracias!", 'auto');
+            return $r['ok'] ? 'Confirmó su carrito: pedido #' . $pedido['numero'] . ' pendiente de pago' : 'No se pudo contestar: ' . $r['error'];
+        }
+        return null;
     }
 
     private function estado(array $s): void
@@ -302,6 +408,7 @@ final class Webhook
         $id = $st->fetchColumn();
         if ($id !== false) {
             Pendientes::marcarPorEco($this->db, (int) $linea['id'], $tel, $texto);
+            Contactos::callar($this->db, $linea, (int) $contacto['id'], $cuando);
             if ($mediaId !== null) {
                 $this->bajarArchivo($linea, (int) $id);
             }

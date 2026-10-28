@@ -89,7 +89,7 @@ $eVencida = $crear('Vencida SA', 'activa', $d('-1 day'), 'vencida@cliente.com');
 $eCortesia = $crear('Cortesía Sin Fecha', 'activa', null, 'cortesia@cliente.com');
 $eSusp = $crear('Suspendida Ltda', 'activa', $d('+30 days'), 'susp@cliente.com');
 Empresas::guardar($db, $eSusp, array_merge(Empresas::buscar($db, $eSusp), ['estado' => 'suspendida', 'motivo_suspension' => 'Falta de pago']));
-Modulos::aplicarPlan($db, $eActiva, 'negocio');
+Modulos::aplicarPlan($db, $eActiva, 'todo');
 
 echo "== capacidades\n";
 $r = $pedir('capacidades');
@@ -174,7 +174,7 @@ ok($porId[(string) $eSusp]['bloqueado'] && $porId[(string) $eSusp]['estado'] ===
 igual(array_slice(array_column($r[1]['clientes'], 'id'), 0, 2), [(string) $eDemoFin, (string) $eVencida], 'orden por vencimiento (lo más vencido primero)');
 igual(end($r[1]['clientes'])['id'], (string) $eCortesia, 'sin fecha al final');
 $c = $porId[(string) $eActiva];
-ok($c['plan'] === ['codigo' => 'negocio', 'nombre' => 'Negocio'] && $c['mensual_estimado'] === 35.0 && $c['dueno']['whatsapp'] === '593991234567'
+ok($c['plan'] === ['codigo' => 'todo', 'nombre' => 'Todo incluido'] && $c['mensual_estimado'] === 20.0 && $c['dueno']['whatsapp'] === '593991234567'
    && $c['dueno']['email'] === 'activa@cliente.com' && $c['ir'] === '/?r=cliente&id=' . $eActiva && $c['origen'] === 'super', 'cliente: plan, mensual, dueño, ir y origen');
 igual($porId[(string) $eDemo]['mensual_estimado'], 0.0, 'una demo no suma al mes');
 igual(count($c['uso']), 4, 'uso: 4 cifras');
@@ -203,11 +203,12 @@ $codigo($pedir('cliente', []), 422, 'invalido', 'cliente sin id', 'id');
 echo "== planes y módulos\n";
 $r = $pedir('planes');
 igual(array_column($r[1]['planes'], 'codigo'), array_keys(Modulos::PLANES), 'planes desde Modulos::PLANES');
-igual($r[1]['planes'][1]['precios'][0]['precio'], 35.0, 'precio del plan Negocio');
+igual($r[1]['planes'][0]['precios'][0]['precio'], 20.0, 'precio del plan Todo incluido');
+igual($r[1]['planes'][1]['precios'][0]['precio'], 25.0, 'precio del plan Todo incluido + IA');
 igual($r[1]['ajustes']['dias_demo'], 7, 'días de demo por defecto');
 $m = $pedir('modulos')[1];
 igual(array_column($m['modulos'], 'id'), array_keys(Modulos::LISTA), 'catálogo de módulos');
-ok($m['planes'][2]['todos'] === true && $m['planes'][0]['todos'] === false && $m['editable'] === false, 'planes con sus módulos (Pro = todos)');
+ok($m['planes'][1]['todos'] === true && $m['planes'][0]['todos'] === false && $m['editable'] === false && $m['modulos'][0]['precio_mensual'] === 5.0, 'planes con sus módulos (Todo incluido + IA = todos; la IA cuesta $5)');
 
 echo "== crear_demo\n";
 $op = bin2hex(random_bytes(16));
@@ -219,7 +220,7 @@ $res = $r[1]['resultado'] ?? [];
 ok($r[0] === 200 && $r[1]['ok'] && $r[1]['operacion'] === 'crear_demo' && $r[1]['repetida'] === false, 'crear_demo correcto');
 $nueva = (int) ($res['cliente_id'] ?? 0);
 $emp = Empresas::buscar($db, $nueva);
-ok($emp && $emp['estado'] === 'demo' && $emp['vence'] === $d('+10 days') && $emp['origen'] === 'central' && $emp['plan'] === 'pro', 'empresa en demo, vence hoy + días, origen central');
+ok($emp && $emp['estado'] === 'demo' && $emp['vence'] === $d('+10 days') && $emp['origen'] === 'central' && $emp['plan'] === 'todo_ia', 'empresa en demo, vence hoy + días, origen central');
 igual($res['prueba_hasta'], $d('+10 days'), 'prueba_hasta');
 igual(Modulos::deEmpresa($emp), Modulos::todos(), 'la demo tiene todos los módulos');
 $u = $db->query("SELECT * FROM usuarios WHERE empresa_id = $nueva")->fetchAll();
@@ -252,11 +253,11 @@ $codigo($ejecutar('crear_demo', array_merge($datosDemo, ['email' => 'otro@x.ec',
 $codigo($ejecutar('crear_demo', array_merge($datosDemo, ['email' => 'otro@x.ec', 'nombre' => 'ab'])), 422, 'invalido', 'nombre corto', 'datos.nombre');
 $codigo($ejecutar('crear_demo', array_merge($datosDemo, ['email' => 'otro@x.ec', 'solicitud_id' => 'demo_pedida:3'])), 422, 'invalido', 'sin pedidos de demo', 'datos.solicitud_id');
 $codigo($ejecutar('crear_demo', array_merge($datosDemo, ['email' => 'otro@x.ec', 'modulos' => ['ia', 'cohete']])), 422, 'invalido', 'módulo que no existe', 'datos.modulos');
-$r = $ejecutar('crear_demo', array_merge($datosDemo, ['nombre' => 'Demo Básica', 'email' => 'basica@x.ec', 'plan' => 'basico', 'dias' => null, 'modulos' => 'ninguno']));
+$r = $ejecutar('crear_demo', array_merge($datosDemo, ['nombre' => 'Demo Básica', 'email' => 'basica@x.ec', 'plan' => 'todo', 'dias' => null, 'modulos' => 'ninguno']));
 $eb = Empresas::buscar($db, (int) $r[1]['resultado']['cliente_id']);
-ok($r[0] === 200 && Modulos::deEmpresa($eb) === [] && $eb['vence'] === $d('+7 days') && $eb['plan'] === 'basico', 'demo con "ninguno" = solo lo básico, 7 días por defecto');
-$r = $ejecutar('crear_demo', array_merge($datosDemo, ['nombre' => 'Demo Elegida', 'email' => 'elegida@x.ec', 'modulos' => ['ia', 'embudo']]));
-igual(Modulos::deEmpresa(Empresas::buscar($db, (int) $r[1]['resultado']['cliente_id'])), ['ia', 'embudo'], 'demo con los módulos elegidos');
+ok($r[0] === 200 && Modulos::deEmpresa($eb) === [] && $eb['vence'] === $d('+7 days') && $eb['plan'] === 'todo', 'demo con "ninguno" = sin IA, 7 días por defecto');
+$r = $ejecutar('crear_demo', array_merge($datosDemo, ['nombre' => 'Demo Elegida', 'email' => 'elegida@x.ec', 'modulos' => ['ia']]));
+igual(Modulos::deEmpresa(Empresas::buscar($db, (int) $r[1]['resultado']['cliente_id'])), ['ia'], 'demo con los módulos elegidos');
 $r = $ejecutar('crear_demo', array_merge($datosDemo, ['nombre' => 'Demo Todo', 'email' => 'todo@x.ec', 'modulos' => []]));
 igual(Modulos::deEmpresa(Empresas::buscar($db, (int) $r[1]['resultado']['cliente_id'])), Modulos::todos(), 'lista vacía = todos');
 
@@ -307,26 +308,26 @@ $db->exec("UPDATE usuarios SET activo = false WHERE empresa_id = $sinDueno");
 $codigo($ejecutar('nueva_clave_dueno', [], (string) $sinDueno), 403, 'no_permitido', 'sin administrador activo');
 
 echo "== módulos, plan, nota e IA\n";
-$r = $ejecutar('cambiar_modulos', ['apagar' => 'ia,integraciones', 'encender' => []], (string) $nueva);
+$r = $ejecutar('cambiar_modulos', ['apagar' => 'ia', 'encender' => []], (string) $nueva);
 $mods = $r[1]['resultado']['modulos'] ?? [];
-ok($r[0] === 200 && !in_array('ia', Modulos::deEmpresa(Empresas::buscar($db, $nueva)), true) && $mods['quitados'] === ['ia', 'integraciones'], 'apagar módulos');
-igual($mods['mensual'], 55.0 - Modulos::PRECIOS['ia'] - Modulos::PRECIOS['integraciones'], 'el precio baja con lo apagado');
-igual($r[1]['resultado']['apagados'], ['ia', 'integraciones'], 'dice qué se apagó');
+ok($r[0] === 200 && !in_array('ia', Modulos::deEmpresa(Empresas::buscar($db, $nueva)), true) && $mods['quitados'] === ['ia'], 'apagar módulos');
+igual($mods['mensual'], 25.0 - Modulos::PRECIOS['ia'], 'el precio baja con lo apagado');
+igual($r[1]['resultado']['apagados'], ['ia'], 'dice qué se apagó');
 $r = $ejecutar('cambiar_modulos', ['apagar' => ['ia']], (string) $nueva);
 ok($r[0] === 200 && $r[1]['sin_cambios'] === true, 'apagar lo ya apagado: sin_cambios');
 $codigo($ejecutar('cambiar_modulos', ['encender' => 'cohete'], (string) $nueva), 422, 'invalido', 'módulo desconocido', 'datos.encender');
 $codigo($ejecutar('cambiar_modulos', ['precio_acordado' => 20.0], (string) $nueva), 422, 'invalido', 'sin precio acordado', 'datos.precio_acordado');
 $r = $ejecutar('cambiar_modulos', ['encender' => ['ia']], (string) $eActiva);
-ok($r[0] === 200 && $r[1]['resultado']['modulos']['extra'] === ['ia'] && $r[1]['resultado']['modulos']['mensual'] === 35.0 + Modulos::PRECIOS['ia'], 'encender un módulo fuera del plan se cobra aparte');
-igual($pedir('cliente', ['id' => (string) $eActiva])[1]['cliente']['mensual_estimado'], 35.0 + Modulos::PRECIOS['ia'], 'mensual_estimado con el extra');
-$r = $ejecutar('cambiar_plan', ['plan' => 'pro'], (string) $eActiva);
+ok($r[0] === 200 && $r[1]['resultado']['modulos']['extra'] === ['ia'] && $r[1]['resultado']['modulos']['mensual'] === 20.0 + Modulos::PRECIOS['ia'], 'encender un módulo fuera del plan se cobra aparte');
+igual($pedir('cliente', ['id' => (string) $eActiva])[1]['cliente']['mensual_estimado'], 20.0 + Modulos::PRECIOS['ia'], 'mensual_estimado con el extra');
+$r = $ejecutar('cambiar_plan', ['plan' => 'todo_ia'], (string) $eActiva);
 $ea = Empresas::buscar($db, $eActiva);
 $activosPro = Modulos::deEmpresa($ea);
 sort($activosPro);
 $todosOrden = Modulos::todos();
 sort($todosOrden);
-ok($r[0] === 200 && $ea['plan'] === 'pro' && $activosPro === $todosOrden && (int) $ea['max_numeros'] === 2, 'cambiar plan (como el botón de la ficha)');
-ok($ejecutar('cambiar_plan', ['plan' => 'pro'], (string) $eActiva)[1]['sin_cambios'] === true, 'mismo plan: sin_cambios');
+ok($r[0] === 200 && $ea['plan'] === 'todo_ia' && $activosPro === $todosOrden && (int) $ea['max_usuarios'] >= 50, 'cambiar plan (como el botón de la ficha)');
+ok($ejecutar('cambiar_plan', ['plan' => 'todo_ia'], (string) $eActiva)[1]['sin_cambios'] === true, 'mismo plan: sin_cambios');
 $codigo($ejecutar('cambiar_plan', ['plan' => 'oro'], (string) $eActiva), 422, 'invalido', 'plan que no existe', 'datos.plan');
 $r = $ejecutar('nota_interna', ['texto' => 'Pidió factura con RUC'], (string) $eActiva);
 ok($r[0] === 200 && Empresas::buscar($db, $eActiva)['notas'] === 'Pidió factura con RUC'

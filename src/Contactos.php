@@ -154,6 +154,21 @@ final class Contactos
         $db->prepare('UPDATE contactos SET asignado_a = ? WHERE id = ? AND linea_id = ?')->execute([$usuarioId, $id, $lineaId]);
     }
 
+    /**
+     * Alguien del equipo contestó (desde el panel o desde el celular): lo automático (chatbots, agente con IA y menú) se calla
+     * las horas de silencio del número para no interrumpir. Se puede apagar en el número (callar_al_atender).
+     */
+    public static function callar(PDO $db, array $linea, int $id, ?\DateTimeImmutable $ahora = null): void
+    {
+        $v = $linea['callar_al_atender'] ?? true;
+        if (!($v === true || $v === 't' || $v === 1 || $v === '1')) {
+            return;
+        }
+        $hasta = ($ahora ?? new \DateTimeImmutable())->modify('+' . max(1, (int) ($linea['horas_silencio'] ?? 12)) . ' hours')->format('c');
+        $db->prepare("UPDATE contactos SET silencio_hasta = GREATEST(COALESCE(silencio_hasta, ?), ?), flujo_id = NULL, flujo_paso = NULL WHERE id = ? AND tipo <> 'personal'")
+           ->execute([$hasta, $hasta, $id]);
+    }
+
     /** Si nadie atiende la conversación, la toma quien escribe desde el panel. */
     public static function tomarSiLibre(PDO $db, int $id, int $usuarioId): void
     {

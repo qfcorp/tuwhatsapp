@@ -371,21 +371,22 @@ get "/?r=bandeja"; ok '! tiene "r=campanias" && ! tiene "r=reglas"' "el menú de
 echo "== Módulos, fotos y audios"
 J="$TUKAN_J"
 get "/?r=mas"
-ok '[ "$CODIGO" = 200 ] && tiene "Plantillas" && tiene "Gasto" && ! tiene "No incluido"' "Más: Tukán tiene todo"
+ok '[ "$CODIGO" = 200 ] && tiene "Plantillas" && tiene "Gasto" && tiene "Catálogo" && tiene "Chatbots" && tiene "Equipo y reparto" && ! tiene "Pedir a Tukán"' "Más: Tukán tiene todo"
 get "/?r=bandeja"; ok 'tiene "r=embudo" && tiene "r=mas"' "menú de abajo con Embudo y Más"
 get "/?r=cliente&id=$EMP"
-ok 'tiene "Módulos del plan" && tiene "Campañas masivas"' "Tukán ve los módulos del cliente"
-post "/?r=cliente&id=$EMP" --data-urlencode "accion=plan:pro"
-ok 'tiene "Plan Pro aplicado" && tiene "Números permitidos<input type=\"number\" name=\"max_numeros\" min=\"0\" max=\"100\" value=\"2\""' "aplicar el plan Pro con un toque"
+ok 'tiene "Plan y extras" && tiene "Todo incluido" && tiene "Asistente con IA y agente que contesta solo"' "Tukán ve el plan y el extra de IA del cliente"
+post "/?r=cliente&id=$EMP" --data-urlencode "accion=plan:todo_ia"
+ok 'tiene "Plan Todo incluido + IA aplicado" && tiene "Usuarios permitidos<input type=\"number\" name=\"max_usuarios\" min=\"1\" max=\"500\" value=\"50\""' "aplicar el plan Todo incluido + IA con un toque"
 post "/?r=cliente&id=$EMP" --data-urlencode "accion=modulos" --data-urlencode "modulos[]=reportes" --data-urlencode "modulos[]=inventado"
-ok 'tiene "Módulos guardados"' "guardar módulos del cliente"
+ok 'tiene "Módulos guardados"' "guardar extras del cliente (sin IA)"
 post "/?r=cliente&id=$EMP" --data-urlencode "accion=datos" --data-urlencode "nombre=Salón Bella" --data-urlencode "estado=activa" --data-urlencode "vence=" \
      --data-urlencode "motivo_suspension=" --data-urlencode "max_numeros=1" --data-urlencode "max_usuarios=2"
 J="$BELLA_J"
 seguir "/?r=campanias"
-ok 'tiene "no está incluido en tu plan" && tiene "No incluido" && tiene "Pedir a Tukán"' "sin el módulo: campañas bloqueadas y se puede pedir"
-get "/?r=bandeja"; ok '! tiene "r=embudo"' "sin embudo no sale en el menú"
-seguir "/?r=embudo"; ok 'tiene "no está incluido en tu plan"' "embudo bloqueado por dirección"
+ok '! tiene "no está incluido en tu plan"' "todo incluido: campañas abiertas sin pagar aparte"
+seguir "/?r=ia"
+ok 'tiene "no está incluido en tu plan" && tiene "Extra" && tiene "Pedir a Tukán"' "sin el extra de IA: bloqueada y se puede pedir"
+seguir "/?r=embudo"; ok '! tiene "no está incluido en tu plan"' "embudo abierto (todo incluido)"
 
 J="$TUKAN_J"
 T=$(date +%s)
@@ -513,12 +514,178 @@ tokenIr() { IR="$1" php -r '$b = fn($s) => rtrim(strtr(base64_encode($s), "+/", 
   echo $p . "." . $b(hash_hmac("sha256", $p, str_repeat("a1", 32), true));'; }
 J="$(mktemp)"
 seguir "/tukan_central.php?accion=sso&t=$(tokenIr "/?r=cliente&id=$DEMO_ID")"
-ok 'tiene "Demo Web" && tiene "Módulos del plan"' "SSO con enlace directo a la ficha del cliente"
+ok 'tiene "Demo Web" && tiene "Plan y extras"' "SSO con enlace directo a la ficha del cliente"
 ok 'tiene "Desde el Panel Tukán Central" && tiene "Demo creada: Demo Web" && tiene "Dimitry &lt;dimi@tukanec.com&gt;"' "la ficha muestra lo que hizo el panel"
 J="$(mktemp)"
 CODIGO=$(curl -s -D - -o /dev/null -b "$J" -c "$J" "$W/tukan_central.php?accion=sso&t=$(tokenIr "//malo.com")" | grep -i "^Location:" | tr -d '\r')
 ok '[ "$CODIGO" = "Location: /?r=clientes" ]' "SSO con ir malo va al inicio"
 seguir "/?r=clientes"; ok 'tiene "El enlace directo no era válido"' "y avisa que el enlace no era válido"
+
+echo "== Catálogo, cobros, carrito y cotización"
+J="$TUKAN_J"
+get "/?r=catalogo"
+ok '[ "$CODIGO" = 200 ] && tiene "Todavía no hay productos" && tiene "Subir muchos productos con Excel"' "catálogo vacío"
+F="$(mktemp --suffix=.jpg)"; printf '\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00' > "$F"; head -c 300 /dev/zero >> "$F"
+CODIGO=$(curl -s -L -o "$P.2" -w '%{http_code}' -b "$J" -c "$J" -F "csrf=$(csrf)" -F "accion=guardar" -F "nombre=Plan TuSalón" -F "precio=29,90" -F "stock=" \
+         -F "codigo=TS-1" -F "descripcion=Agenda y caja para peluquerías" -F "activo=1" -F "foto=@$F;filename=tusalon.jpg" "$W/?r=catalogo"); mv "$P.2" "$P"
+ok 'tiene "Producto guardado" && tiene "Plan TuSalón" && tiene "\$29,90" && tiene "r=foto_producto"' "crear producto con foto"
+FID=$(grep -o 'r=foto_producto&amp;id=[0-9]*' "$P" | head -1 | grep -o '[0-9]*$')
+TIPO=$(curl -s -o /dev/null -w '%{content_type}' -b "$J" "$W/?r=foto_producto&id=$FID"); ok '[ "$TIPO" = "image/jpeg" ]' "se ve la foto del producto"
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -b "$BELLA_J" "$W/?r=foto_producto&id=$FID"); ok '[ "$CODIGO" != 200 ]' "otro cliente no ve la foto"
+post "/?r=catalogo" --data-urlencode "accion=guardar" --data-urlencode "nombre=Plan TuGuardería" --data-urlencode "precio=abc"
+ok 'tiene "no es un número"' "precio con letras no se acepta"
+CSV="$(mktemp --suffix=.csv)"; printf 'nombre;precio;stock;codigo;descripcion\nPlan TuEvento;35;2;TE-1;Salones de eventos\n' > "$CSV"
+get "/?r=catalogo"
+CODIGO=$(curl -s -L -o "$P.2" -w '%{http_code}' -b "$J" -c "$J" -F "csrf=$(csrf)" -F "accion=importar" -F "archivo=@$CSV;filename=productos.csv" "$W/?r=catalogo"); mv "$P.2" "$P"
+ok 'tiene "1 productos nuevos" && tiene "Plan TuEvento" && tiene "stock 2"' "subir productos con CSV"
+PID=$(grep -o 'r=catalogo&amp;editar=[0-9]*' "$P" | head -1 | grep -o '[0-9]*$')
+get "/?r=catalogo&editar=$PID"; ok 'tiene "Cambiar producto"' "editar producto"
+get "/?r=cobros"
+post "/?r=cobros" --data-urlencode "negocio_ruc=1793135099001" --data-urlencode "iva_pct=15" --data-urlencode "negocio_direccion=Quito" --data-urlencode "cotizacion_dias=10" \
+     --data-urlencode "pago_transferencia=Banco Pichincha 2201" --data-urlencode "pago_enlace=https://pay.ejemplo.com/{total}" --data-urlencode "payphone_token=" --data-urlencode "payphone_store="
+ok 'tiene "Guardado" && tiene "value=\"1793135099001\"" && tiene "Banco Pichincha 2201"' "guardar cobros"
+post "/?r=cobros" --data-urlencode "pago_enlace=http://malo.com" --data-urlencode "iva_pct=0"
+ok 'tiene "debe empezar con https"' "el enlace de pago debe ser https"
+get "/?r=chat&c=$C"
+ok 'tiene "Carrito y cotización" && tiene "Plan TuSalón"' "el chat tiene carrito con los productos"
+TS=$(grep -o '<option value="[0-9]*">Plan TuSalón' "$P" | head -1 | grep -o '[0-9]*')
+post "/?r=chat&c=$C" --data-urlencode "accion=carrito_agregar" --data-urlencode "producto_id=$TS" --data-urlencode "cantidad=2"
+ok 'tiene "Agregado al carrito. Total \$68,77" && tiene "2 x <!--notr-->Plan TuSalón"' "agregar al carrito desde el chat (con IVA)"
+post "/?r=chat&c=$C" --data-urlencode "accion=carrito_resumen"
+ok 'tiene "Resumen enviado"' "mandar resumen del pedido"
+ok 'grep -q "pay.ejemplo.com.\{1,2\}68.77" "$SIM_LOG"' "el resumen lleva el enlace de pago con el total"
+post "/?r=chat&c=$C" --data-urlencode "accion=carrito_cotizacion"
+ok 'tiene "Cotización enviada"' "mandar cotización en PDF"
+ok 'grep -q "Cotizacion-0000[0-9].pdf" "$SIM_LOG" && grep -q "application.\{1,2\}pdf" "$SIM_LOG"' "Meta recibió el PDF"
+post "/?r=chat&c=$C" --data-urlencode "accion=enviar_producto" --data-urlencode "producto_id=$TS"
+ok 'tiene "Producto enviado" && tiene "Plan TuSalón"' "mandar un producto con foto"
+post "/?r=chat&c=$C" --data-urlencode "accion=enviar_catalogo"
+ok 'tiene "Catálogo enviado"' "mandar el catálogo para elegir"
+get "/?r=pedidos"
+ok 'tiene "Pedidos" && tiene "Carrito" && tiene "\$68,77"' "lista de pedidos"
+PED=$(grep -o 'r=pedido&amp;id=[0-9]*' "$P" | head -1 | grep -o '[0-9]*$')
+get "/?r=pedido&id=$PED"
+ok 'tiene "Pedido #" && tiene "Confirmar (pendiente de pago)" && tiene "Descargar PDF"' "ficha del pedido"
+post "/?r=pedido&id=$PED" --data-urlencode "accion=libre" --data-urlencode "nombre=Instalación" --data-urlencode "precio=10"
+ok 'tiene "Agregado" && tiene "Instalación"' "agregar algo fuera del catálogo"
+post "/?r=pedido&id=$PED" --data-urlencode "accion=estado" --data-urlencode "estado=pendiente"
+ok 'tiene "Pendiente de pago" && tiene "Marcar pagado"' "confirmar el pedido"
+post "/?r=pedido&id=$PED" --data-urlencode "accion=estado" --data-urlencode "estado=pagado"
+ok 'tiene "Pedido: Pagado" && tiene "Pagado el"' "marcar pagado"
+get "/?r=chat&c=$C"; ok 'tiene "value=\"ganado\" selected"' "pagado: el embudo pasa a Ganado"
+TIPO=$(curl -s -o "$P" -w '%{content_type}' -b "$J" "$W/?r=cotizacion&id=$PED")
+ok '[ "$TIPO" = "application/pdf" ] && head -c 8 "$P" | grep -q "%PDF-1.4"' "descargar la cotización en PDF"
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -b "$BELLA_J" "$W/?r=cotizacion&id=$PED"); ok '[ "$CODIGO" = 302 ]' "otro cliente no descarga la cotización"
+post "/?r=cobros" --data-urlencode "iva_pct=0" --data-urlencode "pago_enlace=" --data-urlencode "pago_transferencia="
+
+echo "== Chatbots"
+get "/?r=flujos"; ok 'tiene "Todavía no tienes chatbots"' "chatbots vacío"
+post "/?r=flujos" --data-urlencode "nombre=Bienvenida" --data-urlencode "disparador=palabras" --data-urlencode "palabras=hola, info"
+ok 'tiene "Chatbot creado con un ejemplo" && tiene "Paso 1" && tiene "Paso 3" && tiene "Ver productos"' "crear chatbot con ejemplo"
+FL=$(grep -o 'name="csrf"' "$P" | head -1 >/dev/null; PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM flujos ORDER BY id DESC LIMIT 1" -d tuwhatsapp_prueba)
+post "/?r=flujo&id=$FL" --data-urlencode "accion=probar" --data-urlencode "entradas=$(printf 'hola\n2')"
+ok 'tiene "Soy el asistente de Tukán ventas" && tiene "en un momento te atiende una persona" && tiene "Aquí pasa a una persona"' "probar el chatbot sin mandar nada"
+post "/?r=flujo&id=$FL" --data-urlencode "accion=agregar_paso" --data-urlencode "nombre=Bienvenida" --data-urlencode "disparador=palabras" --data-urlencode "palabras=hola, info" \
+     --data-urlencode "paso[0][id]=p1" --data-urlencode "paso[0][tipo]=botones" --data-urlencode "paso[0][texto]=¿En qué te ayudo?" \
+     --data-urlencode "paso[0][op_titulo][0]=Precios" --data-urlencode "paso[0][op_ir][0]=p2" --data-urlencode "paso[0][op_titulo][1]=Asesor" --data-urlencode "paso[0][op_ir][1]=p3" \
+     --data-urlencode "paso[1][id]=p2" --data-urlencode "paso[1][tipo]=fin" --data-urlencode "paso[1][texto]=Te mando precios" \
+     --data-urlencode "paso[2][id]=p3" --data-urlencode "paso[2][tipo]=persona" --data-urlencode "paso[2][texto]=Ya te atienden"
+ok 'tiene "Paso agregado al final" && tiene "Paso 4"' "agregar un paso"
+post "/?r=flujo&id=$FL" --data-urlencode "accion=guardar" --data-urlencode "nombre=Bienvenida" --data-urlencode "disparador=palabras" --data-urlencode "palabras=" --data-urlencode "activo=1" \
+     --data-urlencode "paso[0][id]=p1" --data-urlencode "paso[0][tipo]=mensaje" --data-urlencode "paso[0][texto]=Hola"
+ok 'tiene "al menos una palabra"' "encender sin palabras: avisa"
+post "/?r=flujo&id=$FL" --data-urlencode "accion=guardar" --data-urlencode "nombre=Bienvenida" --data-urlencode "disparador=palabras" --data-urlencode "palabras=hola" --data-urlencode "activo=1" \
+     --data-urlencode "paso[0][id]=p1" --data-urlencode "paso[0][tipo]=mensaje" --data-urlencode "paso[0][texto]=Hola desde el chatbot" --data-urlencode "paso[0][siguiente]=fin"
+ok 'tiene "Chatbot guardado" && tiene "Encendido"' "guardar y encender"
+get "/?r=flujos"; ok 'tiene "Bienvenida" && tiene "Encendido" && tiene "1 paso"' "lista de chatbots"
+get "/?r=reglas"; ok 'tiene "Qué contesta primero" && tiene "r=flujos" && tiene "name=\"callar_al_atender\""' "Automático explica el orden"
+post "/?r=flujo&id=$FL" --data-urlencode "accion=borrar"
+ok 'tiene "Chatbot borrado"' "borrar chatbot"
+
+echo "== Equipo, reparto y campos"
+get "/?r=equipo"
+ok '[ "$CODIGO" = 200 ] && tiene "Reparto automático" && tiene "Esperando respuesta" && tiene "Luis"' "vista del supervisor"
+post "/?r=equipo" --data-urlencode "accion=reparto" --data-urlencode "reparto=turnos" --data-urlencode "regla_palabras[0]=factura" --data-urlencode "regla_usuario[0]=0"
+ok 'tiene "Reparto guardado" && tiene "value=\"turnos\" checked"' "guardar reparto por turnos"
+LU=$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM usuarios WHERE correo = 'luis@tukan.com'" -d tuwhatsapp_prueba)
+post "/?r=equipo" --data-urlencode "accion=persona" --data-urlencode "id=$LU" --data-urlencode "que=disponible" --data-urlencode "valor=0"
+ok 'tiene "Ausente"' "marcar ausente"
+post "/?r=equipo" --data-urlencode "accion=persona" --data-urlencode "id=$LU" --data-urlencode "que=disponible" --data-urlencode "valor=1"
+post "/?r=equipo" --data-urlencode "accion=reparto" --data-urlencode "reparto=manual"
+get "/?r=campos"
+post "/?r=campos" --data-urlencode "accion=crear" --data-urlencode "nombre=Ciudad" --data-urlencode "tipo=lista" --data-urlencode "opciones=Quito, Guayaquil"
+ok 'tiene "Campo agregado" && tiene "Quito, Guayaquil"' "crear campo personalizado"
+get "/?r=chat&c=$C"; ok 'tiene "name=\"campo\[ciudad\]\""' "el campo sale en el chat"
+post "/?r=chat&c=$C" --data-urlencode "accion=datos" --data-urlencode "nombre=Ana Salón Quito" --data-urlencode "notas=Quiere TuSalón" --data-urlencode "etiquetas=" --data-urlencode "campo[ciudad]=quito"
+ok 'tiene "Datos guardados" && tiene "<option selected>Quito</option>"' "guardar el valor del campo"
+post "/?r=chat&c=$C" --data-urlencode "accion=datos" --data-urlencode "nombre=Ana" --data-urlencode "campo[ciudad]=Lima"
+ok 'tiene "debe ser una de estas opciones"' "valor que no está en la lista"
+TIPO=$(curl -s -o "$P" -w '%{content_type}' -b "$J" "$W/?r=integraciones&bajar=contactos")
+ok 'tiene "Llegó del anuncio\";Ciudad" && tiene ";Quito"' "los campos personalizados salen en la descarga a Excel"
+
+echo "== Agente con IA, anuncios y reportes"
+get "/?r=ia"
+post "/?r=ia" --data-urlencode "accion=bot" --data-urlencode "bot_activo=1" --data-urlencode "bot_cuando=fuera_horario" --data-urlencode "bot_nombre=Sofía" --data-urlencode "bot_max_dia=10" --data-urlencode "bot_vende=1"
+ok 'tiene "Agente con IA encendido" && tiene "value=\"Sofía\"" && tiene "value=\"fuera_horario\" selected"' "encender el agente con IA"
+post "/?r=ia" --data-urlencode "accion=bot"
+ok 'tiene "Agente con IA guardado (apagado)"' "apagar el agente"
+T=$(date +%s)
+AD='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"phone_number_id":"100"},"contacts":[{"profile":{"name":"Vino del anuncio"},"wa_id":"593993330001"}],"messages":[{"from":"593993330001","id":"wamid.WEBAD","timestamp":"'$T'","type":"text","text":{"body":"Hola, vi su anuncio"},"referral":{"source_id":"120200001","source_type":"ad","source_url":"https://fb.me/x","headline":"Prueba gratis 7 días"}}]}}]}]}'
+ok '[ "$(webhook "$AD")" = 200 ]' "llega alguien desde un anuncio"
+get "/?r=reportes"
+ok 'tiene "De qué anuncio llegaron" && tiene "Prueba gratis 7 días" && tiene "Pedidos pagados en el período"' "reporte de anuncios y pedidos"
+get "/?r=bandeja"
+CA=$(grep -o 'r=chat&amp;c=[0-9]*' "$P" | head -1 | grep -o '[0-9]*$')
+get "/?r=chat&c=$CA"; ok 'tiene "Llegó desde el anuncio" && tiene "Prueba gratis 7 días"' "el chat muestra de qué anuncio llegó"
+
+echo "== Tienda en línea"
+get "/?r=tienda"
+ok '[ "$CODIGO" = 200 ] && tiene "Shopify" && tiene "recordatorio_pago (es)"' "pantalla de tienda con las plantillas aprobadas"
+post "/?r=tienda" --data-urlencode "tienda_tipo=shopify" --data-urlencode "tienda_secreto=secreto_shopify" --data-urlencode "tienda_plantilla_pedido=recordatorio_pago|es" --data-urlencode "tienda_carrito_horas=2"
+ok 'tiene "Ahora pega la dirección" && tiene "/tienda.php?c=" && tiene "Configuración → Notificaciones → Webhooks"' "conectar Shopify muestra la dirección y los pasos"
+CT=$(grep -o 'tienda.php?c=[a-f0-9]*' "$P" | head -1 | sed 's/.*c=//')
+PEDIDO='{"id":9001,"name":"#2001","total_price":"40.00","total_tax":"0","financial_status":"paid","phone":"+593981234500","customer":{"first_name":"Carla","last_name":"Mora"},"line_items":[{"title":"Gorra","price":"20.00","quantity":2}]}'
+FIRMA=$(printf '%s' "$PEDIDO" | openssl dgst -sha256 -hmac secreto_shopify -binary | base64)
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -H "Content-Type: application/json" -H "X-Shopify-Topic: orders/create" -H "X-Shopify-Hmac-Sha256: $FIRMA" --data-binary "$PEDIDO" "$W/tienda.php?c=$CT")
+ok '[ "$CODIGO" = 200 ]' "Shopify manda un pedido firmado"
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -H "X-Shopify-Topic: orders/create" -H "X-Shopify-Hmac-Sha256: malo" --data-binary "$PEDIDO" "$W/tienda.php?c=$CT")
+ok '[ "$CODIGO" = 401 ]' "firma mala: rechazado"
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' --data-binary "$PEDIDO" "$W/tienda.php?c=000000000000000000000000"); ok '[ "$CODIGO" = 404 ]' "clave que no existe"
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' "$W/tienda.php?c=$CT"); ok '[ "$CODIGO" = 405 ]' "solo acepta POST"
+get "/?r=tienda"; ok 'tiene "Últimos pedidos de la tienda" && tiene "Carla Mora" && tiene "\$40,00" && tiene "firma mal"' "el pedido aparece y se avisa la firma mala"
+get "/?r=pedidos"; ok 'tiene "Shopify" && tiene "Carla Mora"' "el pedido de Shopify está en Pedidos"
+ok 'grep -q "\"to\":\"593981234500\"" "$SIM_LOG" && grep -q "recordatorio_pago" "$SIM_LOG"' "al comprador le llega la plantilla por WhatsApp"
+post "/?r=tienda" --data-urlencode "tienda_tipo=woocommerce" --data-urlencode "tienda_secreto="
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' --data-binary "webhook_id=55" "$W/tienda.php?c=$CT"); ok '[ "$CODIGO" = 200 ]' "WooCommerce: el ping al crear el webhook responde bien"
+post "/?r=tienda" --data-urlencode "tienda_tipo="
+
+echo "== App en el celular"
+get "/?r=app"
+ok '[ "$CODIGO" = 200 ] && tiene "Instalar la app" && tiene "data-vapid=\"B" && tiene "Activar avisos"' "pantalla de la app con la clave de avisos"
+CODIGO=$(curl -s -o "$P" -w '%{http_code} %{content_type}' "$W/manifest.json"); ok '[ "${CODIGO%% *}" = 200 ] && tiene "\"display\": \"standalone\"" && tiene "icono-512.png"' "manifiesto para instalar"
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' "$W/assets/icono-192.png"); ok '[ "$CODIGO" = 200 ]' "ícono de la app"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/sw.js"); ok 'tiene "addEventListener('"'"'push'"'"'"' "el service worker recibe los avisos"
+get "/?r=bandeja"; ok 'tiene "rel=\"manifest\""' "todas las páginas enlazan el manifiesto"
+get "/?r=app"
+SUB=$(php -r '$k = openssl_pkey_new(["curve_name" => "prime256v1", "private_key_type" => OPENSSL_KEYTYPE_EC]); $d = openssl_pkey_get_details($k);
+  $b = fn($s) => rtrim(strtr(base64_encode($s), "+/", "-_"), "=");
+  echo json_encode(["endpoint" => getenv("SIM_URL") . "/push/ok/web1", "keys" => ["p256dh" => $b("\x04" . str_pad($d["ec"]["x"], 32, "\0", STR_PAD_LEFT) . str_pad($d["ec"]["y"], 32, "\0", STR_PAD_LEFT)), "auth" => $b(random_bytes(16))]]);')
+post "/?r=push" --data-urlencode "accion=suscribir" --data-urlencode "datos=$SUB"
+ok 'tiene "\"ok\":true" && tiene "te llegarán avisos"' "activar avisos en este celular"
+get "/?r=app"
+post "/?r=push" --data-urlencode "accion=probar"
+ok 'tiene "Aviso de prueba enviado" && grep -q "push.\{1,2\}ok.\{1,2\}web1" "$SIM_LOG"' "aviso de prueba"
+get "/?r=app"
+post "/?r=push" --data-urlencode "accion=suscribir" --data-urlencode "datos={\"endpoint\":\"https://evil.com/x\",\"keys\":{\"p256dh\":\"x\",\"auth\":\"y\"}}"
+ok 'tiene "\"ok\":false" && tiene "no es compatible"' "dirección de avisos rara: rechazada"
+
+echo "== Permisos de lo nuevo"
+entrar luis@tukan.com "$CLAVE_LUIS"
+for R in catalogo cobros flujos equipo campos tienda; do get "/?r=$R"; ok '[ "$CODIGO" = 302 ]' "el agente no abre $R"; done
+get "/?r=pedidos"; ok '[ "$CODIGO" = 200 ] && tiene "Pedidos"' "el agente sí ve los pedidos"
+get "/?r=app"; ok '[ "$CODIGO" = 200 ]' "el agente puede activar la app"
+get "/?r=mas"; ok 'tiene "r=pedidos" && ! tiene "r=catalogo" && tiene "r=app"' "Más del agente"
+J="$TUKAN_J"
 
 echo "== Idiomas (botón 🌐)"
 get "/?r=bandeja&lang=en"

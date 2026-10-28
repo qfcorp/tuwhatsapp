@@ -21,10 +21,22 @@ if (isset($_GET['p_texto'])) {
 <div class="cabeza"><h1>Respuestas automáticas</h1></div>
 <p class="suave">Recibir mensajes es gratis. Solo pagas lo que el sistema contesta solo (unos <?= e(dinero(\TuWhatsApp\Gasto::precios(db())['servicio'], true)) ?> por respuesta). Estas reglas deciden a quién se le contesta.</p>
 
+<section class="tarjeta orden-auto">
+    <h2>Qué contesta primero</h2>
+    <ol class="pasos-cortos">
+        <li><b>Catálogo</b>: si el cliente escribe <i>catálogo</i> le llega la lista de productos; con <i>comprar</i> confirma su carrito. <a href="<?= e(url('catalogo')) ?>">Catálogo</a></li>
+        <li><b>Chatbots</b> por pasos (si alguno se activa con lo que escribió). <a href="<?= e(url('flujos')) ?>">Chatbots</a></li>
+        <li><b>Agente con IA</b> (extra), si está encendido. <a href="<?= e(url('ia')) ?>">Agente con IA</a></li>
+        <li><b>El menú de abajo</b>, con estas reglas.</li>
+    </ol>
+    <p class="suave pequeno">Ninguno contesta a contactos personales, ni mientras alguien del equipo atiende la conversación.</p>
+</section>
+
 <form method="post" class="formulario reglas-form">
     <?= csrf_campo() ?>
     <div class="tarjeta">
-        <?= $interruptor('auto_activo', 'Contestar automáticamente', 'Interruptor general. Apagado, nunca se contesta solo.') ?>
+        <?= $interruptor('auto_activo', 'Contestar automáticamente', 'Interruptor general del menú. Apagado, el menú nunca se manda solo.') ?>
+        <?= $interruptor('callar_al_atender', 'Callarse cuando contesta alguien del equipo', 'Si alguien del equipo escribe (desde aquí o desde el celular), lo automático no interrumpe durante las horas de abajo.') ?>
     </div>
 
     <h2 class="separador">Reglas (la primera que dice "no" gana)</h2>

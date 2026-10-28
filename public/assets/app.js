@@ -438,4 +438,65 @@
             }
         });
     }
+    // App en el celular: botón "Instalar la app" (Android/Chrome) y avisos con el navegador cerrado (Web Push)
+    var botonInstalar = $('#instalar-app'), pedidoInstalar = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        pedidoInstalar = e;
+        if (botonInstalar) { botonInstalar.hidden = false; }
+    });
+    if (botonInstalar) {
+        botonInstalar.addEventListener('click', function () {
+            if (!pedidoInstalar) { return; }
+            pedidoInstalar.prompt();
+            pedidoInstalar.userChoice.then(function () { pedidoInstalar = null; botonInstalar.hidden = true; });
+        });
+    }
+    var cajaPush = $('#caja-push');
+    if (cajaPush) {
+        var estadoPush = $('#estado-push'), activarPush = $('#activar-push'), probarPush = $('#probar-push'), quitarPush = $('#quitar-push');
+        var csrfPush = (document.querySelector('input[name="csrf"]') || {}).value || '';
+        var clave = cajaPush.dataset.vapid;
+        var aBytes = function (b64) {
+            var p = '='.repeat((4 - b64.length % 4) % 4), t = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/')), r = new Uint8Array(t.length);
+            for (var i = 0; i < t.length; i++) { r[i] = t.charCodeAt(i); }
+            return r;
+        };
+        var mandar = function (accion, datos) {
+            var f = new FormData();
+            f.append('csrf', csrfPush); f.append('accion', accion); f.append('datos', JSON.stringify(datos || {}));
+            return fetch('/?r=push', { method: 'POST', body: f, credentials: 'same-origin' }).then(function (r) { return r.json(); })
+                .then(function (d) { estadoPush.textContent = d.mensaje || ''; return d; })
+                .catch(function () { estadoPush.textContent = TR('No se pudo conectar. Intenta de nuevo.'); });
+        };
+        var pintar = function (sub) {
+            activarPush.hidden = !!sub; probarPush.hidden = !sub; quitarPush.hidden = !sub;
+        };
+        if (!('serviceWorker' in navigator) || !('PushManager' in window) || !clave) {
+            activarPush.hidden = true;
+            estadoPush.textContent = TR('Este navegador no permite avisos con la app cerrada. En iPhone, primero agrégala a la pantalla de inicio y ábrela desde ahí.');
+        } else {
+            navigator.serviceWorker.register('/sw.js').then(function () { return navigator.serviceWorker.ready; }).then(function (reg) {
+                return reg.pushManager.getSubscription().then(pintar);
+            }).catch(function () {});
+            activarPush.addEventListener('click', function () {
+                Notification.requestPermission().then(function (p) {
+                    if (p !== 'granted') { estadoPush.textContent = TR('Los avisos están bloqueados: actívalos en el candado junto a la dirección (Notificaciones → Permitir).'); return; }
+                    return navigator.serviceWorker.ready.then(function (reg) {
+                        return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: aBytes(clave) });
+                    }).then(function (sub) {
+                        return mandar('suscribir', sub.toJSON()).then(function (d) { if (d && d.ok) { pintar(sub); } });
+                    });
+                }).catch(function () { estadoPush.textContent = TR('No se pudieron activar los avisos en este navegador.'); });
+            });
+            probarPush.addEventListener('click', function () { mandar('probar'); });
+            quitarPush.addEventListener('click', function () {
+                navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+                    if (!sub) { pintar(null); return; }
+                    var datos = { endpoint: sub.endpoint };
+                    return sub.unsubscribe().then(function () { return mandar('quitar', datos); }).then(function () { pintar(null); });
+                });
+            });
+        }
+    }
 })();

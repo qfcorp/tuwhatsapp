@@ -874,23 +874,33 @@ putenv('TUKAN_CENTRAL_ID=');
 putenv('TUKAN_CENTRAL_SECRET=');
 
 
-echo "== Módulos por cliente\n";
+echo "== Plan todo incluido (solo la IA es extra)\n";
 use TuWhatsApp\{Archivos, Modulos};
-igual(Modulos::deEmpresa(['id' => 1, 'modulos' => '']), Modulos::todos(), 'Tukán tiene todos');
-$eMod = ['id' => 5, 'modulos' => 'embudo,ia'];
-ok(Modulos::activo($eMod, 'embudo') && !Modulos::activo($eMod, 'campanias'), 'solo lo de su plan');
-ok(Modulos::rutaBloqueada($eMod, 'campanias') !== null, 'campañas bloqueadas sin el módulo');
+igual(Modulos::deEmpresa(['id' => 1, 'modulos' => '']), ['ia'], 'Tukán tiene todo, con IA');
+$eMod = ['id' => 5, 'modulos' => 'embudo,campanias'];   // cuenta vieja con módulos de antes
+ok(Modulos::activo($eMod, 'embudo') && Modulos::activo($eMod, 'campanias') && Modulos::activo($eMod, 'catalogo') && Modulos::activo($eMod, 'agentes'), 'todo viene incluido');
+ok(!Modulos::activo($eMod, 'ia'), 'la IA no viene si no se pagó');
+ok(Modulos::rutaBloqueada($eMod, 'ia') !== null, 'la pantalla de IA se bloquea sin el extra');
+igual(Modulos::rutaBloqueada($eMod, 'campanias'), null, 'campañas nunca se bloquean');
 igual(Modulos::rutaBloqueada($eMod, 'bandeja'), null, 'la bandeja nunca se bloquea');
-igual(Modulos::rutaBloqueada($eMod, 'embudo'), null, 'embudo abierto con el módulo');
-igual(Modulos::limpiar('embudo, inventado,ia,embudo'), ['embudo', 'ia'], 'limpia claves raras y repetidas');
-Modulos::guardar($db, $e2, ['reportes', 'enlaces', 'otra']);
-igual(Modulos::deEmpresa(Empresas::buscar($db, $e2)), ['reportes', 'enlaces'], 'se guardan los módulos del cliente');
-$pl = Modulos::aplicarPlan($db, $e2, 'negocio');
+igual(Modulos::limpiar('embudo, inventado,ia,ia'), ['ia'], 'solo guarda extras válidos');
+igual(Modulos::planDe(['id' => 9, 'plan' => 'pro', 'modulos' => 'ia,embudo']), 'todo_ia', 'plan viejo con IA -> Todo incluido + IA');
+igual(Modulos::planDe(['id' => 9, 'plan' => 'basico', 'modulos' => 'enlaces']), 'todo', 'plan viejo sin IA -> Todo incluido');
+Modulos::guardar($db, $e2, ['reportes', 'ia', 'otra']);
+igual(Modulos::deEmpresa(Empresas::buscar($db, $e2)), ['ia'], 'se guarda el extra de IA');
+$pl = Modulos::aplicarPlan($db, $e2, 'todo');
 $fe2 = Empresas::buscar($db, $e2);
-ok($pl[1] === 35 && Modulos::activo($fe2, 'embudo') && !Modulos::activo($fe2, 'ia') && (int) $fe2['max_usuarios'] >= 5, 'plan Negocio');
-try { Modulos::aplicarPlan($db, $e2, 'gratis'); ok(false, 'plan inventado'); } catch (RuntimeException $e) { ok(true, 'plan inventado'); }
+ok($pl[1] === 20 && !Modulos::activo($fe2, 'ia') && Modulos::activo($fe2, 'embudo') && (int) $fe2['max_usuarios'] >= 50, 'plan Todo incluido $20');
+$x = Modulos::detalle($fe2);
+igual([$x['plan'], $x['mensual']], ['todo', 20.0], 'cuesta $20 al mes');
+Modulos::guardar($db, $e2, ['ia']);
+$x = Modulos::detalle(Empresas::buscar($db, $e2));
+igual([$x['plan'], $x['extra'], $x['mensual']], ['todo', ['ia'], 25.0], 'con IA aparte: $25');
+$pl = Modulos::aplicarPlan($db, $e2, 'todo_ia');
+igual(Modulos::detalle(Empresas::buscar($db, $e2))['mensual'], 25.0, 'plan Todo incluido + IA: $25');
+try { Modulos::aplicarPlan($db, $e2, 'negocio'); ok(false, 'plan viejo ya no existe'); } catch (RuntimeException $e) { ok(true, 'plan viejo ya no existe'); }
 Modulos::guardar($db, $e2, []);
-igual(Modulos::deEmpresa(Empresas::buscar($db, $e2)), [], 'se pueden quitar todos');
+igual(Modulos::deEmpresa(Empresas::buscar($db, $e2)), [], 'se puede quitar la IA');
 
 echo "== Menú con botones de WhatsApp\n";
 $lb = Lineas::guardarConexion($db, null, ['nombre' => 'Botones', 'telefono' => '0996400000', 'phone_number_id' => '300', 'waba_id' => '200', 'token' => 'EAAGtokenBotones1234567890']);
@@ -1050,7 +1060,7 @@ igual($env[0]['cuerpo']['text']['body'] ?? null, '¿Pudiste ver la cotización?'
 igual($db->query("SELECT origen FROM pendientes WHERE texto = 'Te escribo de nuevo'")->fetchColumn(), 'seguimiento', 'ventana cerrada: quedó en Pendientes');
 igual(Seguimientos::procesar($db, $martes20->modify('+2 hours')), ['enviado' => 0, 'pendiente' => 0, 'omitido' => 0, 'fallido' => 0], 'no se manda dos veces');
 igual(count(Seguimientos::lista($db, $lb, true)), 1, 'lista de programados');
-igual(count(Seguimientos::deContacto($db, (int) $carla['id'])), 3, 'seguimientos de Carla (programado, enviado y cancelado)');
+igual(count(Seguimientos::deContacto($db, (int) $carla['id'], $martes20->modify('+2 hours'))), 3, 'seguimientos de Carla (programado, enviado y cancelado)');
 
 echo "== Reportes\n";
 $db->exec("UPDATE contactos SET etapa_cambio = '" . $martes20->format('c') . "' WHERE id = {$carla['id']}");
@@ -1176,6 +1186,528 @@ ok(!Terminos::aceptados(['id' => 5, 'terminos_version' => '2020-01-01']), 'versi
 Terminos::aceptar($db, $e2, (int) $u['id'], '1.2.3.4');
 $fila = Empresas::buscar($db, $e2);
 ok(Terminos::aceptados($fila) && $fila['terminos_ip'] === '1.2.3.4' && (int) $fila['terminos_aceptado_por'] === (int) $u['id'], 'queda guardado quién, cuándo y desde dónde');
+
+// =====================================================================================
+// 28 oct 2026: todo incluido + funciones para competir con Mercately
+// =====================================================================================
+use TuWhatsApp\{Anuncios, Bot, Campos, Catalogo, Cotizacion, Flujos, Pedidos, Push, Reparto, Tiendas};
+
+$ahoraN = new DateTimeImmutable('2026-10-28 21:00:00');   // martes 28 de octubre, fuera de horario
+$eN = Empresas::crear($db, ['nombre' => 'Boutique Mía', 'estado' => 'activa', 'admin_correo' => 'mia@boutique.ec', 'admin_nombre' => 'Mía', 'max_usuarios' => 10])['empresa_id'];
+$lN = Lineas::guardarConexion($db, null, ['nombre' => 'Boutique Mía', 'telefono' => '0996401111', 'phone_number_id' => '400', 'waba_id' => '200', 'token' => 'EAAGtokenBoutique1234567890'], $eN);
+$lineaN = Lineas::buscar($db, $lN);
+Empresas::agregarUsuario($db, $eN, 'ana@boutique.ec', 'Ana', 'agente');
+Empresas::agregarUsuario($db, $eN, 'beto@boutique.ec', 'Beto', 'agente');
+$uidN = fn (string $correo) => (int) $db->query("SELECT id FROM usuarios WHERE correo = '$correo'")->fetchColumn();
+[$idMia, $idAna, $idBeto] = [$uidN('mia@boutique.ec'), $uidN('ana@boutique.ec'), $uidN('beto@boutique.ec')];
+$entN = function (string $de, array $mensaje, string $wamid, ?DateTimeImmutable $cuando = null, string $nombre = 'Cliente') use ($ahoraN) {
+    return cuerpoMeta(['messaging_product' => 'whatsapp', 'metadata' => ['phone_number_id' => '400'],
+        'contacts' => [['profile' => ['name' => $nombre], 'wa_id' => $de]],
+        'messages' => [array_merge(['from' => $de, 'id' => $wamid, 'timestamp' => (string) ($cuando ?? $ahoraN)->getTimestamp()], $mensaje)]]);
+};
+$txtN = fn (string $t) => ['type' => 'text', 'text' => ['body' => $t]];
+$salidasN = fn () => array_values(array_filter(sim(), fn ($r) => ($r['ruta'] ?? '') === '/v24.0/400/messages'));
+$whN = new Webhook($db, $ahoraN);
+$cN = fn (string $tel) => Contactos::porTelefono($db, $lN, $tel);
+$motivoN = fn (string $wamid) => (string) $db->query("SELECT motivo FROM mensajes WHERE wamid = '$wamid'")->fetchColumn();
+
+echo "== Reparto automático\n";
+$cand = [['id' => 3], ['id' => 5], ['id' => 9]];
+igual(Reparto::elegir('manual', $cand, [], 'hola', null, []), null, 'a mano: no reparte');
+igual(Reparto::elegir('turnos', $cand, [], 'hola', null, []), 3, 'turnos: empieza por el primero');
+igual(Reparto::elegir('turnos', $cand, [], 'hola', 5, []), 9, 'turnos: el siguiente al último');
+igual(Reparto::elegir('turnos', $cand, [], 'hola', 9, []), 3, 'turnos: vuelve a empezar');
+igual(Reparto::elegir('menos_carga', $cand, [], 'hola', null, [3 => 4, 5 => 1, 9 => 2]), 5, 'al que tiene menos esperando');
+igual(Reparto::elegir('manual', $cand, [['palabras' => 'factura, pago', 'usuario_id' => 9]], 'Necesito mi FACTURA', null, []), 9, 'regla por palabra gana aunque sea a mano');
+igual(Reparto::elegir('turnos', [['id' => 3]], [['palabras' => 'factura', 'usuario_id' => 9]], 'factura', null, []), 3, 'regla con alguien no disponible: sigue el turno');
+Reparto::guardar($db, $lineaN, ['reparto' => 'turnos', 'regla_palabras' => ['factura, pago', ''], 'regla_usuario' => [(string) $idBeto, '0']]);
+$lineaN = Lineas::buscar($db, $lN);
+igual([$lineaN['reparto'], count(Reparto::reglas($lineaN))], ['turnos', 1], 'se guarda el modo y la regla');
+try { Reparto::guardar($db, $lineaN, ['reparto' => 'turnos', 'regla_palabras' => ['x'], 'regla_usuario' => ['1']]); ok(false, 'regla con alguien de otra cuenta'); }
+catch (RuntimeException $e) { ok(true, 'regla con alguien de otra cuenta'); }
+Reparto::cambiarPersona($db, $eN, $idMia, 'recibe_chats', false);   // la dueña no recibe chats
+$whN->procesar($entN('593981000001', $txtN('hola'), 'wamid.REP1'));
+$whN->procesar($entN('593981000002', $txtN('buenas'), 'wamid.REP2'));
+$whN->procesar($entN('593981000003', $txtN('quiero pagar la factura'), 'wamid.REP3'));
+igual([(int) $cN('593981000001')['asignado_a'], (int) $cN('593981000002')['asignado_a'], (int) $cN('593981000003')['asignado_a']], [$idAna, $idBeto, $idBeto], 'turnos Ana, Beto y la factura a Beto');
+ok($cN('593981000001')['asignado_en'] !== null, 'se anota cuándo se asignó');
+Reparto::cambiarPersona($db, $eN, $idBeto, 'disponible', false);
+$whN->procesar($entN('593981000004', $txtN('otra factura'), 'wamid.REP4'));
+igual((int) $cN('593981000004')['asignado_a'], $idAna, 'Beto ausente: va a Ana');
+$whN->procesar($entN('593981000001', $txtN('sigo aquí'), 'wamid.REP5'));
+igual((int) $cN('593981000001')['asignado_a'], $idAna, 'si ya tiene a alguien no se reasigna');
+Contactos::guardar($db, $lN, '0981000009', 'Mamá', 'personal');
+$whN->procesar($entN('593981000009', $txtN('hijo'), 'wamid.REP6'));
+igual($cN('593981000009')['asignado_a'], null, 'los personales nunca se reparten');
+Reparto::cambiarPersona($db, $eN, $idAna, 'disponible', false);
+$whN->procesar($entN('593981000005', $txtN('hola'), 'wamid.REP7'));
+igual($cN('593981000005')['asignado_a'], null, 'nadie disponible: queda sin asignar');
+Reparto::cambiarPersona($db, $eN, $idAna, 'disponible', true);
+Reparto::cambiarPersona($db, $eN, $idBeto, 'disponible', true);
+$t = Reparto::tablero($db, $lineaN, $ahoraN);
+$porNombre = array_column($t['personas'], null, 'nombre');
+igual([(int) $porNombre['Ana']['esperando'], (int) $porNombre['Beto']['esperando'], $t['sin_asignar']], [2, 2, 1], 'tablero: esperando por persona y sin asignar');
+igual(Reparto::pasarTodas($db, $lN, $eN, $idBeto, $idAna), 2, 'pasar todas las de Beto a Ana');
+igual(Reparto::carga($db, $lN)[$idAna] ?? 0, 4, 'Ana ahora tiene 4 esperando');
+try { Reparto::pasarTodas($db, $lN, $eN, $idAna, 1); ok(false, 'pasar a alguien de otra cuenta'); } catch (RuntimeException $e) { ok(true, 'pasar a alguien de otra cuenta'); }
+Reparto::guardar($db, $lineaN, ['reparto' => 'manual']);
+$lineaN = Lineas::buscar($db, $lN);
+
+echo "== Campos personalizados\n";
+$fC = Campos::guardar($db, $lN, 'Fecha de cumpleaños', 'fecha');
+Campos::guardar($db, $lN, 'Talla', 'lista', 'S, M , L,');
+Campos::guardar($db, $lN, 'Edad', 'numero');
+Campos::guardar($db, $lN, 'Talla', 'texto');   // mismo nombre: otra clave
+igual(array_column(Campos::lista($db, $lN), 'clave'), ['fecha_de_cumpleanos', 'talla', 'edad', 'talla_2'], 'claves sin tildes y sin repetir');
+igual(Campos::lista($db, $lN)[1]['opciones'], 'S, M, L', 'opciones limpias');
+try { Campos::guardar($db, $lN, 'Color', 'lista', ''); ok(false, 'lista sin opciones'); } catch (RuntimeException $e) { ok(true, 'lista sin opciones'); }
+$camposN = array_column(Campos::lista($db, $lN), null, 'clave');
+igual(Campos::valor($camposN['fecha_de_cumpleanos'], '04/05/1990'), '1990-05-04', 'fecha día/mes/año');
+igual(Campos::valor($camposN['talla'], 'm'), 'M', 'opción sin importar mayúsculas');
+igual(Campos::valor($camposN['edad'], '34,5'), '34.5', 'número con coma');
+try { Campos::valor($camposN['talla'], 'XXL'); ok(false, 'opción que no existe'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'S, M, L'), 'opción que no existe'); }
+try { Campos::valor($camposN['edad'], 'treinta'); ok(false, 'número inválido'); } catch (RuntimeException $e) { ok(true, 'número inválido'); }
+$c1 = $cN('593981000001');
+Campos::guardarValores($db, $lN, (int) $c1['id'], ['talla' => 'l', 'edad' => '30', 'inventado' => 'x']);
+$dd = Campos::de($cN('593981000001')); ksort($dd);
+igual($dd, ['edad' => '30', 'talla' => 'L'], 'se guardan solo los campos que existen');
+Campos::guardarValores($db, $lN, (int) $c1['id'], ['edad' => '']);
+igual(Campos::de($cN('593981000001')), ['talla' => 'L'], 'vacío borra el valor');
+igual(Campos::mostrar($camposN['fecha_de_cumpleanos'], '1990-05-04'), '04/05/1990', 'fecha para mostrar');
+
+echo "== Origen por anuncio\n";
+$ref = ['source_url' => 'https://fb.me/abc', 'source_id' => '120210000001', 'source_type' => 'ad', 'headline' => 'Vestidos 2x1', 'body' => 'Solo hoy', 'ctwa_clid' => 'X1'];
+$whN->procesar($entN('593981000020', $txtN('Hola, vi el anuncio') + ['referral' => $ref], 'wamid.AD1'));
+$whN->procesar($entN('593981000021', $txtN('info') + ['referral' => $ref], 'wamid.AD2'));
+$whN->procesar($entN('593981000022', $txtN('hola') + ['referral' => ['source_type' => 'post', 'source_url' => 'https://ig.me/p/1', 'body' => 'Mira nuestra colección nueva de verano para toda la familia y más']], 'wamid.AD3'));
+$ca = $cN('593981000020');
+ok($ca['origen_id'] === '120210000001' && $ca['origen_titulo'] === 'Vestidos 2x1' && $ca['origen_tipo'] === 'anuncio' && $ca['gratis_hasta'] !== null, 'el contacto guarda de qué anuncio llegó (y 72 h gratis)');
+$whN->procesar($entN('593981000020', $txtN('otra vez') + ['referral' => ['source_id' => '999', 'headline' => 'Otro']], 'wamid.AD4'));
+igual($cN('593981000020')['origen_id'], '120210000001', 'se queda con el primer anuncio');
+Embudo::mover($db, $lN, (int) $ca['id'], 'ganado', '45,50');
+Contactos::cambiarTipo($db, $lN, (int) $ca['id'], 'cliente');
+$rep = Anuncios::reporte($db, $lN, 30, $ahoraN->modify('+1 hour'));
+$porId = array_column($rep, null, 'anuncio_id');
+igual([$porId['120210000001']['personas'], $porId['120210000001']['llegadas'], $porId['120210000001']['clientes'], $porId['120210000001']['ganadas'], $porId['120210000001']['valor_ganado']],
+      [2, 2, 1, 1, 45.5], 'reporte por anuncio: personas, clientes y ventas');
+$pub = array_values(array_filter($rep, fn ($r) => $r['tipo'] === 'publicacion'))[0] ?? null;
+ok($pub && str_starts_with($pub['anuncio_id'], 'url:') && str_contains($pub['titulo'], 'Mira nuestra') && mb_strlen($pub['titulo']) <= 80, 'publicación sin id: se identifica por su enlace');
+
+echo "== Catálogo\n";
+$pVest = Catalogo::guardar($db, $lN, ['nombre' => 'Vestido floral', 'precio' => '25,50', 'stock' => '3', 'codigo' => 'VF-01', 'descripcion' => 'Talla única', 'activo' => '1']);
+$pBlusa = Catalogo::guardar($db, $lN, ['nombre' => 'Blusa blanca', 'precio' => '12', 'stock' => '', 'activo' => '1']);
+$pApag = Catalogo::guardar($db, $lN, ['nombre' => 'Abrigo (agotado de temporada)', 'precio' => '60', 'activo' => null]);
+igual((float) Catalogo::buscar($db, $lN, $pVest)['precio'], 25.5, 'precio con coma');
+igual(Catalogo::buscar($db, $lN, $pBlusa)['stock'], null, 'sin stock = no se controla');
+ok(!Catalogo::buscar($db, $lN, $pApag)['activo'], 'producto apagado');
+igual(count(Catalogo::lista($db, $lN, true)), 2, 'solo los disponibles para vender');
+try { Catalogo::guardar($db, $lN, ['nombre' => 'X', 'precio' => '1', 'stock' => '-2']); ok(false, 'stock negativo'); } catch (RuntimeException $e) { ok(true, 'stock negativo'); }
+try { Catalogo::guardar($db, $lN, ['nombre' => '', 'precio' => '1']); ok(false, 'sin nombre'); } catch (RuntimeException $e) { ok(true, 'sin nombre'); }
+igual(Catalogo::buscar($db, $lid, $pVest), null, 'un número no ve el catálogo de otro');
+$imp = Catalogo::importarCsv($db, $lN, "\xEF\xBB\xBFnombre;precio;stock;codigo;descripcion\nZapato rojo;45,90;5;ZR-1;Cuero\nVestido floral nuevo;27;;VF-01;\n;;;\nMalo;no es precio;;;\n");
+igual([$imp['nuevos'], $imp['cambiados'], $imp['malos']], [1, 1, 1], 'importar CSV: nuevo, actualiza por código y salta lo malo');
+igual(Catalogo::buscar($db, $lN, $pVest)['nombre'], 'Vestido floral nuevo', 'actualizó el del mismo código');
+$filas = Catalogo::filasLista(Catalogo::lista($db, $lN, true), $lineaN);
+ok(count($filas) === 3 && str_starts_with($filas[0]['id'], 'prod:') && $filas[0]['descripcion'] !== '', 'lista para WhatsApp con id prod:N y precio');
+ok(str_contains(Catalogo::paraIa($db, $lN, $lineaN), '[' . $pVest . '] Vestido floral nuevo — $27,00 (quedan 3)'), 'catálogo para la IA con id, precio y stock');
+ok(str_contains(Catalogo::ficha(Catalogo::buscar($db, $lN, $pVest), $lineaN), '*Vestido floral nuevo*') && str_contains(Catalogo::ficha(Catalogo::buscar($db, $lN, $pVest), $lineaN), 'Quedan 3'), 'ficha del producto');
+
+echo "== Carrito y pedidos\n";
+$cli = Contactos::guardar($db, $lN, '0981000030', 'Lucía', 'cliente');
+$car = Pedidos::agregar($db, $lineaN, (int) $cli['id'], $pVest, 2);
+igual([(int) $car['numero'], $car['estado'], (float) $car['total']], [1, 'carrito', 54.0], 'carrito nuevo con número 1');
+$car = Pedidos::agregar($db, $lineaN, (int) $cli['id'], $pBlusa, 1);
+$car = Pedidos::agregar($db, $lineaN, (int) $cli['id'], $pVest, 1);
+igual([count(Pedidos::items($db, (int) $car['id'])), (float) $car['total']], [2, 93.0], 'mismo producto suma cantidad');
+try { Pedidos::agregar($db, $lineaN, (int) $cli['id'], $pVest, 1); ok(false, 'más que el stock'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'solo quedan 3'), 'más que el stock'); }
+try { Pedidos::agregar($db, $lineaN, (int) $cli['id'], $pApag, 1); ok(false, 'producto apagado no se vende'); } catch (RuntimeException $e) { ok(true, 'producto apagado no se vende'); }
+igual(Pedidos::totales([['precio' => 10, 'cantidad' => 3], ['precio' => 0.1, 'cantidad' => 3]], 15), ['subtotal' => 30.3, 'iva' => 4.55, 'total' => 34.85], 'totales con IVA 15 %');
+db()->exec("UPDATE lineas SET iva_pct = 15, pago_transferencia = 'Banco Pichincha 2201', pago_enlace = 'https://paypal.me/mia/{total}' WHERE id = $lN");
+$lineaN = Lineas::buscar($db, $lN);
+Pedidos::agregarLibre($db, $lineaN, (int) $car['id'], 'Envío a Quito', '3,50');
+$car = Pedidos::buscar($db, $lN, (int) $car['id']);
+igual([(float) $car['subtotal'], (float) $car['iva'], (float) $car['total']], [96.5, 14.48, 110.98], 'línea libre (envío) y el IVA del número');
+$it = Pedidos::items($db, (int) $car['id']);
+Pedidos::cambiarCantidad($db, $lineaN, (int) $car['id'], (int) $it[1]['id'], 0);
+igual(count(Pedidos::items($db, (int) $car['id'])), 2, 'cantidad 0 quita la línea');
+$car = Pedidos::buscar($db, $lN, (int) $car['id']);
+$enl = Pedidos::enlacePago($db, $lineaN, $car);
+igual($enl, 'https://paypal.me/mia/' . number_format((float) $car['total'], 2, '.', ''), 'enlace de pago fijo con el total');
+$res = Pedidos::resumen($lineaN, $car, Pedidos::items($db, (int) $car['id']), $enl);
+ok(str_contains($res, '*Pedido #1*') && str_contains($res, '3 x Vestido floral nuevo') && str_contains($res, 'IVA 15 %') && str_contains($res, 'Paga aquí: https://paypal.me') && str_contains($res, 'Banco Pichincha'), 'resumen para WhatsApp');
+$p = Pedidos::cambiarEstado($db, $lineaN, (int) $car['id'], 'pendiente', $ahoraN);
+igual([$p['estado'], (int) Catalogo::buscar($db, $lN, $pVest)['stock'], $p['descontado']], ['pendiente', 0, true], 'confirmar baja el stock');
+try { Pedidos::cambiarEstado($db, $lineaN, (int) $car['id'], 'entregado'); ok(true, 'pendiente -> entregado no está permitido'); } catch (RuntimeException $e) { ok(true, 'pendiente -> entregado no está permitido'); }
+$p = Pedidos::cambiarEstado($db, $lineaN, (int) $car['id'], 'pagado', $ahoraN);
+ok($p['estado'] === 'pagado' && $p['pagado_en'] !== null && (int) Catalogo::buscar($db, $lN, $pVest)['stock'] === 0, 'pagado no vuelve a bajar el stock');
+try { Pedidos::cambiarCantidad($db, $lineaN, (int) $car['id'], (int) $it[0]['id'], 1); ok(false, 'pagado ya no se cambia'); } catch (RuntimeException $e) { ok(true, 'pagado ya no se cambia'); }
+$p = Pedidos::cambiarEstado($db, $lineaN, (int) $car['id'], 'cancelado');
+igual([(int) Catalogo::buscar($db, $lN, $pVest)['stock'], $p['descontado']], [3, false], 'cancelar devuelve el stock');
+try { Pedidos::cambiarEstado($db, $lineaN, (int) $car['id'], 'pagado'); ok(false, 'cancelado es final'); } catch (RuntimeException $e) { ok(true, 'cancelado es final'); }
+$car2 = Pedidos::agregar($db, $lineaN, (int) $cli['id'], $pVest, 3);
+igual((int) $car2['numero'], 2, 'carrito nuevo con el número siguiente');
+$otro = Contactos::guardar($db, $lN, '0981000031', 'Rosa', 'cliente');
+$car3 = Pedidos::agregar($db, $lineaN, (int) $otro['id'], $pVest, 2);
+Pedidos::cambiarEstado($db, $lineaN, (int) $car2['id'], 'pendiente');
+try { Pedidos::cambiarEstado($db, $lineaN, (int) $car3['id'], 'pendiente'); ok(false, 'dos carritos no venden el mismo stock'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'No alcanza') && Pedidos::buscar($db, $lN, (int) $car3['id'])['estado'] === 'carrito', 'dos carritos no venden el mismo stock'); }
+igual(Pedidos::cuentas($db, $lN)['pendiente']['n'] ?? 0, 1, 'cuentas por estado');
+igual(count(Pedidos::lista($db, $lN, '', 'Lucía')), 2, 'buscar pedidos por cliente');
+igual(count(Pedidos::lista($db, $lN, '', '#2')), 1, 'buscar por número de pedido');
+
+echo "== Payphone\n";
+putenv('PAYPHONE_URL=' . $sim);
+db()->prepare('UPDATE lineas SET payphone_token = ?, payphone_store = ? WHERE id = ?')->execute([\TuWhatsApp\Cifrado::cifrar('payphone_bueno'), 'tienda-1', $lN]);
+$lineaN = Lineas::buscar($db, $lN);
+limpiarSim();
+$p2 = Pedidos::buscar($db, $lN, (int) $car2['id']);
+$u2 = Pedidos::enlacePago($db, $lineaN, $p2);
+$llamada = array_values(array_filter(sim(), fn ($r) => $r['ruta'] === '/api/Links'))[0] ?? [];
+$cents = (int) round((float) $p2['total'] * 100);
+igual($u2, 'https://payp.page.link/SIM' . $cents, 'link de Payphone por pedido');
+ok(($llamada['cuerpo']['amountWithTax'] ?? 0) + ($llamada['cuerpo']['tax'] ?? 0) === $cents && ($llamada['cuerpo']['storeId'] ?? '') === 'tienda-1' && $llamada['auth'] === 'Bearer payphone_bueno', 'montos en centavos con IVA y Store ID');
+igual(Pedidos::enlacePago($db, $lineaN, Pedidos::buscar($db, $lN, (int) $car2['id'])), $u2, 'no se crea dos veces');
+igual(\TuWhatsApp\Payphone::crearLink('malo', '', 100, 0, 0, 'T1', 'x')['error'] ?? '', 'Payphone no creó el link: el token no sirve o venció.', 'token malo: error claro');
+db()->exec("UPDATE lineas SET payphone_token = '' WHERE id = $lN");
+$lineaN = Lineas::buscar($db, $lN);
+
+echo "== Cotización en PDF\n";
+$pdf = Cotizacion::pdf($lineaN + ['negocio_ruc' => '1790000000001'], Pedidos::buscar($db, $lN, (int) $car2['id']), Pedidos::items($db, (int) $car2['id']), $ahoraN);
+ok(str_starts_with($pdf, '%PDF-1.4') && str_ends_with($pdf, "%%EOF\n"), 'es un PDF');
+$f = tempnam(sys_get_temp_dir(), 'cot');
+file_put_contents($f, $pdf);
+exec('qpdf --check ' . escapeshellarg($f) . ' 2>&1', $salida, $codigoQ);
+igual($codigoQ, 0, 'el PDF pasa la revisión de qpdf');
+$texto = (string) shell_exec('pdftotext -layout ' . escapeshellarg($f) . ' - 2>/dev/null');
+ok(str_contains($texto, 'COTIZACIÓN') && str_contains($texto, 'N.º 00002') && str_contains($texto, 'Lucía') && str_contains($texto, 'Vestido floral nuevo') && str_contains($texto, 'IVA 15 %') && str_contains($texto, 'Válida hasta: 12/11/2026'), 'el PDF tiene número, cliente, productos, IVA y validez');
+unlink($f);
+$muchos = array_fill(0, 60, ['nombre' => 'Producto con un nombre bastante largo para partirse en dos líneas dentro de la tabla', 'precio' => 1, 'cantidad' => 1]);
+ok(substr_count(Cotizacion::pdf($lineaN, Pedidos::buscar($db, $lN, (int) $car2['id']), $muchos), '/Type /Page ') >= 3, 'muchos productos: varias páginas');
+$arch = Cotizacion::archivo($db, $lineaN, Pedidos::buscar($db, $lN, (int) $car2['id']));
+ok($arch['tipo'] === 'documento' && $arch['nombre'] === 'Cotizacion-00002.pdf' && \TuWhatsApp\Archivos::ruta($arch['ruta']) !== null, 'se guarda listo para mandar por WhatsApp');
+
+echo "== Carrito por WhatsApp (sin IA)\n";
+limpiarSim();
+$whN->procesar($entN('593981000040', $txtN('Catálogo'), 'wamid.CAT1'));
+$env = $salidasN();
+igual($env[0]['cuerpo']['interactive']['type'] ?? null, 'list', 'pidió el catálogo: le llega una lista');
+$filasEnv = $env[0]['cuerpo']['interactive']['action']['sections'][0]['rows'] ?? [];
+ok(count($filasEnv) === 2 && str_starts_with($filasEnv[0]['id'], 'prod:') && isset($filasEnv[0]['description']) && !in_array('prod:' . $pVest, array_column($filasEnv, 'id'), true), 'cada fila es un producto con su precio (los agotados no salen)');
+limpiarSim();
+$whN->procesar($entN('593981000040', ['type' => 'interactive', 'interactive' => ['type' => 'list_reply', 'list_reply' => ['id' => 'prod:' . $pBlusa, 'title' => 'Blusa blanca']]], 'wamid.CAT2'));
+$env = $salidasN();
+ok(str_contains($env[0]['cuerpo']['text']['body'] ?? '', 'Agregué *Blusa blanca*') && str_contains($env[0]['cuerpo']['text']['body'] ?? '', 'comprar'), 'tocó un producto: se agrega y le explica cómo comprar');
+$cc = $cN('593981000040');
+igual(count(Pedidos::items($db, (int) Pedidos::carrito($db, $lineaN, (int) $cc['id'], false)['id'])), 1, 'quedó en su carrito');
+limpiarSim();
+$whN->procesar($entN('593981000040', $txtN('comprar'), 'wamid.CAT3'));
+$env = $salidasN();
+$pc = Pedidos::deContacto($db, (int) $cc['id'])[0] ?? null;
+ok($pc && $pc['estado'] === 'pendiente' && str_contains($env[0]['cuerpo']['text']['body'] ?? '', 'Total: $13,80') && str_contains($env[0]['cuerpo']['text']['body'] ?? '', 'paypal.me/mia/13.80'), 'escribió comprar: pedido pendiente y resumen con cómo pagar');
+igual($cN('593981000040')['etapa'], 'cotizado', 'el embudo pasa a Cotizado');
+limpiarSim();
+$whN->procesar($entN('593981000041', $txtN('comprar'), 'wamid.CAT4'));
+ok(!str_contains($motivoN('wamid.CAT4'), 'carrito'), 'comprar sin carrito: no hace nada especial');
+$whN->procesar($entN('593981000009', $txtN('catálogo'), 'wamid.CAT5'));
+ok(!str_contains($motivoN('wamid.CAT5'), 'catálogo'), 'a un personal no se le manda el catálogo');
+
+echo "== Chatbots por pasos (motor)\n";
+$pasosP = [
+    ['id' => 'p1', 'tipo' => 'mensaje', 'texto' => 'Hola, bienvenido a {negocio}', 'etiqueta' => 'bot'],
+    ['id' => 'p2', 'tipo' => 'botones', 'texto' => '¿Qué necesitas?', 'opciones' => [['titulo' => 'Precios', 'ir_a' => 'p3'], ['titulo' => 'Asesor', 'ir_a' => 'p5']]],
+    ['id' => 'p3', 'tipo' => 'pregunta', 'texto' => '¿Cuál es tu talla?', 'guardar' => 'campo:talla', 'siguiente' => 'p4'],
+    ['id' => 'p4', 'tipo' => 'fin', 'texto' => 'Gracias, te escribimos con precios.', 'etapa' => 'interesado'],
+    ['id' => 'p5', 'tipo' => 'persona', 'texto' => 'Te paso con un asesor.'],
+];
+$r = Flujos::avanzar(7, $pasosP, null, 'hola', '', null, 'Boutique');
+igual(array_column($r['salidas'], 'tipo'), ['texto', 'botones'], 'arranca: mensaje y luego la pregunta con botones');
+igual([$r['salidas'][0]['texto'], $r['esperando'], $r['etiquetas']], ['Hola, bienvenido a Boutique', 'p2', ['bot']], '{negocio}, espera en p2 y etiqueta');
+igual(array_column($r['salidas'][1]['opciones'], 'id'), ['f7:p2:0', 'f7:p2:1'], 'ids de los botones');
+$r2 = Flujos::avanzar(7, $pasosP, 'p2', 'Asesor', 'f7:p2:1');
+ok($r2['persona'] && $r2['fin'] && $r2['salidas'][0]['texto'] === 'Te paso con un asesor.', 'tocó Asesor: pasa a persona');
+$r3 = Flujos::avanzar(7, $pasosP, 'p2', '1');
+igual([$r3['esperando'], $r3['salidas'][0]['texto']], ['p3', '¿Cuál es tu talla?'], 'escribió 1: va a la pregunta');
+$r3b = Flujos::avanzar(7, $pasosP, 'p2', 'precios');
+igual($r3b['esperando'], 'p3', 'escribió el nombre de la opción');
+$r4 = Flujos::avanzar(7, $pasosP, 'p2', 'no sé');
+ok($r4['esperando'] === 'p2' && $r4['salidas'][0]['tipo'] === 'botones' && str_contains($r4['salidas'][0]['texto'], 'Elige'), 'no eligió: repite los botones');
+$val = fn (string $g, string $v) => $g === 'campo:talla' && !in_array(strtoupper($v), ['S', 'M', 'L'], true) ? 'Elige S, M o L.' : null;
+$r5 = Flujos::avanzar(7, $pasosP, 'p3', 'XXL', '', $val);
+ok($r5['esperando'] === 'p3' && str_starts_with($r5['salidas'][0]['texto'], 'Elige S, M o L.'), 'respuesta inválida: vuelve a preguntar');
+$r6 = Flujos::avanzar(7, $pasosP, 'p3', 'M', '', $val);
+ok($r6['fin'] && $r6['guardar'] === [['campo:talla', 'M']] && $r6['etapa'] === 'interesado' && $r6['esperando'] === null, 'respuesta válida: guarda, mueve el embudo y termina');
+igual(Flujos::avanzar(7, [['id' => 'p1', 'tipo' => 'mensaje', 'texto' => 'A', 'siguiente' => 'p1']], null, 'x')['salidas'] !== [], true, 'un paso que se llama a sí mismo no se queda dando vueltas');
+ok(count(Flujos::avanzar(7, [['id' => 'p1', 'tipo' => 'mensaje', 'texto' => 'A', 'siguiente' => 'p1']], null, 'x')['salidas']) <= 8, 'máximo 8 mensajes seguidos');
+try { Flujos::limpiarPasos([['id' => 'p1', 'tipo' => 'botones', 'texto' => 'x']]); ok(false, 'botones sin opciones (encendido)'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'Paso 1'), 'botones sin opciones (encendido): dice en qué paso'); }
+igual(count(Flujos::limpiarPasos([['id' => 'p1', 'tipo' => 'botones', 'texto' => '']], [], false)), 1, 'apagado se puede guardar a medias');
+try { Flujos::limpiarPasos([['id' => 'p1', 'tipo' => 'mensaje', 'texto' => 'x', 'siguiente' => 'p9']]); ok(false, 'lleva a un paso que no existe'); } catch (RuntimeException $e) { ok(true, 'lleva a un paso que no existe'); }
+igual(Flujos::limpiarPasos([['id' => 'p1', 'tipo' => 'pregunta', 'texto' => 'x', 'guardar' => 'campo:noexiste']], ['talla'])[0]['guardar'], 'notas', 'campo que no existe: se guarda en notas');
+igual(Flujos::idNuevo($pasosP), 'p6', 'id del paso nuevo');
+$sim1 = Flujos::simular(['id' => 7, 'pasos' => json_encode($pasosP)], ['hola', '1', 'M'], 'Boutique');
+igual(array_column($sim1, 'de'), ['cliente', 'bot', 'bot', 'cliente', 'bot', 'cliente', 'bot', 'sistema'], 'probador: conversación completa');
+
+echo "== Chatbots por pasos (por WhatsApp)\n";
+$fid = Flujos::crear($db, $lN, 'Bienvenida', 'palabras', 'hola, info');
+$pasosW = json_decode(json_encode($pasosP), true);
+$pasosW[2]['guardar'] = 'campo:talla';
+$form = ['nombre' => 'Bienvenida', 'disparador' => 'palabras', 'palabras' => 'hola, info', 'activo' => '1', 'paso' => array_map(fn ($x) => $x + ['op_titulo' => array_column($x['opciones'] ?? [], 'titulo'), 'op_ir' => array_column($x['opciones'] ?? [], 'ir_a')], $pasosW)];
+Flujos::guardar($db, $lN, $fid, $form, ['talla']);
+igual(count(Flujos::pasos(Flujos::buscar($db, $lN, $fid))), 5, 'se guardan los 5 pasos');
+try { Flujos::guardar($db, $lN, $fid, ['nombre' => 'X', 'activo' => '1', 'disparador' => 'palabras', 'palabras' => '', 'paso' => $form['paso']], ['talla']); ok(false, 'encendido sin palabras'); }
+catch (RuntimeException $e) { ok(true, 'encendido sin palabras'); }
+limpiarSim();
+$whN->procesar($entN('593981000050', $txtN('Hola!'), 'wamid.FL1'));
+$env = $salidasN();
+igual([count($env), $env[0]['cuerpo']['text']['body'] ?? null, $env[1]['cuerpo']['interactive']['action']['buttons'][0]['reply']['id'] ?? null],
+      [2, 'Hola, bienvenido a Boutique Mía', 'f' . $fid . ':p2:0'], 'escribió hola: arranca el chatbot');
+$cf = $cN('593981000050');
+igual([(int) $cf['flujo_id'], $cf['flujo_paso'], $cf['etiquetas']], [$fid, 'p2', 'bot'], 'queda esperando su respuesta, con etiqueta');
+ok(str_contains($motivoN('wamid.FL1'), 'Chatbot "Bienvenida"'), 'el motivo dice qué chatbot contestó');
+igual($db->query("SELECT origen FROM mensajes WHERE contacto_id = {$cf['id']} AND direccion = 'sale' LIMIT 1")->fetchColumn(), 'flujo', 'los mensajes quedan como del chatbot');
+limpiarSim();
+$whN->procesar($entN('593981000050', ['type' => 'interactive', 'interactive' => ['type' => 'button_reply', 'button_reply' => ['id' => 'f' . $fid . ':p2:0', 'title' => 'Precios']]], 'wamid.FL2'));
+igual($salidasN()[0]['cuerpo']['text']['body'] ?? null, '¿Cuál es tu talla?', 'tocó Precios: le pregunta la talla');
+limpiarSim();
+$whN->procesar($entN('593981000050', $txtN('XL'), 'wamid.FL3'));
+ok(str_contains($salidasN()[0]['cuerpo']['text']['body'] ?? '', 'S, M, L'), 'talla que no existe: vuelve a preguntar con las opciones');
+$whN->procesar($entN('593981000050', $txtN('s'), 'wamid.FL4'));
+$cf = $cN('593981000050');
+igual([Campos::de($cf)['talla'] ?? null, $cf['etapa'], $cf['flujo_id']], ['S', 'interesado', null], 'guardó la talla, movió el embudo y terminó');
+limpiarSim();
+$whN->procesar($entN('593981000051', $txtN('info'), 'wamid.FL5'));
+$whN->procesar($entN('593981000051', $txtN('2'), 'wamid.FL6'));
+$cp = $cN('593981000051');
+ok($cp['silencio_hasta'] !== null && str_contains($motivoN('wamid.FL6'), 'pasó a una persona'), 'eligió asesor: se calla y pasa a una persona');
+Flujos::crear($db, $lN, 'Primer mensaje', 'nuevo');
+$fNuevo = (int) $db->query("SELECT id FROM flujos WHERE nombre = 'Primer mensaje'")->fetchColumn();
+$db->exec("UPDATE flujos SET activo = true WHERE id = $fNuevo");
+limpiarSim();
+$whN->procesar($entN('593981000052', $txtN('buenas tardes'), 'wamid.FL7'));
+ok(str_contains($motivoN('wamid.FL7'), 'Primer mensaje'), 'disparador "primer mensaje": contesta al cliente nuevo');
+$whN->procesar($entN('593981000052', $txtN('Ver productos'), 'wamid.FL8'));
+$whN->procesar($entN('593981000052', $txtN('otra cosa'), 'wamid.FL9'));
+ok(!str_contains($motivoN('wamid.FL9'), 'Primer mensaje'), 'ya no es su primer mensaje: no vuelve a arrancar');
+$db->exec("UPDATE flujos SET activo = false WHERE id = $fNuevo");
+$whN->procesar($entN('593981000009', $txtN('hola'), 'wamid.FL10'));
+ok(!str_contains($motivoN('wamid.FL10'), 'Chatbot'), 'a un personal nunca le contesta el chatbot');
+Contactos::callar($db, $lineaN, (int) $cN('593981000052')['id'], $ahoraN);
+$whN->procesar($entN('593981000052', $txtN('hola'), 'wamid.FL11'));
+ok(!str_contains($motivoN('wamid.FL11'), 'Chatbot'), 'si alguien del equipo contestó, el chatbot se calla');
+$whN->procesar($entN('593981000053', ['type' => 'interactive', 'interactive' => ['type' => 'button_reply', 'button_reply' => ['id' => 'f' . $fid . ':p2:1', 'title' => 'Asesor']]], 'wamid.FL12'));
+ok(str_contains($motivoN('wamid.FL12'), 'pasó a una persona'), 'botón de un chatbot viejo (más de 24 h): igual funciona');
+
+echo "== Agente con IA que contesta solo\n";
+putenv('TUKAN_IA_CLAVE=sk-ant-prueba-buena-0123456789');
+putenv('TUKAN_IA_URL=' . $sim);
+putenv('TUKAN_IA_ESPERA_MS=0');
+putenv('TUKAN_IA_REINTENTOS=0');
+$db->exec("UPDATE flujos SET activo = false WHERE linea_id = $lN");
+$empN = Empresas::buscar($db, $eN);
+$cliIA = ['tipo' => 'desconocido', 'silencio_hasta' => null];
+igual(Bot::decidir($lineaN, $empN, $cliIA, $ahoraN, 0)['si'], false, 'apagado no contesta');
+$lb2 = array_merge($lineaN, ['bot_activo' => true]);
+ok(!Bot::decidir($lb2, $empN, $cliIA, $ahoraN, 0)['si'] && str_contains(Bot::decidir($lb2, $empN, $cliIA, $ahoraN, 0)['motivo'], 'apagado'), 'sin el extra de IA no contesta');
+Modulos::guardar($db, $eN, ['ia']);
+$empN = Empresas::buscar($db, $eN);
+ok(Bot::decidir($lb2, $empN, $cliIA, $ahoraN, 0)['si'], 'con el extra y encendido: contesta');
+ok(!Bot::decidir($lb2, $empN, ['tipo' => 'personal'], $ahoraN, 0)['si'], 'personal: nunca');
+ok(!Bot::decidir($lb2, $empN, ['tipo' => 'cliente', 'silencio_hasta' => $ahoraN->modify('+1 hour')->format('c')], $ahoraN, 0)['si'], 'atendido por una persona: no');
+ok(!Bot::decidir($lb2 + ['bot_max_dia' => 20], $empN, $cliIA, $ahoraN, 20)['si'], 'llegó al máximo del día: no');
+$enHorario = new DateTimeImmutable('2026-10-28 10:00:00');
+ok(!Bot::decidir(array_merge($lb2, ['bot_cuando' => 'fuera_horario']), $empN, $cliIA, $enHorario, 0)['si'] && Bot::decidir(array_merge($lb2, ['bot_cuando' => 'fuera_horario']), $empN, $cliIA, $ahoraN, 0)['si'], 'solo fuera de horario');
+Bot::guardar($db, $lN, ['bot_activo' => '1', 'bot_cuando' => 'siempre', 'bot_nombre' => 'Sofía', 'bot_max_dia' => '5', 'bot_vende' => '1']);
+\TuWhatsApp\Asistente::guardarConocimiento($db, $lN, 'Boutique Mía, en Quito. Envíos a todo el país.');
+$lineaN = Lineas::buscar($db, $lN);
+$db->exec("UPDATE lineas SET auto_activo = true, regla_solo_clientes = false, regla_palabras = false, regla_horario = false WHERE id = $lN");
+$lineaN = Lineas::buscar($db, $lN);
+limpiarSim();
+$whN->procesar($entN('593981000060', $txtN('¿Hacen envíos a Cuenca?'), 'wamid.IA10'));
+$env = $salidasN();
+$ia = array_values(array_filter(sim(), fn ($r) => $r['ruta'] === '/v1/messages'));
+igual($env[0]['cuerpo']['text']['body'] ?? null, '¡Hola! Con gusto te ayudo. ¿Qué buscas?', 'el agente contestó solo');
+ok(str_contains($ia[0]['cuerpo']['system'] ?? '', 'Sofía') && str_contains($ia[0]['cuerpo']['system'] ?? '', 'Envíos a todo el país') && str_contains($ia[0]['cuerpo']['system'] ?? '', '[' . $pBlusa . '] Blusa blanca') && !str_contains($ia[0]['cuerpo']['system'] ?? '', '[' . $pVest . ']'), 'la IA recibe su nombre, lo que sabe el negocio y el catálogo (sin lo agotado)');
+ok(str_contains(json_encode($ia[0]['cuerpo']['messages'] ?? [], JSON_UNESCAPED_UNICODE), '<conversacion>'), 'la conversación va como datos');
+igual($db->query("SELECT origen FROM mensajes WHERE contacto_id = {$cN('593981000060')['id']} AND direccion = 'sale'")->fetchColumn(), 'bot', 'queda como mensaje del agente');
+igual($motivoN('wamid.IA10'), 'Contestó el agente con IA', 'motivo');
+limpiarSim();
+$whN->procesar($entN('593981000060', $txtN('quiero 2 vestidos'), 'wamid.IA11'));
+$cia = $cN('593981000060');
+$carIA = Pedidos::carrito($db, $lineaN, (int) $cia['id'], false);
+igual([(int) Pedidos::items($db, (int) $carIA['id'])[0]['cantidad'], $carIA['origen']], [2, 'bot'], 'el agente armó el carrito (el producto inventado no entra)');
+ok(str_contains($salidasN()[0]['cuerpo']['text']['body'] ?? '', '🛒 Tu carrito: 2 productos') && str_contains($salidasN()[0]['cuerpo']['text']['body'] ?? '', 'no está disponible'), 'le dice cómo va su carrito (y que el otro no existe)');
+limpiarSim();
+$whN->procesar($entN('593981000060', $txtN('sí, confirmo'), 'wamid.IA12'));
+$pIA = Pedidos::deContacto($db, (int) $cia['id'])[0];
+$env = $salidasN();
+ok($pIA['estado'] === 'pendiente' && count($env) === 2 && str_contains($env[1]['cuerpo']['text']['body'] ?? '', '*Pedido #' . $pIA['numero'] . '*') && str_contains($env[1]['cuerpo']['text']['body'] ?? '', 'paypal.me'), 'confirmó: pedido pendiente y resumen con el enlace de pago');
+igual($motivoN('wamid.IA12'), 'Contestó el agente con IA (pedido listo para pagar)', 'motivo del pedido');
+Reparto::guardar($db, $lineaN, ['reparto' => 'turnos']);
+$lineaN = Lineas::buscar($db, $lN);
+limpiarSim();
+$whN->procesar($entN('593981000061', $txtN('quiero hablar con una persona'), 'wamid.IA13'));
+$cp = $cN('593981000061');
+ok($cp['silencio_hasta'] !== null && $cp['asignado_a'] !== null && str_contains($motivoN('wamid.IA13'), 'pasó a una persona'), 'pidió una persona: se calla y se reparte');
+limpiarSim();
+$whN->procesar($entN('593981000061', $txtN('¿hola?'), 'wamid.IA14'));
+igual(count($salidasN()), 0, 'mientras lo atiende una persona, el agente no contesta');
+limpiarSim();
+$whN->procesar($entN('593981000062', $txtN('ROMPER'), 'wamid.IA15'));
+ok(str_contains($motivoN('wamid.IA15'), 'menú') && ($salidasN()[0]['cuerpo']['type'] ?? '') === 'interactive', 'la IA falla: sigue el menú de siempre (el cliente no se entera)');
+limpiarSim();
+$whN->procesar($entN('593981000063', $txtN('json malo'), 'wamid.IA16'));
+ok(str_contains($motivoN('wamid.IA16'), 'menú'), 'respuesta rara de la IA: sigue el menú');
+$db->exec("UPDATE empresas SET ia_tope = 0.000001 WHERE id = $eN");
+limpiarSim();
+$whN->procesar($entN('593981000064', $txtN('hola'), 'wamid.IA17'));
+ok(str_contains($motivoN('wamid.IA17'), 'menú') && count(array_filter(sim(), fn ($r) => $r['ruta'] === '/v1/messages')) === 0, 'tope de IA del mes: no llama a la IA, sigue el menú');
+$db->exec("UPDATE empresas SET ia_tope = 3 WHERE id = $eN");
+for ($i = 0; $i < 5; $i++) {
+    $whN->procesar($entN('593981000065', $txtN('pregunta ' . $i), 'wamid.IAM' . $i, $ahoraN->modify("+$i minutes")));
+}
+$whN->procesar($entN('593981000065', $txtN('una más'), 'wamid.IAM9', $ahoraN->modify('+9 minutes')));
+ok(str_contains($motivoN('wamid.IAM9'), 'ya contestó 5 veces'), 'máximo de respuestas al día por persona');
+Modulos::guardar($db, $eN, []);
+limpiarSim();
+$whN->procesar($entN('593981000066', $txtN('hola'), 'wamid.IA18'));
+ok(count(array_filter(sim(), fn ($r) => $r['ruta'] === '/v1/messages')) === 0 && str_contains($motivoN('wamid.IA18'), 'menú'), 'sin el extra pagado: no usa IA');
+igual((int) $db->query("SELECT llamadas FROM tukan_ia_gasto WHERE negocio_id = '$eN'")->fetchColumn() > 0, true, 'el gasto de IA queda en la cuenta del cliente');
+Bot::guardar($db, $lN, []);
+$db->exec("UPDATE lineas SET auto_activo = false WHERE id = $lN");
+$lineaN = Lineas::buscar($db, $lN);
+putenv('TUKAN_IA_CLAVE=');
+
+echo "== Callarse cuando contesta alguien del equipo\n";
+$cq = Contactos::guardar($db, $lN, '0981000070', 'Quique', 'cliente');
+Contactos::callar($db, $lineaN, (int) $cq['id'], $ahoraN);
+ok(new DateTimeImmutable($cN('593981000070')['silencio_hasta']) > $ahoraN->modify('+11 hours'), 'silencio por las horas del número');
+$db->exec("UPDATE lineas SET callar_al_atender = false WHERE id = $lN");
+$cq2 = Contactos::guardar($db, $lN, '0981000071', 'Quela', 'cliente');
+Contactos::callar($db, Lineas::buscar($db, $lN), (int) $cq2['id'], $ahoraN);
+igual($cN('593981000071')['silencio_hasta'], null, 'si se apaga la opción, no se calla');
+$db->exec("UPDATE lineas SET callar_al_atender = true WHERE id = $lN");
+$lineaN = Lineas::buscar($db, $lN);
+$eco = cuerpoMeta(['messaging_product' => 'whatsapp', 'metadata' => ['phone_number_id' => '400'], 'message_echoes' => [['from' => '593996401111', 'to' => '593981000071', 'id' => 'wamid.ECO71', 'timestamp' => (string) $ahoraN->getTimestamp(), 'type' => 'text', 'text' => ['body' => 'Hola Quela, te escribo yo']]]], 'smb_message_echoes');
+$whN->procesar($eco);
+ok($cN('593981000071')['silencio_hasta'] !== null, 'contestar desde el celular también calla lo automático');
+
+echo "== Tienda en línea (Shopify y WooCommerce)\n";
+$db->exec("INSERT INTO lineas (empresa_id, nombre, telefono, phone_number_id, waba_id, token_cifrado) SELECT $eN, 'Tienda', '593996402222', '401', '200', token_cifrado FROM lineas WHERE id = $lN");
+$lT = (int) $db->query("SELECT id FROM lineas WHERE phone_number_id = '401'")->fetchColumn();
+try { Tiendas::guardar($db, Lineas::buscar($db, $lT), ['tienda_tipo' => 'shopify']); ok(false, 'sin clave secreta'); } catch (RuntimeException $e) { ok(true, 'sin clave secreta'); }
+Tiendas::guardar($db, Lineas::buscar($db, $lT), ['tienda_tipo' => 'shopify', 'tienda_secreto' => 'shpss_secreto', 'tienda_plantilla_pedido' => 'recordatorio_pago|es',
+    'tienda_plantilla_envio' => 'recordatorio_pago|es', 'tienda_plantilla_carrito' => 'promo_octubre|es', 'tienda_carrito_horas' => '2']);
+$lineaT = Lineas::buscar($db, $lT);
+ok(preg_match('/^[a-f0-9]{24}$/', $lineaT['tienda_clave']) === 1 && Tiendas::porClave($db, $lineaT['tienda_clave'])['id'] === $lT, 'se crea la clave de la dirección');
+igual(Tiendas::porClave($db, 'zzz'), null, 'clave mala: nada');
+$cuerpoS = json_encode(['id' => 5551, 'name' => '#1001', 'total_price' => '57.50', 'total_tax' => '7.50', 'financial_status' => 'paid', 'order_status_url' => 'https://tienda.ec/o/1001',
+    'checkout_token' => 'chk-1', 'customer' => ['first_name' => 'Pedro', 'last_name' => 'Páez'], 'shipping_address' => ['phone' => '+593 98 100 0080', 'first_name' => 'Pedro', 'last_name' => 'Páez'],
+    'line_items' => [['title' => 'Camiseta', 'variant_title' => 'M', 'price' => '25.00', 'quantity' => 2]]]);
+ok(Tiendas::firmaValida($lineaT, $cuerpoS, base64_encode(hash_hmac('sha256', $cuerpoS, 'shpss_secreto', true))), 'firma de Shopify correcta');
+ok(!Tiendas::firmaValida($lineaT, $cuerpoS, base64_encode(hash_hmac('sha256', $cuerpoS, 'otra', true))), 'firma mala se rechaza');
+Tiendas::procesar($db, $lineaT, 'checkouts/create', ['token' => 'chk-1', 'total_price' => '57.50', 'abandoned_checkout_url' => 'https://tienda.ec/c/1', 'shipping_address' => ['phone' => '0981000080', 'first_name' => 'Pedro']], $ahoraN);
+Tiendas::procesar($db, $lineaT, 'checkouts/create', ['token' => 'chk-2', 'total_price' => '19.90', 'abandoned_checkout_url' => 'https://tienda.ec/c/2', 'phone' => '0981000081', 'customer' => ['first_name' => 'Rita']], $ahoraN);
+Tiendas::procesar($db, $lineaT, 'checkouts/create', ['token' => 'chk-3', 'total_price' => '5'], $ahoraN);
+igual($db->query("SELECT estado FROM tienda_carritos WHERE externo_id = 'chk-3'")->fetchColumn(), 'sin_telefono', 'carrito sin teléfono');
+limpiarSim();
+$que = Tiendas::procesar($db, $lineaT, 'orders/create', json_decode($cuerpoS, true), $ahoraN);
+$pS = $db->query("SELECT * FROM pedidos WHERE linea_id = $lT AND origen = 'shopify'")->fetch();
+ok($pS && $pS['estado'] === 'pagado' && (float) $pS['total'] === 57.5 && $pS['externo_id'] === '5551' && str_contains($que, 'avisado por WhatsApp'), 'pedido de Shopify: entra pagado y se avisa');
+$envT = array_values(array_filter(sim(), fn ($r) => ($r['ruta'] ?? '') === '/v24.0/401/messages'));
+igual(array_column($envT[0]['cuerpo']['template']['components'][0]['parameters'] ?? [], 'text'), ['Pedro', '#1001'], 'la plantilla lleva nombre y número de pedido');
+$contS = Contactos::porTelefono($db, $lT, '593981000080');
+igual([$contS['nombre'], $contS['tipo']], ['Pedro Páez', 'cliente'], 'el comprador queda como cliente con su nombre');
+igual(Pedidos::items($db, (int) $pS['id'])[0]['nombre'], 'Camiseta (M)', 'productos con su variante');
+igual($db->query("SELECT estado FROM tienda_carritos WHERE externo_id = 'chk-1'")->fetchColumn(), 'compro', 'su carrito queda como comprado');
+limpiarSim();
+Tiendas::procesar($db, $lineaT, 'orders/paid', json_decode($cuerpoS, true), $ahoraN);
+igual([(int) $db->query("SELECT count(*) FROM pedidos WHERE linea_id = $lT")->fetchColumn(), count(array_filter(sim(), fn ($r) => ($r['ruta'] ?? '') === '/v24.0/401/messages'))], [1, 0], 'el mismo pedido otra vez: no se duplica ni se avisa de nuevo');
+Tiendas::procesar($db, $lineaT, 'orders/fulfilled', ['fulfillment_status' => 'fulfilled'] + json_decode($cuerpoS, true), $ahoraN);
+ok($db->query("SELECT estado FROM pedidos WHERE id = {$pS['id']}")->fetchColumn() === 'enviado' && count(array_filter(sim(), fn ($r) => ($r['ruta'] ?? '') === '/v24.0/401/messages')) === 1, 'enviado: se avisa una vez');
+igual(Tiendas::procesarCarritos($db, $ahoraN->modify('+1 hour')), ['avisado' => 0, 'omitido' => 0, 'fallido' => 0], 'antes de las 2 horas no se avisa');
+limpiarSim();
+igual(Tiendas::procesarCarritos($db, $ahoraN->modify('+3 hours')), ['avisado' => 1, 'omitido' => 0, 'fallido' => 0], 'carrito abandonado: se avisa a Rita (Pedro ya compró)');
+igual(array_values(array_filter(sim(), fn ($r) => ($r['ruta'] ?? '') === '/v24.0/401/messages'))[0]['cuerpo']['template']['name'] ?? null, 'promo_octubre', 'con la plantilla de carrito');
+igual(Tiendas::procesarCarritos($db, $ahoraN->modify('+4 hours'))['avisado'], 0, 'no se avisa dos veces');
+Tiendas::procesar($db, $lineaT, 'checkouts/create', ['token' => 'chk-4', 'total_price' => '9', 'phone' => '0981000082'], $ahoraN);
+Campanias::marcarMarketing($db, $lT, (int) Contactos::obtener($db, $lT, '593981000082')['id'], 'baja');
+igual(Tiendas::procesarCarritos($db, $ahoraN->modify('+3 hours'))['omitido'], 1, 'quien pidió no recibir promociones no recibe el recordatorio');
+Tiendas::guardar($db, $lineaT, ['tienda_tipo' => 'woocommerce', 'tienda_plantilla_pedido' => 'recordatorio_pago|es']);
+$lineaT = Lineas::buscar($db, $lT);
+ok(Tiendas::firmaValida($lineaT, 'x', base64_encode(hash_hmac('sha256', 'x', 'shpss_secreto', true))), 'cambiar de tienda sin escribir otra clave conserva la anterior');
+$woo = ['id' => 77, 'number' => '77', 'status' => 'processing', 'total' => '30.00', 'total_tax' => '0', 'billing' => ['first_name' => 'Ana', 'last_name' => 'Ruiz', 'phone' => '0981000090'],
+        'line_items' => [['name' => 'Taza', 'quantity' => 3, 'total' => '30.00']]];
+limpiarSim();
+Tiendas::procesar($db, $lineaT, 'order.created', $woo, $ahoraN);
+$pW = $db->query("SELECT * FROM pedidos WHERE linea_id = $lT AND origen = 'woocommerce'")->fetch();
+ok($pW && $pW['estado'] === 'pagado' && (float) Pedidos::items($db, (int) $pW['id'])[0]['precio'] === 10.0, 'pedido de WooCommerce: precio por unidad');
+Tiendas::procesar($db, $lineaT, 'order.updated', ['status' => 'completed'] + $woo, $ahoraN);
+igual($db->query("SELECT estado FROM pedidos WHERE id = {$pW['id']}")->fetchColumn(), 'entregado', 'WooCommerce completado = entregado');
+Tiendas::procesar($db, $lineaT, 'order.created', ['id' => 78, 'status' => 'pending', 'total' => '5', 'line_items' => []], $ahoraN);
+ok(str_contains(Tiendas::procesar($db, $lineaT, 'order.created', ['id' => 79, 'status' => 'pending', 'total' => '5', 'billing' => []], $ahoraN), 'sin teléfono'), 'pedido sin teléfono: se guarda sin avisar');
+$db->exec("UPDATE lineas SET tienda_plantilla_pedido = 'no_existe|es' WHERE id = $lT");
+ok(str_contains(Tiendas::procesar($db, Lineas::buscar($db, $lT), 'order.created', ['id' => 80, 'status' => 'pending', 'total' => '5', 'billing' => ['phone' => '0981000091']], $ahoraN), 'no está aprobada'), 'plantilla que no existe: se anota el problema');
+ok(str_contains((string) Lineas::buscar($db, $lT)['tienda_error'], 'no_existe'), 'el problema queda a la vista');
+
+echo "== App en el celular: avisos (Web Push)\n";
+putenv('TUWA_PUSH_PRUEBA=' . $sim . '/push/');
+ok(Push::endpointValido('https://fcm.googleapis.com/fcm/send/abc') && Push::endpointValido('https://web.push.apple.com/QK') && Push::endpointValido('https://wns2-par02p.notify.windows.com/w/?token=x'), 'servidores de push conocidos');
+ok(!Push::endpointValido('https://evil.com/fcm.googleapis.com') && !Push::endpointValido('http://fcm.googleapis.com/x') && !Push::endpointValido('https://127.0.0.1/x'), 'cualquier otra dirección se rechaza');
+$pub = Push::clavePublica($db);
+igual(strlen(Push::deB64u($pub)), 65, 'clave VAPID pública de 65 bytes');
+igual(Push::clavePublica($db), $pub, 'la clave se crea una sola vez');
+ok(!str_contains((string) $db->query("SELECT valor FROM ajustes WHERE clave = 'vapid_privada'")->fetchColumn(), 'PRIVATE KEY'), 'la clave privada se guarda cifrada');
+$navegador = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
+$uaPub = Push::publicaCruda($navegador);
+$auth = random_bytes(16);
+try { Push::suscribir($db, $idAna, ['endpoint' => 'https://evil.com/x', 'keys' => ['p256dh' => Push::b64u($uaPub), 'auth' => Push::b64u($auth)]]); ok(false, 'suscribir a una dirección rara'); } catch (RuntimeException $e) { ok(true, 'suscribir a una dirección rara'); }
+try { Push::suscribir($db, $idAna, ['endpoint' => $sim . '/push/ok/1', 'keys' => ['p256dh' => Push::b64u(random_bytes(65)), 'auth' => Push::b64u($auth)]]); ok(false, 'clave que no es de la curva'); } catch (RuntimeException $e) { ok(true, 'clave que no es de la curva'); }
+Push::suscribir($db, $idAna, ['endpoint' => $sim . '/push/ok/ana', 'keys' => ['p256dh' => Push::b64u($uaPub), 'auth' => Push::b64u($auth)]]);
+Push::suscribir($db, $idBeto, ['endpoint' => $sim . '/push/gone/beto', 'keys' => ['p256dh' => Push::b64u($uaPub), 'auth' => Push::b64u($auth)]]);
+igual(Push::cuantas($db, $idAna), 1, 'Ana tiene avisos activos');
+// Descifrado como lo haría el navegador (RFC 8291), para comprobar que el cifrado está bien
+$descifrar = function (string $cuerpo) use ($navegador, $uaPub, $auth): ?string {
+    $sal = substr($cuerpo, 0, 16);
+    $idlen = ord($cuerpo[20]);
+    $asPub = substr($cuerpo, 21, $idlen);
+    $cifrado = substr($cuerpo, 21 + $idlen);
+    $secreto = openssl_pkey_derive(Push::publicaDeCruda($asPub), $navegador, 32);
+    $prkClave = hash_hmac('sha256', $secreto, $auth, true);
+    $ikm = hash_hmac('sha256', "WebPush: info\0" . $uaPub . $asPub . "\x01", $prkClave, true);
+    $prk = hash_hmac('sha256', $ikm, $sal, true);
+    $cek = substr(hash_hmac('sha256', "Content-Encoding: aes128gcm\0\x01", $prk, true), 0, 16);
+    $nonce = substr(hash_hmac('sha256', "Content-Encoding: nonce\0\x01", $prk, true), 0, 12);
+    $plano = openssl_decrypt(substr($cifrado, 0, -16), 'aes-128-gcm', $cek, OPENSSL_RAW_DATA, $nonce, substr($cifrado, -16));
+    return $plano === false ? null : rtrim($plano, "\x02");
+};
+igual($descifrar(Push::cifrar('{"hola":1}', $uaPub, $auth)), '{"hola":1}', 'cifrado y descifrado de ida y vuelta');
+limpiarSim();
+$n = Push::enviar($db, [$idAna, $idBeto], ['titulo' => 'Lucía', 'texto' => '¿Tienen talla M?', 'url' => '/?r=chat&c=5']);
+$pushes = array_values(array_filter(sim(), fn ($r) => ($r['metodo'] ?? '') === 'PUSH'));
+igual([$n, count($pushes)], [1, 2], 'se entrega a Ana (Beto ya no usa ese navegador)');
+$pa = array_values(array_filter($pushes, fn ($x) => str_contains($x['ruta'], '/ok/')))[0];
+$aviso = json_decode((string) $descifrar(base64_decode($pa['cuerpo64'])), true);
+igual([$aviso['titulo'] ?? null, $aviso['texto'] ?? null, $aviso['url'] ?? null, $pa['enc'], $pa['ttl']], ['Lucía', '¿Tienen talla M?', '/?r=chat&c=5', 'aes128gcm', '3600'], 'el celular recibe el aviso cifrado con el texto');
+preg_match('/^vapid t=([^.]+)\.([^.]+)\.([^,]+), k=(.+)$/', $pa['vapid'], $mv);
+$jwt = json_decode(Push::deB64u($mv[2] ?? ''), true);
+$firmaCruda = Push::deB64u($mv[3] ?? '');
+$derFirma = function (string $c): string {   // r||s -> DER para verificar con OpenSSL
+    $ent = fn ($x) => "\x02" . chr(strlen($x = (ord(ltrim($x, "\0")[0] ?? "\0") > 127 ? "\0" : '') . ltrim($x, "\0"))) . $x;
+    $seq = $ent(substr($c, 0, 32)) . $ent(substr($c, 32));
+    return "\x30" . chr(strlen($seq)) . $seq;
+};
+ok(($mv[4] ?? '') === $pub && $jwt['aud'] === parse_url($sim, PHP_URL_SCHEME) . '://' . parse_url($sim, PHP_URL_HOST) . ':' . parse_url($sim, PHP_URL_PORT) && $jwt['sub'] === 'mailto:info@tukansoftware.com', 'firma VAPID con la clave pública y el servidor correcto');
+igual(openssl_verify(($mv[1] ?? '') . '.' . ($mv[2] ?? ''), $derFirma($firmaCruda), Push::publicaDeCruda(Push::deB64u($pub)), OPENSSL_ALGO_SHA256), 1, 'la firma VAPID (ES256) es válida');
+igual(Push::cuantas($db, $idBeto), 0, 'la suscripción que ya no sirve se borra');
+limpiarSim();
+$cAna = $cN('593981000001');
+Push::mensajeNuevo($db, $lineaN, $cAna, 'Hola de nuevo', 1);
+igual(count(array_filter(sim(), fn ($r) => ($r['metodo'] ?? '') === 'PUSH')), 1, 'aviso de mensaje nuevo a quien lo atiende');
+limpiarSim();
+Push::mensajeNuevo($db, $lineaN, $cN('593981000009'), 'hijo', 2);
+igual(count(array_filter(sim(), fn ($r) => ($r['metodo'] ?? '') === 'PUSH')), 0, 'de contactos personales no se avisa');
+Push::quitar($db, $idAna, $sim . '/push/ok/ana');
+igual(Push::cuantas($db, $idAna), 0, 'desactivar los avisos');
+putenv('TUWA_PUSH_PRUEBA=');
 
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";

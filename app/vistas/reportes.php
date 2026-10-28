@@ -1,5 +1,5 @@
 <?php
-/** @var array $linea @var array $r */
+/** @var array $linea @var array $r @var list<array> $anuncios @var array $pedidosRep */
 use TuWhatsApp\Reportes;
 $t = $r['totales'];
 $pl = fn (int $n, string $uno, string $varios) => $n . ' ' . ($n === 1 ? $uno : $varios);
@@ -44,6 +44,31 @@ $pct = $r['respuesta']['total'] > 0 ? (int) round($r['respuesta']['contestados']
     <?php $cerr = $r['ventas']['ganados'] + $r['ventas']['perdidos']; if ($cerr > 0): ?> · cierre <?= (int) round($r['ventas']['ganados'] * 100 / $cerr) ?>%<?php endif; ?></p>
 </section>
 <?php endif; ?>
+
+<section class="tarjeta">
+    <h2>Pedidos pagados en el período</h2>
+    <p><b><?= (int) $pedidosRep['n'] ?></b> <?= $pedidosRep['n'] === 1 ? 'pedido' : 'pedidos' ?> por <b><?= e(dinero($pedidosRep['total'])) ?></b>
+    <?php if ($pedidosRep['n'] > 0): ?> · ticket promedio <?= e(dinero($pedidosRep['total'] / $pedidosRep['n'])) ?><?php endif; ?> · <a href="<?= e(url('pedidos')) ?>">Ver pedidos</a></p>
+</section>
+
+<section class="tarjeta">
+    <h2>De qué anuncio llegaron</h2>
+    <?php if (!$anuncios): ?>
+    <p class="suave">Nadie llegó desde un anuncio de Facebook o Instagram en este período. Cuando alguien escriba desde un anuncio "Enviar mensaje de WhatsApp", aquí verás cuántos escribieron, cuántos compraron y cuánto vendiste por cada anuncio.</p>
+    <?php else: ?>
+    <div class="tabla-desliza"><table class="tabla">
+        <thead><tr><th>Anuncio</th><th>Personas</th><th>Clientes</th><th>Ventas ganadas</th><th>Pedidos pagados</th></tr></thead>
+        <tbody>
+        <?php foreach ($anuncios as $a): ?>
+        <tr><td><b><?= u($a['titulo'] ?: $a['anuncio_id']) ?></b><?= $a['url'] ? ' <a href="' . e($a['url']) . '" target="_blank" rel="noopener" class="pequeno">ver</a>' : '' ?><br><small class="suave"><?= $a['tipo'] === 'publicacion' ? 'Publicación' : 'Anuncio' ?> · <?= e($a['anuncio_id']) ?></small></td>
+            <td><?= (int) $a['personas'] ?></td><td><?= (int) $a['clientes'] ?></td>
+            <td><?= (int) $a['ganadas'] ?><?= $a['valor_ganado'] > 0 ? '<br><small>' . e(dinero($a['valor_ganado'])) . '</small>' : '' ?></td>
+            <td><?= (int) $a['pedidos'] ?><?= $a['vendido'] > 0 ? '<br><small>' . e(dinero($a['vendido'])) . '</small>' : '' ?></td></tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table></div>
+    <?php endif; ?>
+</section>
 
 <h2 class="separador">Por persona del equipo</h2>
 <?php if (!$r['agentes']): ?>

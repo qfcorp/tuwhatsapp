@@ -265,7 +265,7 @@ final class TukanCentral
             'extra' => [
                 'Números conectados' => (int) $uno('SELECT count(*) FROM lineas'),
                 'Mensajes este mes' => (int) $uno("SELECT count(*) FROM mensajes WHERE creado >= '$mes'"),
-                'Respuestas automáticas este mes' => (int) $uno("SELECT count(*) FROM mensajes WHERE origen = 'auto' AND creado >= '$mes'"),
+                'Respuestas automáticas este mes' => (int) $uno("SELECT count(*) FROM mensajes WHERE origen IN ('auto', 'bot', 'flujo') AND creado >= '$mes'"),
                 'Campañas este mes' => (int) $uno("SELECT count(*) FROM campanias WHERE creado >= '$mes'"),
                 'Gasto en Meta del mes (todos)' => '$' . number_format((float) $uno("SELECT COALESCE(sum(costo), 0) FROM mensajes WHERE direccion = 'sale' AND estado NOT IN ('fallido', 'bloqueado') AND creado >= '$mes'"), 2, ',', '.'),
                 'Usuarios' => (int) $uno('SELECT count(*) FROM usuarios WHERE activo'),

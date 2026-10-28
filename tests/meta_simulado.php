@@ -18,12 +18,58 @@ if ($ruta === '/v1/messages' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $d = json_decode($cuerpo, true) ?: [];
     $sis = (string) ($d['system'] ?? '');
+    if (str_contains($sis, 'AGENTE_IA_TUKAN')) {   // agente con IA: contesta en JSON según lo último que dijo el cliente
+        $todo = (string) json_encode($d['messages'] ?? [], JSON_UNESCAPED_UNICODE);
+        if (str_contains($todo, 'ROMPER')) {
+            sale(529, ['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]);
+        }
+        preg_match_all('/Cliente: ([^\\\\]*)/u', $todo, $mm);
+        $ultimo = mb_strtolower(end($mm[1]) ?: '');
+        preg_match('/\[(\d+)\]/', $sis, $pid);
+        $j = ['respuesta' => '¡Hola! Con gusto te ayudo. ¿Qué buscas?', 'persona' => false, 'agregar' => [], 'confirmar' => false];
+        if (str_contains($ultimo, 'persona') || str_contains($ultimo, 'reclamo')) {
+            $j = ['respuesta' => 'Entiendo, en un momento te atiende una persona del equipo.', 'persona' => true];
+        } elseif (str_contains($ultimo, 'quiero 2') && $pid) {
+            $j = ['respuesta' => 'Listo, te agregué 2 al carrito.', 'persona' => false, 'agregar' => [['id' => (int) $pid[1], 'cantidad' => 2], ['id' => 999999, 'cantidad' => 1]], 'confirmar' => false];
+        } elseif (str_contains($ultimo, 'confirmo')) {
+            $j = ['respuesta' => '¡Perfecto! Te mando el resumen.', 'persona' => false, 'agregar' => [], 'confirmar' => true];
+        } elseif (str_contains($ultimo, 'json malo')) {
+            $j = null;
+        }
+        sale(200, ['id' => 'msg_2', 'type' => 'message', 'role' => 'assistant', 'model' => $d['model'] ?? '',
+                   'content' => [['type' => 'text', 'text' => $j === null ? 'no es json' : json_encode($j, JSON_UNESCAPED_UNICODE)]],
+                   'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 1500, 'output_tokens' => 120]]);
+    }
     $txt = str_contains($sis, 'resume') ? "Quiere el plan Pro.\nSiguiente paso: mandarle la cotización." : '¡Hola! El plan Pro cuesta $45 al mes. ¿Te lo activo?';
     if (str_contains((string) json_encode($d['messages'] ?? []), 'ROMPER')) {
         sale(529, ['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]);
     }
     sale(200, ['id' => 'msg_1', 'type' => 'message', 'role' => 'assistant', 'model' => $d['model'] ?? '', 'content' => [['type' => 'text', 'text' => $txt]],
                'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 1000, 'output_tokens' => 200]]);
+}
+// Payphone: link de cobro (responde la URL como texto)
+if ($ruta === '/api/Links' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($auth !== 'Bearer payphone_bueno') {
+        http_response_code(401);
+        echo json_encode(['message' => 'Unauthorized', 'errorCode' => 401]);
+        exit;
+    }
+    $d = json_decode($cuerpo, true) ?: [];
+    if (($d['amount'] ?? 0) !== ($d['amountWithoutTax'] ?? 0) + ($d['amountWithTax'] ?? 0) + ($d['tax'] ?? 0)) {
+        http_response_code(400);
+        echo json_encode(['message' => 'El monto no cuadra', 'errorCode' => 3]);
+        exit;
+    }
+    header('Content-Type: application/json');
+    echo json_encode('https://payp.page.link/SIM' . $d['amount']);
+    exit;
+}
+// Servidor de avisos (Web Push) de mentira: guarda cabeceras y cuerpo cifrado
+if (preg_match('#^/push/(ok|gone)/#', $ruta, $m)) {
+    file_put_contents($log, json_encode(['metodo' => 'PUSH', 'ruta' => $ruta, 'vapid' => $auth, 'enc' => $_SERVER['HTTP_CONTENT_ENCODING'] ?? '',
+                                         'ttl' => $_SERVER['HTTP_TTL'] ?? '', 'cuerpo64' => base64_encode($cuerpo)]) . "\n", FILE_APPEND | LOCK_EX);
+    http_response_code($m[1] === 'ok' ? 201 : 410);
+    exit;
 }
 // Otro programa que recibe los avisos (webhook de salida)
 if ($ruta === '/aviso' || $ruta === '/aviso_malo') {

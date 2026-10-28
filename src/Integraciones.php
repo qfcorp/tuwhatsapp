@@ -122,12 +122,17 @@ final class Integraciones
     public static function filas(PDO $db, int $lineaId, string $que, int $dias = 30): array
     {
         if ($que === 'contactos') {
-            $r = [['Teléfono', 'Nombre', 'Nombre en WhatsApp', 'Tipo', 'Etiquetas', 'Etapa', 'Valor', 'Promociones', 'Notas', 'Creado', 'Último mensaje']];
+            $campos = Campos::lista($db, $lineaId);
+            $r = [array_merge(['Teléfono', 'Nombre', 'Nombre en WhatsApp', 'Tipo', 'Etiquetas', 'Etapa', 'Valor', 'Promociones', 'Notas', 'Creado', 'Último mensaje', 'Llegó del anuncio'],
+                              array_column($campos, 'nombre'))];
             $st = $db->prepare('SELECT * FROM contactos WHERE linea_id = ? ORDER BY id');
             $st->execute([$lineaId]);
             foreach ($st as $c) {
-                $r[] = [$c['telefono'], $c['nombre'], $c['nombre_whatsapp'], $c['tipo'], (string) $c['etiquetas'], (string) ($c['etapa'] ?? ''),
-                        number_format((float) $c['valor'], 2, ',', ''), (string) $c['marketing'], $c['notas'], self::fecha($c['creado']), self::fecha($c['ultimo_entrante'])];
+                $datos = Campos::de($c);
+                $r[] = array_merge([$c['telefono'], $c['nombre'], $c['nombre_whatsapp'], $c['tipo'], (string) $c['etiquetas'], (string) ($c['etapa'] ?? ''),
+                        number_format((float) $c['valor'], 2, ',', ''), (string) $c['marketing'], $c['notas'], self::fecha($c['creado']), self::fecha($c['ultimo_entrante']),
+                        (string) ($c['origen_titulo'] ?? $c['origen_id'] ?? '')],
+                        array_map(fn ($cp) => Campos::mostrar($cp, $datos[$cp['clave']] ?? ''), $campos));
             }
             return $r;
         }
@@ -136,7 +141,7 @@ final class Integraciones
                             LEFT JOIN usuarios u ON u.id = m.usuario_id WHERE m.linea_id = ? AND m.creado >= now() - make_interval(days => ?) ORDER BY m.creado, m.id");
         $st->execute([$lineaId, max(1, min(366, $dias))]);
         foreach ($st as $m) {
-            $quien = ['cliente' => 'Cliente', 'panel' => 'Equipo (panel)', 'auto' => 'Automático', 'celular' => 'Celular', 'pendiente' => 'Pendiente'][$m['origen']] ?? $m['origen'];
+            $quien = ['cliente' => 'Cliente', 'panel' => 'Equipo (panel)', 'auto' => 'Automático', 'bot' => 'Agente con IA', 'flujo' => 'Chatbot', 'tienda' => 'Tienda en línea', 'campania' => 'Campaña', 'celular' => 'Celular', 'pendiente' => 'Pendiente'][$m['origen']] ?? $m['origen'];
             $r[] = [self::fecha($m['creado']), $m['telefono'], $m['nombre'] !== '' ? $m['nombre'] : $m['nombre_whatsapp'], $m['direccion'] === 'entra' ? 'Recibido' : 'Enviado',
                     $m['usuario'] ? $quien . ': ' . $m['usuario'] : $quien, $m['tipo'], (string) $m['texto'], $m['estado'], number_format((float) $m['costo'], 4, ',', '')];
         }
