@@ -51,6 +51,13 @@ En el servidor (`/var/www/tuwhatsapp/config/.env`) ya están: META_APP_ID, META_
 
 ---
 
+## 🆚 Comparación con Wati y respond.io (28 oct 2026)
+**Wati** (wati.io, página Wati LATAM): Growth $69/mes ($59 anual, 3 usuarios, no se pueden agregar), Pro $149/mes ($119 anual, 5 usuarios, usuario extra $39), Business $279–349 (usuario extra $89). Aparte: número extra $29, IA $30 por 1.000 créditos, agente IA Astra $99 (Pro) o $399 (Business), automatizaciones $40 por 1.000, Shopify $4,99. **Recargo sobre Meta**: ~60 % marketing, ~79 % utilidad, ~21 % servicio. Pago anual, sin reembolso, cancelar escribiendo a facturación. Novedad en su página: "Wati AI — No hagas clic, solo pregunta" (segmentar clientes listos para comprar, crear campañas desde una idea, agentes que revisan la operación cada mañana).
+**respond.io**: Starter $79, Growth $159, Advanced $279 al mes (anual, por 1.000 contactos activos al mes; extra $12–15 por 100 contactos), 5–10 usuarios, usuario extra $12–24, créditos de IA extra $15 por 1.000. Sin recargo sobre Meta. El plan barato NO tiene agentes IA, campañas, flujos ni API.
+**Lo que ellos tienen y nosotros no:** Instagram, Messenger y TikTok en la misma bandeja; llamadas de WhatsApp; IA que crea campañas y segmentos con una frase; resumen diario con IA para el dueño; encuestas de satisfacción (CSAT/NPS); app en Play Store / App Store (nosotros: app instalable desde el navegador); conexión directa a HubSpot/Salesforce (nosotros: Make/Zapier/n8n y Excel); catálogo nativo de WhatsApp (Meta Commerce) y formularios WhatsApp Flows; SMS alterno.
+**Lo que nosotros tenemos y ellos cobran aparte o no tienen:** todo en un plan (~$20) con hasta 50 usuarios; 0 % de recargo sobre Meta y tope de gasto; mes a mes; agente IA ~$5 (Wati $99–399); cobro con tarjeta por Plux/Payphone (Ecuador) con pedido que pasa solo a Pagado; cotización PDF con RUC e IVA; catálogo con stock; botón "enviar gratis desde el celular"; español y soporte en Ecuador.
+Pendiente: Dimitry elige cuáles de las que faltan se hacen.
+
 ## 💳 Cobro con tarjeta por Pago Plux (28 oct 2026, tarde)
 Pedido de Dimitry: "cobros con Plux (se requiere inscripción en Plux; nosotros les damos toda la información)".
 - Misma integración probada de TuPass (API de tarjetas v1.3, cifrado en el navegador, OTP, 3D Secure, aviso de pago), pero **con las credenciales de cada negocio, por número**.
