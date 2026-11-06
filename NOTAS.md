@@ -1,6 +1,11 @@
 # WhatsApp Tukán — Estado y pasos para continuar
 *Actualizado: 28 oct 2026*
 
+## ✅ Meta aprobó la revisión de la app (5 nov 2026)
+- Permisos **whatsapp_business_messaging**, **whatsapp_business_management** y **public_profile**: aprobados, con acceso avanzado.
+- Falta solo la **verificación de acceso (Tech Provider)**, enviada el 28 oct y todavía "En revisión" (plazo de Meta: 4 ene 2027).
+- Pendiente: suspender o borrar la cuenta de prueba "Meta Review" y probar el botón QR con el número de un cliente real.
+
 ## Qué es
 Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de WhatsApp de Meta**, para el número de ventas de Tukán (+593 99 640 8397) y después QF Producciones (+593 98 683 3077) en el mismo programa.
 
