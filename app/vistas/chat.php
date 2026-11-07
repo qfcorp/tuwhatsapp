@@ -44,7 +44,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 <?php if ($silencio): ?>
 <form method="post" class="nota nota-silencio">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="silencio"><input type="hidden" name="horas" value="0">
-    Pidió hablar con una persona: no se le contesta solo hasta <?= e(hora_corta($c['silencio_hasta'])) ?>. <button class="enlace">Volver a activar</button>
+    Respuestas automáticas en pausa hasta <?= e(hora_corta($c['silencio_hasta'])) ?> (alguien del equipo contestó o el cliente pidió una persona). <button class="enlace">Volver a activar</button>
 </form>
 <?php endif; ?>
 <?php if ($gratis): ?>

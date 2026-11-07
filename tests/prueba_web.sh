@@ -72,7 +72,7 @@ ok 'tiene "Enviado (\$0,0113)" && tiene "Por el sistema"' "enviar por el sistema
 post "/?r=chat&c=$C" --data-urlencode "accion=datos" --data-urlencode "nombre=Ana Salón Quito" --data-urlencode "notas=Quiere TuSalón"
 ok 'tiene "Ana Salón Quito" && tiene "Quiere TuSalón"' "nombre y notas"
 post "/?r=chat&c=$C" --data-urlencode "accion=silencio" --data-urlencode "horas=24"
-ok 'tiene "no se le contesta solo hasta"' "pausar automático"
+ok 'tiene "Respuestas automáticas en pausa hasta"' "pausar automático"
 post "/?r=chat&c=$C" --data-urlencode "accion=pendiente" --data-urlencode "texto=Recordar llamar"
 ok 'tiene "Agregado a Pendientes"' "guardar en pendientes desde el chat"
 get "/?r=chat&c=999999"; ok '[ "$CODIGO" = 302 ]' "chat que no existe"
@@ -776,6 +776,12 @@ ok '[ "$CODIGO" = 200 ] && tiene "Llamadas de WhatsApp" && tiene "Apagadas" && t
 ok 'tiene "Tu número también está en la app WhatsApp Business del celular" && tiene "Eliminar mi cuenta" && tiene "agregar tu número"' "explica cómo pasar el número a solo API (coexistencia)"
 post "/?r=llamadas" --data-urlencode "accion=encender"
 ok 'tiene "Llamadas encendidas" && tiene "Encendidas" && grep -q "100.\{1,2\}settings" "$SIM_LOG"' "encender las llamadas en Meta"
+ok 'tiene "Horario para llamadas:" && tiene "Cambiar horario" && tiene "Si llaman fuera de horario" && tiene "WhatsApp con tu horario"' "muestra el horario de llamadas y qué pasa fuera de horario"
+post "/?r=llamadas" --data-urlencode "accion=guardar" --data-urlencode "llamadas_fuera=mensaje" --data-urlencode "llamadas_fuera_texto=Ahora estamos cerrados. Atendemos {horario}."
+ok 'tiene "Guardado" && tiene "Así le llega hoy" && tiene "Ahora estamos cerrados. Atendemos " && ! tiene "{horario}»"' "guardar el mensaje de fuera de horario (con el horario en palabras)"
+post "/?r=llamadas" --data-urlencode "accion=guardar" --data-urlencode "llamadas_fuera=meta" --data-urlencode "llamadas_fuera_texto="
+ok 'tiene "Guardado" && tiene "value=\"meta\" checked"' "cambiar a que Meta bloquee fuera de horario (se avisa a Meta)"
+post "/?r=llamadas" --data-urlencode "accion=guardar" --data-urlencode "llamadas_fuera=mensaje"
 SDP='v=0\r\no=- 1 2 IN IP4 157.240.1.1\r\ns=-\r\nt=0 0\r\nm=audio 3480 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 157.240.1.1\r\na=rtpmap:111 opus/48000/2\r\n'
 T=$(date +%s)
 LLAM='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"calls","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593983662181","phone_number_id":"100"},"contacts":[{"profile":{"name":"Peluquería Ana"},"wa_id":"593991111111"}],"calls":[{"id":"wacid.WEB1","from":"593991111111","to":"593983662181","event":"connect","direction":"USER_INITIATED","timestamp":"'$T'","session":{"sdp_type":"offer","sdp":"'$SDP'"}}]}}]}]}'

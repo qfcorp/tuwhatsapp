@@ -22,8 +22,33 @@ use RuntimeException;
 final class Llamadas
 {
     public const ESTADOS = ['sonando' => 'Sonando', 'contestando' => 'Conectando', 'en_curso' => 'En curso', 'terminada' => 'Terminada',
-                            'perdida' => 'Perdida', 'rechazada' => 'Rechazada', 'fallida' => 'Falló'];
+                            'perdida' => 'Perdida', 'rechazada' => 'Rechazada', 'fallida' => 'Falló', 'fuera_horario' => 'Fuera de horario'];
     public const SEGUNDOS_PARA_CONTESTAR = 55;
+    /** Qué pasa si llaman fuera del horario de atención. */
+    public const FUERA = ['mensaje' => 'No suena y al cliente le llega un WhatsApp con tu horario (recomendado)',
+                          'meta' => 'Meta no deja llamar (al cliente le sale "no puede recibir llamadas" y no le llega nada)'];
+    public const TEXTO_FUERA = 'Hola, gracias por llamar. En este momento estamos fuera de horario. Atendemos {horario}. Escríbenos por aquí y te respondemos apenas abramos.';
+
+    /** El modo de fuera de horario del número ("mensaje" si no está puesto). */
+    public static function modoFuera(array $linea): string
+    {
+        return ($linea['llamadas_fuera'] ?? '') === 'meta' ? 'meta' : 'mensaje';
+    }
+
+    /** El mensaje que le llega a quien llama fuera de horario, con el horario en palabras. */
+    public static function textoFuera(array $linea): string
+    {
+        $t = trim((string) ($linea['llamadas_fuera_texto'] ?? ''));
+        $horario = Lineas::textoHorario($linea);
+        return str_replace('{horario}', $horario !== '' ? $horario : 'en nuestro horario de atención', $t !== '' ? $t : self::TEXTO_FUERA);
+    }
+
+    /** ¿Esta llamada entra fuera de horario? (si el número no tiene ningún día puesto, siempre atiende) */
+    public static function fueraDeHorario(array $linea, DateTimeImmutable $ahora): bool
+    {
+        $h = Lineas::horario($linea);
+        return array_filter($h) !== [] && !Reglas::enHorario($h, $ahora);
+    }
 
     public static function buscar(PDO $db, int $lineaId, int $id): ?array
     {
@@ -120,7 +145,12 @@ final class Llamadas
         $st = $db->prepare("INSERT INTO llamadas (linea_id, contacto_id, call_id, direccion, estado, sdp_oferta, creado) VALUES (?, ?, ?, 'entra', 'sonando', ?, ?)
                             ON CONFLICT (linea_id, call_id) DO NOTHING RETURNING id");
         $st->execute([(int) $linea['id'], $contacto ? (int) $contacto['id'] : null, (string) $c['id'], mb_substr((string) ($c['session']['sdp'] ?? ''), 0, 20000), $ahora->format('c')]);
-        if ($st->fetchColumn() === false || $contacto === null) {
+        $nuevaId = $st->fetchColumn();
+        if ($nuevaId === false || $contacto === null) {
+            return;
+        }
+        if (self::modoFuera($linea) === 'mensaje' && self::fueraDeHorario($linea, $ahora)) {
+            self::cerrado($db, $linea, $contacto, (int) $nuevaId, (string) $c['id'], $ahora);
             return;
         }
         // Llamar al negocio también le da permiso de que lo llamen de vuelta (Meta lo marca solo)
@@ -129,6 +159,27 @@ final class Llamadas
                                                                      'url' => '/?r=chat&c=' . (int) $contacto['id'], 'tag' => 'tuwa-llamada-' . $c['id']]);
         } catch (\Throwable $e) {
             error_log('tuwhatsapp llamada aviso: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Llamada fuera de horario (modo "mensaje"): no suena en el panel, se cuelga en Meta y al cliente le llega un WhatsApp
+     * con el horario. Al equipo le llega un aviso para devolverle la llamada o escribirle cuando abra.
+     */
+    private static function cerrado(PDO $db, array $linea, array $contacto, int $id, string $callId, DateTimeImmutable $ahora): void
+    {
+        $r = Meta::deLinea($linea)->llamadaAccion($callId, 'reject');
+        $db->prepare("UPDATE llamadas SET estado = 'fuera_horario', terminada = ?, error = ? WHERE id = ?")
+           ->execute([$ahora->format('c'), $r['ok'] ? '' : mb_substr((string) ($r['error'] ?? ''), 0, 300), $id]);
+        if (($contacto['tipo'] ?? '') !== 'personal') {
+            (new Mensajeria($db, $ahora))->textoTrasLlamada($linea, $contacto, self::textoFuera($linea));
+        }
+        try {
+            Push::enviar($db, self::quienes($db, $linea, $contacto), ['titulo' => '🌙 Llamada fuera de horario de ' . Contactos::nombre($contacto),
+                                                                     'texto' => 'Le mandamos tu horario por WhatsApp. Toca para escribirle o llamarlo.',
+                                                                     'url' => '/?r=chat&c=' . (int) $contacto['id'], 'tag' => 'tuwa-fuera-' . $callId]);
+        } catch (\Throwable $e) {
+            error_log('tuwhatsapp llamada fuera de horario aviso: ' . $e->getMessage());
         }
     }
 
@@ -148,6 +199,7 @@ final class Llamadas
         $falla = strtoupper((string) ($c['status'] ?? '')) === 'FAILED';
         $estado = match (true) {
             $l['estado'] === 'rechazada' => 'rechazada',
+            $l['estado'] === 'fuera_horario' => 'fuera_horario',
             $falla && $l['contestada'] === null && $dur === null => $l['direccion'] === 'entra' ? 'perdida' : 'fallida',
             $falla => 'fallida',
             $dur === null && $l['contestada'] === null => $l['direccion'] === 'entra' ? 'perdida' : 'terminada',
@@ -325,11 +377,18 @@ final class Llamadas
                     $horas[] = ['day_of_week' => $dias[$d], 'open_time' => str_replace(':', '', $h[0]), 'close_time' => str_replace(':', '', $h[1])];
                 }
             }
-            if ($horas) {
+            if ($horas && self::modoFuera($linea) === 'meta') {
                 $calling['call_hours'] = ['status' => 'ENABLED', 'timezone_id' => 'America/Guayaquil', 'weekly_operating_hours' => $horas, 'holiday_schedule' => []];
+            } else {
+                // Modo "mensaje": la llamada siempre entra y el programa decide (fuera de horario manda el horario por WhatsApp)
+                $calling['call_hours'] = ['status' => 'DISABLED'];
             }
         }
         $r = Meta::deLinea($linea)->ajustesLlamadas($calling);
+        if (!$r['ok'] && ($calling['call_hours']['status'] ?? '') === 'DISABLED') {
+            unset($calling['call_hours']);   // por si Meta no acepta apagar el horario: igual se encienden las llamadas
+            $r = Meta::deLinea($linea)->ajustesLlamadas($calling);
+        }
         $db->prepare('UPDATE lineas SET llamadas_activo = ?, llamadas_error = ? WHERE id = ?')
            ->execute([$r['ok'] ? ($si ? 't' : 'f') : ($linea['llamadas_activo'] ? 't' : 'f'), $r['ok'] ? '' : mb_substr($r['error'], 0, 300), (int) $linea['id']]);
         return $r;

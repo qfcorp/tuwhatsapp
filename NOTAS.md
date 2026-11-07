@@ -1,6 +1,20 @@
 # WhatsApp Tukán — Estado y pasos para continuar
 *Actualizado: 28 oct 2026*
 
+## 🧪 Simulación de un cliente con la sandbox de Meta y llamadas fuera de horario (7 nov 2026)
+- **Sandbox de Meta pedida** (Herramientas de socios, con llamadas): "Sandbox Business" / "Sandbox WhatsApp Account", número de prueba +1 555-163-5643 (se borra solo el 5 feb 2027). Se conectó como un cliente con el botón "Conectar con WhatsApp Business": el programa lo registró solo (PIN incluido).
+- Probado en producción (whatsapp.tukanec.com): plantilla hello_world enviada y leída ✓✓, respuesta del cliente recibida, respuesta desde el panel (gratis) y **llamada del cliente contestada en el panel** ✅.
+- Suscrito el campo **calls** del webhook de la app (v27.0). Cuenta "Meta Review" **suspendida**.
+- Lo que salió y quedó arreglado:
+  - **Llamadas fuera de horario:** antes Meta bloqueaba y al cliente solo le salía "no puede recibir llamadas". Ahora (modo normal "mensaje") la llamada no suena, se cuelga y **al cliente le llega un WhatsApp con el horario** ("Atendemos lunes a viernes de 8:00 a 18:00 y sábado de 9:00 a 13:00…"); al equipo le llega un aviso 🌙. Se puede cambiar el texto (con `{horario}`) o elegir que Meta bloquee. Estado nuevo de llamada: "Fuera de horario".
+  - Más → Llamadas muestra el horario en palabras y avisa si ahora está fuera de horario. Al guardar el horario en Respuestas automáticas se le avisa a Meta solo.
+  - Error 138018 de Meta explicado en español (falta el campo calls).
+  - El nombre del número ya no viene lleno con "Tukán ventas" (si se deja vacío usa el nombre de Meta).
+  - El aviso del chat decía "Pidió hablar con una persona" también cuando escribía el equipo: ahora dice "Respuestas automáticas en pausa hasta… (alguien del equipo contestó o el cliente pidió una persona)".
+  - Los números de prueba de Meta (+1 555…) no suman gasto.
+  - 2 pruebas que dependían de la fecha (escritas en octubre) quedaron firmes.
+- Pruebas: idiomas 43, lógica 757, Panel Central 163, pantallas 364, schema sobre base con datos: todo bien.
+
 ## 🎉 Ya somos Tech Provider de Meta (7 nov 2026)
 - Meta confirma: "Ya eres un proveedor de tecnología" (verificación del negocio ✅ + revisión de la app ✅). **Se puede vender**: cada cliente conecta su WhatsApp con el botón "Conectar con WhatsApp Business".
 - Disponible: cuenta sandbox de Meta para pruebas y enlace de registro alojado por Meta.

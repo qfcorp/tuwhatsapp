@@ -637,7 +637,7 @@ CREATE TABLE IF NOT EXISTS llamadas (
     call_id       text NOT NULL,
     direccion     text NOT NULL CHECK (direccion IN ('entra', 'sale')),
     estado        text NOT NULL DEFAULT 'sonando'
-                  CHECK (estado IN ('sonando', 'contestando', 'en_curso', 'terminada', 'perdida', 'rechazada', 'fallida')),
+                  CHECK (estado IN ('sonando', 'contestando', 'en_curso', 'terminada', 'perdida', 'rechazada', 'fallida', 'fuera_horario')),
     sdp_oferta    text NOT NULL DEFAULT '',
     sdp_respuesta text NOT NULL DEFAULT '',
     usuario_id    integer REFERENCES usuarios(id) ON DELETE SET NULL,
@@ -680,3 +680,15 @@ CREATE TABLE IF NOT EXISTS ia_resumenes (
 -- datos inventados y un número que no es de verdad (phone_number_id 'muestra-…'): nunca llama a Meta ni conecta números.
 -- ---------------------------------------------------------------------
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS muestra boolean NOT NULL DEFAULT false;
+
+-- ---------------------------------------------------------------------
+-- 7 nov 2026: llamadas fuera de horario. Modo "mensaje" (por defecto): la llamada no suena, se cuelga y al cliente le llega
+-- un WhatsApp con el horario. Modo "meta": Meta bloquea la llamada fuera de horario (al cliente solo le sale "no disponible").
+-- ---------------------------------------------------------------------
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS llamadas_fuera       text NOT NULL DEFAULT 'mensaje';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS llamadas_fuera_texto text NOT NULL DEFAULT '';   -- vacío = texto normal con {horario}
+ALTER TABLE lineas DROP CONSTRAINT IF EXISTS lineas_llamadas_fuera_check;
+ALTER TABLE lineas ADD CONSTRAINT lineas_llamadas_fuera_check CHECK (llamadas_fuera IN ('mensaje', 'meta'));
+ALTER TABLE llamadas DROP CONSTRAINT IF EXISTS llamadas_estado_check;
+ALTER TABLE llamadas ADD CONSTRAINT llamadas_estado_check
+    CHECK (estado IN ('sonando', 'contestando', 'en_curso', 'terminada', 'perdida', 'rechazada', 'fallida', 'fuera_horario'));

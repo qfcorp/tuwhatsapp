@@ -3,6 +3,9 @@
 use TuWhatsApp\Llamadas;
 $activo = !empty($linea['llamadas_activo']);
 $iconos = ['entra' => '↙', 'sale' => '↗'];
+$textoHorario = \TuWhatsApp\Lineas::textoHorario($linea);
+$fueraAhora = Llamadas::fueraDeHorario($linea, new DateTimeImmutable());
+$modoFuera = Llamadas::modoFuera($linea);
 ?>
 <div class="cabeza"><h1>Llamadas</h1></div>
 <section class="tarjeta">
@@ -28,6 +31,15 @@ $iconos = ['entra' => '↙', 'sale' => '↗'];
         </details>
     </div>
     <?php endif; ?>
+    <div class="horario-llamadas">
+        <p class="pequeno"><b>Horario para llamadas:</b> <?= $textoHorario !== '' ? e($textoHorario) : 'todos los días, a toda hora' ?>.
+        <?php if (es_admin()): ?><a href="<?= e(url('reglas')) ?>">Cambiar horario</a><?php endif; ?></p>
+        <?php if ($fueraAhora): ?>
+        <p class="aviso aviso-info pequeno">🌙 <b>Ahora estás fuera de horario.</b> <?= $modoFuera === 'mensaje'
+            ? 'Si alguien llama, no suena: se le manda tu horario por WhatsApp y te llega un aviso.'
+            : 'Si alguien llama, Meta le dice que no puedes recibir llamadas en este momento.' ?></p>
+        <?php endif; ?>
+    </div>
     <?php if (es_admin()): ?>
     <form method="post" class="fila-botones">
         <?= csrf_campo() ?>
@@ -43,12 +55,20 @@ $iconos = ['entra' => '↙', 'sale' => '↗'];
             <li>El número debe estar <b>solo en la API de WhatsApp</b> (no también en la app WhatsApp Business del celular).</li>
             <li>Tu número debe poder mandar a <b>2.000 personas al día</b> o más (Meta lo sube solo cuando usas el número sin reportes).</li>
             <li>En la app de Meta, el webhook debe tener suscrito el campo <b>calls</b> (Tukán lo deja listo).</li>
-            <li>Se usa el <b>horario de atención</b> de Respuestas automáticas: fuera de horario, al cliente le sale que estás cerrado.</li>
+            <li>Se usa el <b>horario de atención</b> de Respuestas automáticas. Fuera de horario la llamada no suena y, según lo que elijas abajo, al cliente le llega tu horario por WhatsApp.</li>
             <li>Para llamar tú a un cliente, primero tiene que aceptar tu <b>pedido de permiso</b> (vale 7 días, o siempre si así lo elige). Meta deja pedirlo 1 vez al día y 2 por semana.</li>
         </ul>
     </details>
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="guardar">
+        <fieldset class="opciones-fuera">
+            <legend>Si llaman fuera de horario</legend>
+            <?php foreach (Llamadas::FUERA as $k => $n): ?>
+            <label class="radio"><input type="radio" name="llamadas_fuera" value="<?= $k ?>" <?= $modoFuera === $k ? 'checked' : '' ?>> <?= e($n) ?></label>
+            <?php endforeach; ?>
+        </fieldset>
+        <label>Mensaje con tu horario (opcional)<textarea name="llamadas_fuera_texto" rows="3" maxlength="1000" placeholder="<?= e(Llamadas::TEXTO_FUERA) ?>"><?= e($linea['llamadas_fuera_texto'] ?? '') ?></textarea></label>
+        <p class="suave pequeno">Escribe <code>{horario}</code> donde quieras que salga tu horario. Así le llega hoy: «<?= e(Llamadas::textoFuera($linea)) ?>»</p>
         <label>Mensaje si no alcanzas a contestar (opcional)<textarea name="llamadas_perdida" rows="2" maxlength="1000" placeholder="Hola, vimos tu llamada. Ahora no pudimos contestar, ¿te ayudamos por aquí?"><?= e($linea['llamadas_perdida']) ?></textarea></label>
         <p class="suave pequeno">Se manda solo si el cliente te escribió en las últimas 24 horas (así no cuesta plantilla).</p>
         <button class="boton boton-claro">Guardar</button>
@@ -64,7 +84,7 @@ $iconos = ['entra' => '↙', 'sale' => '↗'];
     <ul class="lista-llamadas">
         <?php foreach ($llamadas as $l): ?>
         <li class="llamada-<?= e($l['estado']) ?>">
-            <span class="ll-ico" aria-hidden="true"><?= $l['estado'] === 'perdida' ? '📵' : $iconos[$l['direccion']] ?></span>
+            <span class="ll-ico" aria-hidden="true"><?= $l['estado'] === 'perdida' ? '📵' : ($l['estado'] === 'fuera_horario' ? '🌙' : $iconos[$l['direccion']]) ?></span>
             <a href="<?= e(url('chat', ['c' => $l['contacto_id']])) ?>"><b><?= u(Llamadas::nombre($l)) ?></b></a>
             <span class="suave pequeno"><?= $l['direccion'] === 'entra' ? 'Te llamó' : 'Llamaste' ?> · <?= e(tukan_tr(Llamadas::ESTADOS[$l['estado']] ?? $l['estado'])) ?><?= $l['duracion'] !== null ? ' · ' . e(Llamadas::duracion((int) $l['duracion'])) : '' ?><?= $l['u_nombre'] ? ' · ' . u($l['u_nombre']) : '' ?> · <?= e(hora_corta((string) $l['creado'])) ?></span>
         </li>

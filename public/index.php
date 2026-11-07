@@ -382,7 +382,7 @@ try {
             'equipo' => array_values(array_filter(\TuWhatsApp\Empresas::usuarios(db(), (int) empresa_actual()['id']), fn ($x) => $x['activo'])),
             'respuestas' => \TuWhatsApp\Respuestas::lista(db(), $lid),
             'ventana' => Gasto::ventanaAbierta($c, new DateTimeImmutable()),
-            'precio' => Gasto::estimar(db(), 'servicio', $c, new DateTimeImmutable()),
+            'precio' => Lineas::esPrueba($linea) ? 0.0 : Gasto::estimar(db(), 'servicio', $c, new DateTimeImmutable()),
             'seguimientos' => modulo('seguimientos') ? \TuWhatsApp\Seguimientos::deContacto(db(), $cid) : [],
             'llamadas' => \TuWhatsApp\Llamadas::lista(db(), $lid, $cid, 3),
             'resumenIa' => $resumenIa,
@@ -1140,8 +1140,17 @@ try {
                 $r['ok'] ? aviso($accion === 'encender' ? 'Llamadas encendidas: tus clientes ya ven el botón de llamar.' : 'Llamadas apagadas.')
                          : aviso('Meta no dejó cambiarlo: ' . $r['error'], 'error');
             } else {
-                db()->prepare('UPDATE lineas SET llamadas_perdida = ? WHERE id = ?')->execute([mb_substr(trim((string) ($_POST['llamadas_perdida'] ?? '')), 0, 1000), $lid]);
-                aviso('Guardado.');
+                $fuera = ($_POST['llamadas_fuera'] ?? '') === 'meta' ? 'meta' : 'mensaje';
+                db()->prepare('UPDATE lineas SET llamadas_perdida = ?, llamadas_fuera = ?, llamadas_fuera_texto = ? WHERE id = ?')
+                    ->execute([mb_substr(trim((string) ($_POST['llamadas_perdida'] ?? '')), 0, 1000), $fuera,
+                               mb_substr(trim((string) ($_POST['llamadas_fuera_texto'] ?? '')), 0, 1000), $lid]);
+                $nueva = Lineas::buscar(db(), $lid);
+                if (!empty($nueva['llamadas_activo']) && $fuera !== \TuWhatsApp\Llamadas::modoFuera($linea)) {
+                    $r = \TuWhatsApp\Llamadas::encender(db(), $nueva, true);   // Meta tiene que saber si bloquea o no fuera de horario
+                    $r['ok'] ? aviso('Guardado.') : aviso('Se guardó, pero Meta no aceptó el cambio: ' . $r['error'], 'error');
+                } else {
+                    aviso('Guardado.');
+                }
             }
             redirigir('llamadas');
         }
@@ -1217,7 +1226,9 @@ try {
     case 'reglas':
         if ($post) {
             Lineas::guardarReglas(db(), $lid, $_POST);
-            aviso('Reglas guardadas.');
+            $nueva = Lineas::buscar(db(), $lid);
+            $r = !empty($nueva['llamadas_activo']) ? \TuWhatsApp\Llamadas::encender(db(), $nueva, true) : ['ok' => true];   // el horario también vale para las llamadas
+            $r['ok'] ? aviso('Reglas guardadas.') : aviso('Reglas guardadas, pero Meta no aceptó el horario de las llamadas: ' . $r['error'], 'error');
             redirigir('reglas');
         }
         vista('reglas', 'Respuestas automáticas', ['linea' => $linea]);

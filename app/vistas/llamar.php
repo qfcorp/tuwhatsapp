@@ -14,7 +14,7 @@ $puede = $cl !== null && Llamadas::puedeLlamar($cl);
 <meta name="theme-color" content="#14211F">
 <meta name="robots" content="noindex, nofollow">
 <title>📞 <?= e($titulo) ?> · WhatsApp Tukán</title>
-<link rel="stylesheet" href="/assets/app.css?v=16">
+<link rel="stylesheet" href="/assets/app.css?v=17">
 <?= tukan_idioma_js(require RAIZ . '/app/frases_js.php') ?>
 </head>
 <body class="sin-sesion ventana-llamada">

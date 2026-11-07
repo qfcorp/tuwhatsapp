@@ -458,3 +458,9 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .burbuja-propuesta { background: #e7f6ec; border-radius: 12px; padding: 10px 12px; white-space: normal; }
 .explica-llamadas p { margin: 0 0 6px; }
 .explica-llamadas ol { margin: 6px 0; padding-left: 20px; }
+/* Llamadas: qué pasa fuera de horario */
+fieldset.opciones-fuera { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 14px 6px; margin: 12px 0; }
+fieldset.opciones-fuera legend { padding: 0 6px; font-weight: 600; }
+fieldset.opciones-fuera label.radio { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; margin-bottom: 8px; }
+fieldset.opciones-fuera label.radio input { margin-top: 3px; flex: none; }
+.horario-llamadas { margin: 10px 0; }

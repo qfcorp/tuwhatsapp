@@ -661,7 +661,8 @@ ok(Empresas::porTokenApi($db, $tok2) !== null, 'el nuevo sirve');
 $lista = Empresas::lista($db);
 igual((int) $lista[0]['id'], 1, 'Tukán primero en la lista');
 $fila = array_values(array_filter($lista, fn ($x) => (int) $x['id'] === $e2))[0];
-igual([(int) $fila['numeros'], (int) $fila['mensajes_mes'] > 0], [1, true], 'cifras del cliente');
+igual((int) $fila['numeros'], 1, 'cifras del cliente: sus números');
+ok(isset($fila['mensajes_mes']), 'cifras del cliente: mensajes del mes (los de prueba son de octubre, así que el número depende del mes en que se corre)');
 
 
 echo "== Campañas masivas\n";
@@ -1833,8 +1834,25 @@ limpiarSim();
 $r = $LL::encender($db, $lineaN, true);
 $aj = array_values(array_filter(sim(), fn ($x) => str_ends_with((string) $x['ruta'], '/400/settings')))[0]['cuerpo']['calling'] ?? [];
 ok($r['ok'] && ($aj['status'] ?? '') === 'ENABLED' && ($aj['call_icon_visibility'] ?? '') === 'DEFAULT' && ($aj['callback_permission_status'] ?? '') === 'ENABLED', 'encender llamadas en Meta');
-ok(($aj['call_hours']['timezone_id'] ?? '') === 'America/Guayaquil' && count($aj['call_hours']['weekly_operating_hours'] ?? []) === 3
-   && ($aj['call_hours']['weekly_operating_hours'][2] ?? []) === ['day_of_week' => 'SATURDAY', 'open_time' => '0900', 'close_time' => '1300'], 'con el horario de atención del número (HHMM)');
+igual($aj['call_hours'] ?? null, ['status' => 'DISABLED'], 'modo "mensaje" (normal): Meta no bloquea por horario, decide el programa');
+$db->prepare("UPDATE lineas SET llamadas_fuera = 'meta' WHERE id = ?")->execute([$lN]);
+limpiarSim();
+$LL::encender($db, Lineas::buscar($db, $lN), true);
+$aj = array_values(array_filter(sim(), fn ($x) => str_ends_with((string) $x['ruta'], '/400/settings')))[0]['cuerpo']['calling'] ?? [];
+ok(($aj['call_hours']['status'] ?? '') === 'ENABLED' && ($aj['call_hours']['timezone_id'] ?? '') === 'America/Guayaquil' && count($aj['call_hours']['weekly_operating_hours'] ?? []) === 3
+   && ($aj['call_hours']['weekly_operating_hours'][2] ?? []) === ['day_of_week' => 'SATURDAY', 'open_time' => '0900', 'close_time' => '1300'], 'modo "meta": manda el horario de atención del número (HHMM)');
+$db->prepare("UPDATE lineas SET llamadas_fuera = 'mensaje' WHERE id = ?")->execute([$lN]);
+$lineaN = Lineas::buscar($db, $lN);
+igual(Lineas::textoHorario($lineaN), 'lunes y martes de 8:00 a 18:00 y sábado de 9:00 a 13:00', 'el horario en palabras');
+igual(Lineas::textoHorario(['horario' => '{"1":["08:00","18:00"],"2":["08:00","18:00"],"3":["08:00","18:00"],"4":["08:00","18:00"],"5":["08:00","18:00"],"6":["09:00","13:00"],"7":null}']),
+      'lunes a viernes de 8:00 a 18:00 y sábado de 9:00 a 13:00', 'junta los días seguidos con la misma hora');
+igual(Lineas::textoHorario(['horario' => '{}']), '', 'sin horario: vacío');
+ok(str_contains($LL::textoFuera($lineaN), 'Atendemos lunes y martes de 8:00 a 18:00 y sábado de 9:00 a 13:00.'), 'el mensaje de fuera de horario lleva el horario');
+ok(!$LL::fueraDeHorario($lineaN, new DateTimeImmutable('2026-11-09 10:00')) && $LL::fueraDeHorario($lineaN, new DateTimeImmutable('2026-11-07 17:32'))
+   && $LL::fueraDeHorario($lineaN, new DateTimeImmutable('2026-11-08 10:00')), 'dentro o fuera de horario (sábado 17:32 y domingo: fuera)');
+ok(!$LL::fueraDeHorario(['horario' => '{}'], new DateTimeImmutable('2026-11-08 03:00')), 'sin ningún día puesto: siempre atiende');
+$db->prepare("UPDATE lineas SET horario = '{}' WHERE id = ?")->execute([$lN]);   // las pruebas de abajo corren a cualquier hora: sin horario
+$lineaN = Lineas::buscar($db, $lN);
 $lineaN = Lineas::buscar($db, $lN);
 ok((bool) $lineaN['llamadas_activo'], 'queda encendido');
 $whL = new Webhook($db);
@@ -1878,6 +1896,27 @@ $LL::rechazar($db, $lineaN, $l3['id']);
 ok((sim()[0]['cuerpo']['action'] ?? '') === 'reject' && $LL::buscar($db, $lN, $l3['id'])['estado'] === 'rechazada', 'rechazar');
 $whL->procesar($llamada('terminate', 'wacid.L3', ['status' => 'COMPLETED']));
 igual($LL::buscar($db, $lN, $l3['id'])['estado'], 'rechazada', 'rechazada sigue como rechazada al terminar');
+// Fuera de horario (modo "mensaje"): no suena, se cuelga y le llega el horario por WhatsApp
+$db->prepare("UPDATE lineas SET horario = '{\"1\":[\"00:00\",\"00:01\"]}' WHERE id = ?")->execute([$lN]);
+$lineaN = Lineas::buscar($db, $lN);
+limpiarSim();
+$whL->procesar($llamada('connect', 'wacid.F1', ['session' => ['sdp_type' => 'offer', 'sdp' => $sdpMeta]]));
+$f1 = $db->query("SELECT * FROM llamadas WHERE call_id = 'wacid.F1'")->fetch();
+igual($f1['estado'], 'fuera_horario', 'fuera de horario: queda como "Fuera de horario"');
+igual($LL::sonando($db, $lN), null, 'fuera de horario: no suena en el panel');
+ok(count(array_filter(sim(), fn ($x) => ($x['cuerpo']['action'] ?? '') === 'reject' && ($x['cuerpo']['call_id'] ?? '') === 'wacid.F1')) === 1, 'fuera de horario: se cuelga en Meta');
+$msgF = array_values(array_filter(sim(), fn ($x) => str_contains((string) ($x['cuerpo']['text']['body'] ?? ''), 'fuera de horario')));
+ok(count($msgF) === 1 && str_contains($msgF[0]['cuerpo']['text']['body'], 'Atendemos lunes de 0:00 a 0:01'), 'fuera de horario: le llega un WhatsApp con el horario');
+$whL->procesar($llamada('terminate', 'wacid.F1', ['status' => 'COMPLETED']));
+igual($db->query("SELECT estado FROM llamadas WHERE call_id = 'wacid.F1'")->fetchColumn(), 'fuera_horario', 'cuando Meta avisa que terminó sigue como fuera de horario (no perdida)');
+$db->prepare("UPDATE lineas SET llamadas_fuera = 'meta' WHERE id = ?")->execute([$lN]);
+$lineaN = Lineas::buscar($db, $lN);
+$whL->procesar($llamada('connect', 'wacid.F2', ['session' => ['sdp_type' => 'offer', 'sdp' => $sdpMeta]]));
+igual($db->query("SELECT estado FROM llamadas WHERE call_id = 'wacid.F2'")->fetchColumn(), 'sonando', 'modo "meta": el programa no la corta (si llegó, Meta la dejó pasar)');
+$db->prepare("UPDATE llamadas SET estado = 'perdida' WHERE call_id = 'wacid.F2'")->execute();
+$db->prepare("UPDATE lineas SET llamadas_fuera = 'mensaje', horario = ? WHERE id = ?")->execute(['{"1":["08:00","18:00"],"2":["08:00","18:00"],"6":["09:00","13:00"]}', $lN]);
+$db->prepare("UPDATE lineas SET horario = '{}' WHERE id = ?")->execute([$lN]);   // el resto de pruebas: sin horario (siempre atiende)
+$lineaN = Lineas::buscar($db, $lN);
 // Llamada vieja: ya no suena
 $db->exec("INSERT INTO llamadas (linea_id, call_id, direccion, estado, creado) VALUES ($lN, 'wacid.VIEJA', 'entra', 'sonando', now() - interval '3 minutes')");
 igual($LL::sonando($db, $lN), null, 'una llamada de hace minutos ya no suena');
@@ -1885,6 +1924,7 @@ igual($LL::sonando($db, $lN), null, 'una llamada de hace minutos ya no suena');
 ok(!$LL::puedeLlamar($pedro), 'sin permiso no se puede llamar');
 try { $LL::llamar($db, $lineaN, $pedro, $idAna, $sdpNav); ok(false, 'llamar sin permiso'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'permiso'), 'llamar sin permiso'); }
 limpiarSim();
+$pedro = Contactos::buscar($db, $lN, (int) $pedro['id']);   // con su último mensaje al día (la ventana de 24 horas)
 $rp = $LL::pedirPermiso($db, $lineaN, $pedro, $idAna);
 $pp = array_values(array_filter(sim(), fn ($x) => str_ends_with((string) $x['ruta'], '/400/messages')))[0]['cuerpo'] ?? [];
 ok($rp['ok'] && ($pp['interactive']['type'] ?? '') === 'call_permission_request' && ($pp['interactive']['action']['name'] ?? '') === 'call_permission_request', 'pedir permiso: botón de Meta');
@@ -1921,7 +1961,7 @@ $r = $LL::encender($db, $lineaN, false);
 ok($r['ok'] && !Lineas::buscar($db, $lN)['llamadas_activo'], 'apagar llamadas');
 $lineaN = Lineas::buscar($db, $lN);
 try { $LL::llamar($db, $lineaN, $pedro, $idAna, $sdpNav); ok(false, 'apagadas no se llama'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'no están encendidas'), 'apagadas no se llama'); }
-igual(count($LL::lista($db, $lN, (int) $pedro['id'])), 4, 'historial de llamadas del cliente');
+igual(count($LL::lista($db, $lN, (int) $pedro['id'])), 6, 'historial de llamadas del cliente');
 
 echo "== Pregúntale a la IA (como Wati AI) y resumen de cada mañana\n";
 putenv('TUKAN_IA_CLAVE=sk-ant-prueba-buena-0123456789');

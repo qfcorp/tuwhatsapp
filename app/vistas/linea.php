@@ -48,7 +48,7 @@ $esQr = $editar && $editar['conectado_por'] === 'qr';
         <li>Llega hasta <b>Finalizar</b>. Este programa guarda todo solo.</li>
     </ol>
     <?php if ($qrListo): ?>
-    <label>Nombre para reconocerlo<input id="qr-nombre" maxlength="60" value="Tukán ventas"></label>
+    <label>Nombre para reconocerlo<input id="qr-nombre" maxlength="60" placeholder="Ejemplo: Ventas"></label>
     <button type="button" class="boton boton-grande" id="btn-qr" data-app="<?= e(Registro::appId()) ?>" data-config="<?= e(Registro::configId()) ?>"
             data-version="<?= e(Registro::version()) ?>" data-csrf="<?= e(csrf()) ?>">Conectar con WhatsApp Business</button>
     <p id="qr-estado" class="suave" role="status" aria-live="polite"></p>
@@ -62,7 +62,7 @@ $esQr = $editar && $editar['conectado_por'] === 'qr';
     <summary><b><?= $editar ? 'Datos de conexión' : 'Conectar a mano (con token de Meta)' ?></b></summary>
     <form method="post" class="formulario">
         <?= csrf_campo() ?>
-        <label>Nombre para reconocerlo<input name="nombre" required maxlength="60" value="<?= e($editar['nombre'] ?? 'Tukán ventas') ?>"></label>
+        <label>Nombre para reconocerlo<input name="nombre" required maxlength="60" value="<?= e($editar['nombre'] ?? '') ?>" placeholder="Ejemplo: Ventas"></label>
         <label>Número de WhatsApp<input name="telefono" inputmode="tel" value="<?= e($editar['telefono'] ?? '') ?>" placeholder="0983662181"></label>
         <label>Identificador del número de teléfono (Phone number ID)<input name="phone_number_id" inputmode="numeric" required value="<?= e($editar['phone_number_id'] ?? '') ?>"></label>
         <label>Identificador de la cuenta de WhatsApp Business (WABA ID)<input name="waba_id" inputmode="numeric" value="<?= e($editar['waba_id'] ?? '') ?>"></label>

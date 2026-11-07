@@ -29,6 +29,7 @@ final class Meta
         131031 => 'La cuenta de WhatsApp Business está bloqueada o falta verificar el negocio.',
         133010 => 'El número todavía no está registrado en la API de WhatsApp.',
         138006 => 'Este cliente no te ha dado permiso para llamarlo. Pídele permiso primero (botón "Pedir permiso para llamar").',
+        138018 => 'Falta suscribir el campo "calls" en el webhook de la app de Meta (se hace una sola vez para todos los números). Escríbele a Tukán al 098 366 2181.',
     ];
 
     /** Números de la cuenta de muestra del revisor de Google (deploy/demo_google.php): no son de verdad y nunca llaman a Meta. */

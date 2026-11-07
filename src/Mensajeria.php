@@ -100,6 +100,20 @@ final class Mensajeria
             $origen, $usuarioId, fn (Meta $m) => $m->enviarPlantilla((string) $contacto['telefono'], (string) $p['nombre'], (string) $p['idioma'], $datos));
     }
 
+    /**
+     * Texto automático justo después de que el cliente llamó (por ejemplo el horario si llamó fuera de horario).
+     * No se revisa la ventana de 24 horas aquí: si Meta no lo deja, queda en el chat como "falló" con el motivo.
+     */
+    public function textoTrasLlamada(array $linea, array $contacto, string $texto): array
+    {
+        $texto = trim($texto);
+        if ($texto === '') {
+            return ['ok' => false, 'error' => 'Sin texto.'];
+        }
+        return $this->enviar($linea, $contacto, 'servicio', ['tipo' => 'texto', 'texto' => mb_substr($texto, 0, 4096), 'plantilla' => null], 'auto', null,
+            fn (Meta $m) => $m->enviarTexto((string) $contacto['telefono'], mb_substr($texto, 0, 4096)));
+    }
+
     /** Botón de Meta para que el cliente dé permiso de llamarlo (solo con la ventana de 24 horas abierta). */
     public function permisoLlamada(array $linea, array $contacto, string $texto, string $origen, ?int $usuarioId = null): array
     {
@@ -117,7 +131,7 @@ final class Mensajeria
             return ['ok' => false, 'error' => 'La cuenta no está al día: no se puede enviar por el sistema. Escribe a Tukán para renovarla.'];
         }
         $ahora = $this->ahora();
-        $costo = Gasto::estimar($this->db, $categoria, $contacto, $ahora);
+        $costo = Lineas::esPrueba($linea) ? 0.0 : Gasto::estimar($this->db, $categoria, $contacto, $ahora);   // números de prueba de Meta: gratis
         $this->db->beginTransaction();
         try {
             $this->db->prepare('SELECT pg_advisory_xact_lock(?)')->execute([(int) $linea['id']]);

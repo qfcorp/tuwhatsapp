@@ -71,6 +71,43 @@ final class Lineas
         return $r;
     }
 
+    /**
+     * El horario en palabras, juntando los días seguidos con la misma hora:
+     * "lunes a viernes de 8:00 a 18:00 y sábado de 9:00 a 13:00". Vacío si no atiende ningún día.
+     */
+    public static function textoHorario(array $linea): string
+    {
+        $dias = [1 => 'lunes', 2 => 'martes', 3 => 'miércoles', 4 => 'jueves', 5 => 'viernes', 6 => 'sábado', 7 => 'domingo'];
+        $h = self::horario($linea);
+        $hora = fn (string $x) => (int) substr($x, 0, 2) . substr($x, 2);   // "08:00" -> "8:00"
+        $partes = [];
+        $d = 1;
+        while ($d <= 7) {
+            if ($h[$d] === null) {
+                $d++;
+                continue;
+            }
+            $fin = $d;
+            while ($fin < 7 && $h[$fin + 1] !== null && $h[$fin + 1] === $h[$d]) {
+                $fin++;
+            }
+            $quien = $fin === $d ? $dias[$d] : ($fin === $d + 1 ? $dias[$d] . ' y ' . $dias[$fin] : $dias[$d] . ' a ' . $dias[$fin]);
+            $partes[] = $quien . ' de ' . $hora($h[$d][0]) . ' a ' . $hora($h[$d][1]);
+            $d = $fin + 1;
+        }
+        if (count($partes) <= 1) {
+            return $partes[0] ?? '';
+        }
+        $ultima = array_pop($partes);
+        return implode(', ', $partes) . ' y ' . $ultima;
+    }
+
+    /** Números de prueba de Meta (sandbox y "Prueba Meta"): empiezan con +1 555 y Meta no cobra nada. */
+    public static function esPrueba(array $linea): bool
+    {
+        return str_starts_with(preg_replace('/\D+/', '', (string) ($linea['telefono'] ?? '')), '1555');
+    }
+
     public static function hora(mixed $h): bool
     {
         return is_string($h) && (bool) preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $h);
