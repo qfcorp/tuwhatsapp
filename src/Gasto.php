@@ -14,6 +14,8 @@ use RuntimeException;
  *  - Si el cliente llegó desde un anuncio "Enviar WhatsApp", los mensajes de las 72 horas siguientes no se cobran.
  *  - Una plantilla de utilidad enviada mientras la ventana de 24 horas está abierta no se cobra.
  *  - Lo que se envía a mano desde el celular no pasa por aquí y no se cobra.
+ *  - Desde 2025 Meta no cobra los mensajes normales (no plantillas) dentro de las 24 horas: "servicio" cuesta 0.
+ * Es un cálculo APROXIMADO para el tope y los avisos: el gasto real y la factura están en Meta (Facturación y pagos).
  */
 final class Gasto
 {
@@ -58,6 +60,9 @@ final class Gasto
     {
         if (!empty($contacto['gratis_hasta']) && new DateTimeImmutable($contacto['gratis_hasta']) > $ahora) {
             return 0.0;
+        }
+        if ($categoria === 'servicio') {
+            return 0.0;   // respuestas normales dentro de las 24 horas: Meta no las cobra
         }
         if ($categoria === 'utilidad' && self::ventanaAbierta($contacto, $ahora)) {
             return 0.0;

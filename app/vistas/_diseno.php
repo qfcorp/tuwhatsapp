@@ -91,7 +91,7 @@ if ($u && $linea) {
 <?php endif; ?>
 <?php if ($gastoBarra): ?>
 <a class="tope <?= $gastoBarra['pct'] >= 100 ? 'lleno' : ($gastoBarra['pct'] >= $gastoBarra['aviso'] ? 'alerta' : '') ?>" href="<?= e(url('gasto')) ?>">
-    <span class="tope-texto"><?= $gastoBarra['pct'] >= 100 ? 'Tope alcanzado: solo se envía gratis desde el celular' : 'Gasto del mes en Meta' ?></span>
+    <span class="tope-texto"><?= $gastoBarra['pct'] >= 100 ? 'Tope alcanzado: ya no se envían plantillas pagadas' : 'Gasto aprox. del mes en Meta' ?></span>
     <span class="tope-cifra"><?= e(dinero($gastoBarra['g'])) ?> de <?= e(dinero($gastoBarra['t'])) ?></span>
     <span class="tope-barra"><span style="width: <?= (int) $gastoBarra['pct'] ?>%"></span></span>
 </a>

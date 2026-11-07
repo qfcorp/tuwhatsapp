@@ -35,7 +35,7 @@ final class Avisos
             }
             $avisados[] = $nivel;
             $texto = $nivel >= 100
-                ? "WhatsApp {$linea['nombre']}: llegaste al tope del mes (" . self::d($gastado) . ' de ' . self::d($tope) . '). Ya NO se envía nada pagado; lo que falte mándalo gratis desde el celular o sube el tope en Gasto.'
+                ? "WhatsApp {$linea['nombre']}: llegaste al tope del mes (" . self::d($gastado) . ' de ' . self::d($tope) . '). Ya NO se envían plantillas pagadas (las respuestas dentro de las 24 horas siguen gratis). Si necesitas más, sube el tope en Gasto.'
                 : "WhatsApp {$linea['nombre']}: llevas el $nivel % del tope del mes (" . self::d($gastado) . ' de ' . self::d($tope) . ').';
             self::telegram($texto);
         }

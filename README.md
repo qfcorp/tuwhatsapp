@@ -102,11 +102,12 @@ También aparece en la pantalla de entrar y en las páginas públicas.
 ## Costos (Ecuador, editables en Gasto → Precios de Meta)
 | Tipo | Precio por mensaje |
 |---|---|
-| Respuesta (servicio) | $0,0113 |
-| Utilidad | $0,0113 (gratis con la ventana de 24 h abierta) |
-| Autenticación | $0,0113 |
-| Marketing | $0,074 |
-Recibir mensajes y enviar desde la app del celular **no se paga**. Con $12: unas 1.000 respuestas o 160 de marketing.
+| Respuesta normal dentro de las 24 h (servicio) | **Gratis** (Meta no la cobra desde 2025) |
+| Plantilla de utilidad | $0,0113 (gratis con la ventana de 24 h abierta) |
+| Plantilla de autenticación | $0,0113 |
+| Plantilla de marketing | $0,074 |
+Recibir mensajes, contestar dentro de las 24 horas y enviar desde la app del celular **no se paga**. Con $12: unas 1.060 plantillas de utilidad o 160 de marketing.
+El gasto que muestra el programa es **aproximado** (para el tope y los avisos). El gasto real y la factura están en Meta: business.facebook.com → Facturación y pagos.
 
 ---
 

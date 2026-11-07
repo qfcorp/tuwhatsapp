@@ -178,7 +178,7 @@ $msgs = $db->query("SELECT * FROM mensajes WHERE contacto_id = {$ana['id']} ORDE
 igual(count($msgs), 2, 'entra 1 y sale 1');
 igual($msgs[1]['origen'], 'auto', 'respuesta automática');
 igual($msgs[1]['estado'], 'enviado', 'enviada');
-igual((float) $msgs[1]['costo'], 0.0113, 'cuesta lo de servicio');
+igual((float) $msgs[1]['costo'], 0.0, 'la respuesta automática dentro de 24 horas no se cobra (Meta no cobra las respuestas)');
 ok(str_contains($msgs[0]['motivo'], 'Contestado solo'), 'motivo en el mensaje que entró');
 ok($msgs[0]['leido'] === false, 'queda sin leer');
 $env = array_values(array_filter(sim(), fn ($r) => $r['ruta'] === '/v24.0/100/messages'));
@@ -336,10 +336,13 @@ Lineas::guardarTope($db, $lid, number_format($tope, 2, ',', ''), '80');
 $linea = Lineas::buscar($db, $lid);
 ok($tope - $gastado < 0.0113, "gastado cerca del tope: $gastado de $tope");
 limpiarSim();
-$r = $m->texto($linea, $ana, 'uno más', 'panel');
-ok(!$r['ok'] && !empty($r['bloqueado']), 'bloqueado por el tope');
+$r = $m->plantilla($linea, $viejo, $p['plantillas'][1], [], 'panel');   // marketing: $0,074, más de lo que queda
+ok(!$r['ok'] && !empty($r['bloqueado']), 'plantilla pagada: bloqueada por el tope');
 igual(count(array_filter(sim(), fn ($x) => str_ends_with($x['ruta'], '/messages'))), 0, 'no llegó nada a Meta');
 igual(Gasto::delMes($db, $lid, $martes20), $gastado, 'el bloqueado no suma');
+$r = $m->texto($linea, $ana, 'uno más', 'panel');
+ok($r['ok'] && (float) $r['costo'] === 0.0, 'las respuestas gratis salen aunque estés en el tope');
+igual(Gasto::delMes($db, $lid, $martes20), $gastado, 'y no suman al gasto');
 $tg = array_values(array_filter(sim(), fn ($x) => str_contains($x['ruta'], 'sendMessage')));
 igual(count($tg), 0, 'sin avisos nuevos en este intento');
 // el aviso del 80 % y del 100 % se mandan una sola vez
@@ -353,13 +356,13 @@ igual(Avisos::revisar($db, $linea, $martes20), [], 'no se repite');
 Contactos::guardar($db, $lid, '0996666666', 'Rosa', 'cliente');
 limpiarSim();
 $wh->procesar(entrante('593996666666', 'precio', 'wamid.T1', $martes20->getTimestamp()));
-igual($db->query("SELECT motivo FROM mensajes WHERE wamid = 'wamid.T1'")->fetchColumn(), 'No se contestó: llegaste al tope del mes', 'automática respeta el tope');
-igual(count(array_filter(sim(), fn ($x) => str_ends_with($x['ruta'], '/messages'))), 0, 'nada a Meta');
+ok(str_contains((string) $db->query("SELECT motivo FROM mensajes WHERE wamid = 'wamid.T1'")->fetchColumn(), 'Contestado solo'), 'la respuesta automática es gratis: sale aunque estés en el tope');
+igual(count(array_filter(sim(), fn ($x) => str_ends_with($x['ruta'], '/messages'))), 1, 'una sola respuesta a Meta');
 // el próximo mes vuelve a cero
 igual(Gasto::delMes($db, $lid, new DateTimeImmutable('2026-11-02 10:00')), 0.0, 'mes nuevo empieza en 0');
 $res = Gasto::resumen($db, $linea, $martes20);
 igual($res['pct'], (int) floor($gastado * 100 / $tope), 'porcentaje');
-ok($res['bloqueados'] >= 2, 'cuenta los bloqueados');
+ok($res['bloqueados'] >= 1, 'cuenta los bloqueados');
 Lineas::guardarTope($db, $lid, '12', '80');
 $linea = Lineas::buscar($db, $lid);
 

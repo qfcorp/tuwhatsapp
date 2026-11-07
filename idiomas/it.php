@@ -806,4 +806,8 @@ return [
     'No suena y al cliente le llega un WhatsApp con tu horario (recomendado)' => 'Non squilla e il cliente riceve un WhatsApp con i tuoi orari (consigliato)',
     'Meta no deja llamar (al cliente le sale "no puede recibir llamadas" y no le llega nada)' => 'Meta blocca la chiamata (il cliente vede "non può ricevere chiamate" e non riceve nulla)',
     'Ahora estás fuera de horario.' => 'Ora sei fuori dall\'orario.',
+    'Gasto aprox. del mes en Meta' => 'Spesa appross. del mese in Meta',
+    'Tope alcanzado: ya no se envían plantillas pagadas' => 'Limite raggiunto: i modelli a pagamento non vengono più inviati',
+    'Es un cálculo aproximado' => 'È un calcolo approssimativo',
+    'El gasto real y tu factura' => 'La spesa reale e la tua fattura',
 ];

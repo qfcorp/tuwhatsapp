@@ -108,7 +108,7 @@ INSERT INTO ajustes (clave, valor) VALUES
     ('precio_marketing', '0.0740'),
     ('precio_utilidad', '0.0113'),
     ('precio_autenticacion', '0.0113'),
-    ('precio_servicio', '0.0113')
+    ('precio_servicio', '0')
 ON CONFLICT (clave) DO NOTHING;
 
 -- Avisos de gasto ya enviados (uno por nivel y por mes)
@@ -692,3 +692,5 @@ ALTER TABLE lineas ADD CONSTRAINT lineas_llamadas_fuera_check CHECK (llamadas_fu
 ALTER TABLE llamadas DROP CONSTRAINT IF EXISTS llamadas_estado_check;
 ALTER TABLE llamadas ADD CONSTRAINT llamadas_estado_check
     CHECK (estado IN ('sonando', 'contestando', 'en_curso', 'terminada', 'perdida', 'rechazada', 'fallida', 'fuera_horario'));
+-- 7 nov 2026: Meta no cobra las respuestas normales dentro de las 24 horas (desde 2025): dejan de sumar al gasto.
+UPDATE ajustes SET valor = '0' WHERE clave = 'precio_servicio' AND valor <> '0';

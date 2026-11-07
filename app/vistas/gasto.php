@@ -8,10 +8,15 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
 <div class="cabeza"><h1>Gasto en Meta</h1></div>
 <section class="tarjeta gasto-grande <?= $r['pct'] >= 100 ? 'lleno' : ($r['pct'] >= (int) $linea['aviso_pct'] ? 'alerta' : '') ?>">
     <p class="suave">Este mes (<?= e($meses[date('m')]) ?>)</p>
-    <p class="cifra"><?= e(dinero($r['gastado'])) ?> <small>de <?= e(dinero($r['tope'])) ?></small></p>
+    <p class="cifra"><?= e(dinero($r['gastado'])) ?> <small>de <?= e(dinero($r['tope'])) ?> · aproximado</small></p>
     <div class="tope-barra grande"><span style="width: <?= (int) $r['pct'] ?>%"></span></div>
-    <p><?= $r['pct'] >= 100 ? '<b>Llegaste al tope.</b> No se envía nada pagado hasta el próximo mes (o hasta que subas el tope). Todo lo demás sale gratis desde el celular.'
-        : 'Te quedan <b>' . e(dinero($r['queda'])) . '</b>: unas ' . (int) floor($r['queda'] / max(0.0001, $precios['servicio'])) . ' respuestas o ' . (int) floor($r['queda'] / max(0.0001, $precios['marketing'])) . ' mensajes de marketing.' ?></p>
+    <p><?= $r['pct'] >= 100 ? '<b>Llegaste al tope.</b> No se envían plantillas pagadas hasta el próximo mes (o hasta que subas el tope). Las respuestas dentro de las 24 horas siguen saliendo gratis.'
+        : 'Te quedan <b>' . e(dinero($r['queda'])) . '</b>: unas ' . (int) floor($r['queda'] / max(0.0001, $precios['utilidad'])) . ' plantillas de utilidad o ' . (int) floor($r['queda'] / max(0.0001, $precios['marketing'])) . ' de marketing. Las respuestas dentro de las 24 horas son gratis.' ?></p>
+    <div class="aviso aviso-info pequeno gasto-aprox">
+        <b>Es un cálculo aproximado</b> de WhatsApp Tukán con los precios de Meta (abajo), para el tope y los avisos. <b>El gasto real y tu factura</b> están en Meta:
+        <a href="https://business.facebook.com/billing_hub/" target="_blank" rel="noopener">business.facebook.com → Facturación y pagos</a>
+        (o WhatsApp Manager → Información → Precios). Meta le cobra directo a la tarjeta que pusiste ahí.
+    </div>
     <?php if ($r['bloqueados'] > 0): ?><p class="suave"><?= (int) $r['bloqueados'] === 1 ? '1 mensaje no se envió' : (int) $r['bloqueados'] . ' mensajes no se enviaron' ?> por el tope este mes.</p><?php endif; ?>
 </section>
 
@@ -70,7 +75,9 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="precios">
         <p class="suave">Precios para números de Ecuador (dólares por mensaje entregado). Si Meta los cambia, actualízalos aquí: los ves en business.facebook.com → WhatsApp Manager → Información sobre precios.</p>
-        <?php foreach (Gasto::CATEGORIAS as $k => $n): ?>
+        <p class="suave pequeno"><b>Respuestas normales dentro de las 24 horas:</b> gratis (Meta no las cobra). Solo se pagan las plantillas.</p>
+        <input type="hidden" name="precio[servicio]" value="0">
+        <?php foreach (Gasto::CATEGORIAS as $k => $n): if ($k === 'servicio') continue; ?>
         <label><?= e($n) ?><input name="precio[<?= $k ?>]" inputmode="decimal" value="<?= e(rtrim(rtrim(number_format($precios[$k], 5, '.', ''), '0'), '.')) ?>" required></label>
         <?php endforeach; ?>
         <button class="boton">Guardar precios</button>

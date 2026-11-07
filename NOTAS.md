@@ -1,6 +1,13 @@
 # WhatsApp Tukán — Estado y pasos para continuar
 *Actualizado: 28 oct 2026*
 
+## 💲 Respuestas gratis y gasto aproximado (7 nov 2026, noche)
+Decisión de Dimitry: "si no se cobran no deberían aparecer en el saldo; decir que es un aproximado y dónde está el gasto real en Meta".
+- Las respuestas normales dentro de las 24 horas (servicio) ya **no suman al gasto** (Meta no las cobra desde 2025). El tope solo frena plantillas pagadas; las respuestas siguen saliendo aunque se llegue al tope. Migración: precio_servicio = 0.
+- Gasto y la barra de arriba dicen **"aproximado"**, con el enlace al gasto real en Meta (business.facebook.com → Facturación y pagos).
+- "Te quedan $X: unas N plantillas de utilidad o M de marketing". Aviso de Telegram al 100 % actualizado.
+- README (tabla de costos) y manual (preguntas frecuentes) actualizados. Pruebas: lógica 759, Panel Central 163, pantallas 365, todo bien.
+
 ## 🧪 Simulación de un cliente con la sandbox de Meta y llamadas fuera de horario (7 nov 2026)
 - **Sandbox de Meta pedida** (Herramientas de socios, con llamadas): "Sandbox Business" / "Sandbox WhatsApp Account", número de prueba +1 555-163-5643 (se borra solo el 5 feb 2027). Se conectó como un cliente con el botón "Conectar con WhatsApp Business": el programa lo registró solo (PIN incluido).
 - Probado en producción (whatsapp.tukanec.com): plantilla hello_world enviada y leída ✓✓, respuesta del cliente recibida, respuesta desde el panel (gratis) y **llamada del cliente contestada en el panel** ✅.
