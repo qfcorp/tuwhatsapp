@@ -1,5 +1,5 @@
 <?php
-/** @var array $linea @var bool $disponible @var float $gastado @var float $tope */
+/** @var array $linea @var bool $disponible @var float $gastado @var float $tope @var list<array> $prueba */
 ?>
 <div class="cabeza"><h1>Agente con IA</h1></div>
 <?php if (es_super()): ?>
@@ -25,6 +25,40 @@
     <button class="boton">Guardar</button>
     <p class="suave pequeno">El horario se cambia en <a href="<?= e(url('reglas')) ?>">Respuestas automáticas</a>. Si el agente no puede contestar, siguen las respuestas automáticas de siempre.</p>
 </form>
+
+<section class="tarjeta prueba-ia" id="probar">
+    <div class="pp-cabeza">
+        <h2>💬 Pruébalo aquí</h2>
+        <?php if ($prueba): ?>
+        <form method="post"><?= csrf_campo() ?><input type="hidden" name="accion" value="probar_borrar"><button class="enlace pequeno">Empezar de nuevo</button></form>
+        <?php endif; ?>
+    </div>
+    <p class="suave pequeno">Escribe como si fueras un cliente y mira qué contestaría el agente con lo que sabe ahora. <b>No se manda nada por WhatsApp</b> ni se tocan carritos ni pedidos.
+    Si no te gusta una respuesta, mejora "Lo que sabe la IA de tu negocio" (abajo) y vuelve a probar.</p>
+    <div class="prueba-chat" aria-live="polite">
+        <?php if (!$prueba): ?>
+        <p class="suave pequeno prueba-vacia">Ejemplos: "¿Cuánto cuesta…?", "¿Hacen envíos?", "Quiero 2", "Quiero hablar con alguien".</p>
+        <?php endif; ?>
+        <?php foreach ($prueba as $m): ?>
+        <?php if ($m['de'] === 'cliente'): ?>
+        <div class="burbuja entra"><?= nl2br(e($m['texto'])) ?></div>
+        <?php else: ?>
+        <div class="burbuja sale origen-bot"><?= nl2br(e($m['texto'])) ?>
+            <?php if (!empty($m['agregar'])): ?><div class="prueba-extra">🛒 Pondría en el carrito: <?= e(implode(', ', $m['agregar'])) ?></div><?php endif; ?>
+            <?php if (!empty($m['confirmar'])): ?><div class="prueba-extra">🧾 Aquí mandaría el resumen del pedido con cómo pagar</div><?php endif; ?>
+            <?php if (!empty($m['persona'])): ?><div class="prueba-extra">🙋 Pasaría el chat a una persona del equipo<?= !empty($m['nota']) ? '. Nota para el equipo: <i>' . e($m['nota']) . '</i>' : '' ?></div><?php endif; ?>
+        </div>
+        <?php endif; ?>
+        <?php endforeach; ?>
+    </div>
+    <form method="post" class="prueba-escribir">
+        <?= csrf_campo() ?><input type="hidden" name="accion" value="probar">
+        <label class="oculto" for="texto-prueba">Mensaje del cliente</label>
+        <input id="texto-prueba" name="texto" maxlength="1000" required placeholder="Escribe como un cliente…" autocomplete="off" <?= $prueba ? 'autofocus' : '' ?>>
+        <button class="boton" <?= $disponible ? '' : 'disabled' ?>>Enviar</button>
+    </form>
+    <?php if (!$disponible): ?><p class="suave pequeno">La IA no está disponible en este momento.</p><?php endif; ?>
+</section>
 
 <section class="tarjeta">
 <h2>✨ Pregúntale a la IA</h2>

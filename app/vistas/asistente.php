@@ -2,8 +2,7 @@
 /** @var array $linea @var ?array $consulta @var list<array> $historial @var ?array $resumen */
 use TuWhatsApp\Copiloto;
 ?>
-<div class="cabeza"><h1>Pregúntale a la IA</h1></div>
-<p class="suave">No hagas clic, solo pregunta. La IA lee las cifras y las conversaciones de este número y te contesta; si le pides personas o una campaña, te las deja listas.</p>
+<div class="cabeza"><div class="titulo"><h1>Pregúntale a la IA</h1><?= ayuda_inicio() ?>No hagas clic, solo pregunta. La IA lee las cifras y las conversaciones de este número y te contesta; si le pides personas o una campaña, te las deja listas.<?= ayuda_fin() ?></div></div>
 
 <form method="post" class="tarjeta formulario pregunta-ia">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="preguntar">

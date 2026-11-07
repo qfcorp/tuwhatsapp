@@ -4,9 +4,8 @@ use TuWhatsApp\Enlaces;
 use TuWhatsApp\Telefono;
 $directo = $linea['telefono'] !== '' ? Telefono::enlace((string) $linea['telefono']) : '';
 ?>
-<div class="cabeza"><h1>Enlaces y QR</h1></div>
-<p class="suave pequeno">Crea un enlace para cada lugar donde te promocionas (Instagram, Facebook, volantes, tu página web). Al tocarlo se abre WhatsApp con tu número y un mensaje listo,
-y aquí ves <b>cuántas veces lo tocaron</b>. Cada enlace tiene su <b>código QR</b> para imprimir.</p>
+<div class="cabeza"><div class="titulo"><h1>Enlaces y QR</h1><?= ayuda_inicio() ?>Crea un enlace para cada lugar donde te promocionas (Instagram, Facebook, volantes, tu página web). Al tocarlo se abre WhatsApp con tu número y un mensaje listo,
+y aquí ves <b>cuántas veces lo tocaron</b>. Cada enlace tiene su <b>código QR</b> para imprimir.<?= ayuda_fin() ?></div></div>
 
 <form method="post" class="tarjeta formulario">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="crear">

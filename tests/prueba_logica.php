@@ -1552,6 +1552,7 @@ limpiarSim();
 $whN->procesar($entN('593981000061', $txtN('quiero hablar con una persona'), 'wamid.IA13'));
 $cp = $cN('593981000061');
 ok($cp['silencio_hasta'] !== null && $cp['asignado_a'] !== null && str_contains($motivoN('wamid.IA13'), 'pasó a una persona'), 'pidió una persona: se calla y se reparte');
+ok($cp['traspaso_nota'] === 'Quiere hablar con una persona del equipo.' && $cp['traspaso_en'] !== null, 'deja una nota para el equipo al pasar el chat');
 limpiarSim();
 $whN->procesar($entN('593981000061', $txtN('¿hola?'), 'wamid.IA14'));
 igual(count($salidasN()), 0, 'mientras lo atiende una persona, el agente no contesta');
@@ -2031,6 +2032,54 @@ ok($rm['ok'] && $rm['linea_id'] === $lN && $lm['phone_number_id'] === '402' && !
 ok(in_array('Es el mismo número que ya tenías: se conservan sus chats y contactos.', $rm['avisos'], true), 'avisa que se conservan los chats');
 igual((int) $db->query("SELECT count(*) FROM contactos WHERE linea_id = $lN")->fetchColumn(), $chatsAntes, 'los contactos siguen en el mismo número');
 ok($rm['pin'] !== '' && count(array_filter(sim(), fn ($x) => str_ends_with((string) $x['ruta'], '/402/register'))) === 1, 'como número solo API se registra con PIN');
+
+echo "== Probar el agente con IA sin mandar nada\n";
+putenv('TUKAN_IA_CLAVE=sk-ant-prueba-buena-0123456789');
+limpiarSim();
+$lp = array_merge(Lineas::buscar($db, $lN), ['bot_vende' => true]);
+$antesMsj = (int) $db->query("SELECT count(*) FROM mensajes WHERE linea_id = $lN")->fetchColumn();
+$antesPed = (int) $db->query("SELECT count(*) FROM pedidos WHERE linea_id = $lN")->fetchColumn();
+$pr = Bot::probar($db, $lp, [], '¿Hacen envíos?');
+ok($pr['ok'] && $pr['respuesta'] === '¡Hola! Con gusto te ayudo. ¿Qué buscas?' && !$pr['persona'], 'contesta como contestaría');
+$pr2 = Bot::probar($db, $lp, [['de' => 'cliente', 'texto' => '¿Hacen envíos?'], ['de' => 'agente', 'texto' => $pr['respuesta']]], 'quiero 2 vestidos');
+ok($pr2['ok'] && count($pr2['agregar']) === 1 && str_starts_with($pr2['agregar'][0], '2 x '), 'muestra qué pondría en el carrito (solo productos que existen)');
+$iaUlt = array_values(array_filter(sim(), fn ($r) => $r['ruta'] === '/v1/messages'));
+ok(str_contains(json_encode(end($iaUlt)['cuerpo']['messages'] ?? [], JSON_UNESCAPED_UNICODE), 'Cliente: ¿Hacen envíos?'), 'la IA recibe lo que ya se dijo en la prueba');
+$pr3 = Bot::probar($db, $lp, [], 'quiero hablar con una persona');
+ok($pr3['persona'] && $pr3['nota'] !== '', 'muestra que pasaría a una persona y la nota');
+igual([(int) $db->query("SELECT count(*) FROM mensajes WHERE linea_id = $lN")->fetchColumn(), (int) $db->query("SELECT count(*) FROM pedidos WHERE linea_id = $lN")->fetchColumn()], [$antesMsj, $antesPed], 'no manda mensajes ni crea pedidos');
+igual(count(array_filter(sim(), fn ($r) => str_contains((string) $r['ruta'], '/messages') && $r['ruta'] !== '/v1/messages')), 0, 'nada sale a Meta');
+igual(Bot::probar($db, $lp, [], '   ')['ok'], false, 'vacío: no llama a la IA');
+putenv('TUKAN_IA_CLAVE=');
+igual(Bot::probar($db, $lp, [], 'hola')['error'], 'La IA no está disponible en este momento.', 'sin IA: lo dice claro');
+
+echo "== Inicio: cifras de hoy y primeros pasos\n";
+$hoyI = new DateTimeImmutable();
+$cfr = \TuWhatsApp\Inicio::cifras($db, $lp, $hoyI);
+ok(is_int($cfr['escribieron']) && is_int($cfr['sin_leer']) && is_float($cfr['en_juego']), 'cifras con su tipo');
+$cI = Contactos::guardar($db, $lN, '0981000099', 'Inés Inicio', 'cliente');
+igual(\TuWhatsApp\Inicio::cifras($db, $lp, $hoyI)['nuevos'], $cfr['nuevos'] + 1, 'cuenta el cliente nuevo de hoy');
+$empI = Empresas::buscar($db, $eN);
+$pasosI = \TuWhatsApp\Inicio::pasos($db, $lp, $empI, fn ($m) => Modulos::activo($empI, $m));
+$clavesI = array_column($pasosI, 'clave');
+ok(in_array('numero', $clavesI, true) && in_array('equipo', $clavesI, true) && in_array('app', $clavesI, true), 'pasos básicos');
+igual(array_column($pasosI, 'hecho', 'clave')['numero'], true, 'número conectado: paso hecho');
+$sinIaP = \TuWhatsApp\Inicio::pasos($db, $lp, $empI, fn ($m) => $m !== 'ia');
+ok(!in_array('ia', array_column($sinIaP, 'clave'), true), 'sin el extra de IA no aparece su paso');
+
+echo "== Cancelar el plan desde Mi cuenta\n";
+$avisoTg = [];
+$eC = Empresas::crear($db, ['nombre' => 'Cancela SA', 'estado' => 'activa', 'vence' => '2026-12-15', 'admin_correo' => 'dueno@cancela.ec', 'admin_nombre' => 'Dueño'])['empresa_id'];
+$hastaC = Empresas::pedirCancelacion($db, $eC, 'Muy caro', ['nombre' => 'Dueño', 'correo' => 'dueno@cancela.ec'], new DateTimeImmutable('2026-11-07 10:00'));
+$ec = Empresas::buscar($db, $eC);
+ok($hastaC === '2026-12-15' && $ec['cancelar_en'] === '2026-12-15' && $ec['cancelar_motivo'] === 'Muy caro' && $ec['estado'] === 'activa', 'sigue activa hasta el fin del período pagado');
+$db->exec("UPDATE empresas SET vence = NULL WHERE id = $eC");
+igual(Empresas::pedirCancelacion($db, $eC, '', [], new DateTimeImmutable('2026-11-07 10:00')), '2026-11-30', 'sin fecha de pago: hasta fin de mes');
+Empresas::seguirConPlan($db, $eC);
+$ec = Empresas::buscar($db, $eC);
+ok($ec['cancelar_en'] === null && $ec['cancelar_pedido'] === null, 'se arrepintió: sigue con su plan');
+try { Empresas::pedirCancelacion($db, 1, '', []); $okT = false; } catch (RuntimeException $e) { $okT = true; }
+ok($okT, 'la cuenta de Tukán no se cancela');
 
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";

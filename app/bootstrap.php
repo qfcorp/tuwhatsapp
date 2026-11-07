@@ -224,6 +224,26 @@ function linea_actual(): ?array
     return $lineas[0];
 }
 
+/** Botón "?" con una explicación corta que se abre al tocarlo (en vez de párrafos fijos arriba de cada pantalla). $html ya viene escapado. */
+function ayuda(string $html): string
+{
+    return '<details class="ayuda"><summary title="Ayuda" aria-label="Ayuda">?</summary><div class="ayuda-texto">' . $html . '</div></details>';
+}
+
+/** "sábado 7 de noviembre" */
+function fecha_larga(DateTimeImmutable $d): string
+{
+    $dias = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+    $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    return $dias[(int) $d->format('N')] . ' ' . (int) $d->format('j') . ' de ' . $meses[(int) $d->format('n')];
+}
+
+/** Color fijo por contacto (0 a 7) para el círculo con su inicial. */
+function color_contacto(int|string $id): int
+{
+    return abs(crc32((string) $id)) % 8;
+}
+
 function hora_corta(?string $ts): string
 {
     if (!$ts) {
@@ -269,3 +289,15 @@ tukan_idioma_config([
 if (PHP_SAPI !== 'cli' && !defined('TUWA_SIN_IDIOMA')) {
     tukan_idioma_iniciar();
 }
+
+/** Igual que ayuda(), pero en dos partes para textos que llevan PHP adentro. */
+function ayuda_inicio(): string
+{
+    return '<details class="ayuda"><summary title="Ayuda" aria-label="Ayuda">?</summary><div class="ayuda-texto">';
+}
+
+function ayuda_fin(): string
+{
+    return '</div></details>';
+}
+

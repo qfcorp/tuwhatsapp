@@ -1,18 +1,15 @@
 <?php
 /** @var string $contenido @var string $titulo @var ?array $u @var ?array $linea */
-$rutaActual = (string) ($_GET['r'] ?? 'bandeja');
+$rutaActual = (string) ($_GET['r'] ?? 'inicio');
 $menu = [
+    'inicio'     => ['Inicio',     'M3 11l9-7 9 7M5 10v10h5v-6h4v6h5V10'],
     'bandeja'    => ['Bandeja',    'M4 5h16v11H8l-4 4z'],
     'pendientes' => ['Pendientes', 'M9 11l3 3 8-8M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h11'],
     'pedidos'    => ['Pedidos',    'M6 6h15l-1.5 8.5H7.5zM6 6 5 3H2M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM18 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2z'],
     'contactos'  => ['Contactos',  'M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 19v-1a4 4 0 0 0-3-3.9M15 4.1a3 3 0 0 1 0 5.8'],
     'embudo'     => ['Embudo',     'M3 4h18l-7 8v6l-4 2v-8z'],
-    'reglas'     => ['Automático', 'M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5 6.8 15M17.2 9l2.6-1.5M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
     'mas'        => ['Más',        'M4 6h16M4 12h16M4 18h16'],
 ];
-if ($u && !es_admin()) {
-    unset($menu['reglas']);
-}
 if ($u && !modulo('embudo')) {
     unset($menu['embudo']);
 }
@@ -22,10 +19,10 @@ if ($linea && empty($linea['coexistencia']) && \TuWhatsApp\Pendientes::contar(db
 } else {
     unset($menu['pedidos']);
 }
-$activo = $rutaActual === 'chat' || $rutaActual === 'plantilla' ? 'bandeja' : ($rutaActual === 'pedido' ? 'pedidos' : ($rutaActual === 'flujo' || $rutaActual === 'flujos' ? 'reglas' : $rutaActual));
-if (!isset($menu[$activo]) && $activo !== 'bandeja') {
+$activo = $rutaActual === 'chat' || $rutaActual === 'plantilla' ? 'bandeja' : ($rutaActual === 'pedido' ? 'pedidos' : $rutaActual);
+if (!isset($menu[$activo]) && !in_array($activo, ['bandeja', 'inicio'], true)) {
     $activo = in_array($activo, ['campanias', 'campania', 'gasto', 'reportes', 'seguimientos', 'ia', 'enlaces', 'integraciones', 'respuestas', 'plantillas',
-                                 'catalogo', 'cobros', 'pedidos', 'equipo', 'campos', 'tienda', 'app', 'llamadas', 'asistente'], true) ? 'mas' : $activo;
+                                 'catalogo', 'cobros', 'pedidos', 'equipo', 'campos', 'tienda', 'app', 'llamadas', 'asistente', 'reglas', 'flujos', 'flujo'], true) ? 'mas' : $activo;
 }
 $avisos = tomar_avisos();
 $empresaVista = $u ? empresa_actual() : null;
@@ -51,13 +48,14 @@ if ($u && $linea) {
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="<?= e(nombre_programa()) ?>">
-<link rel="stylesheet" href="/assets/app.css?v=17">
+<link rel="stylesheet" href="/assets/app.css?v=18">
+<script>try { var t = localStorage.getItem('tuwa_tema'); if (t) { document.documentElement.dataset.tema = t; } } catch (e) {}</script>
 <?= tukan_idioma_js(require RAIZ . '/app/frases_js.php') ?>
 </head>
 <body class="<?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?><?= en_app_android() ? ' en-app' : '' ?>"<?= $u && $linea && !empty($linea['llamadas_activo']) ? ' data-llamadas="1" data-csrf="' . e(csrf()) . '"' : '' ?>>
 <?php if ($u): ?>
 <header class="barra">
-    <a class="marca" href="<?= e(url('bandeja')) ?>" aria-label="Inicio">
+    <a class="marca" href="<?= e(url('inicio')) ?>" aria-label="Inicio">
         <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#F28C28"/><path d="M8 24.5l1.7-4.6a8.6 8.6 0 1 1 3.3 3.2z" fill="#14211F"/></svg>
         <span><?= en_app_android() ? 'Tukán <b>Mensajes</b>' : 'WhatsApp <b>Tukán</b>' ?></span>
     </a>
@@ -78,6 +76,7 @@ if ($u && $linea) {
 <?php if (es_admin()): ?><a href="<?= e(url('lineas')) ?>" title="Números conectados" aria-label="Números conectados"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a><?php endif; ?>
         <a href="<?= e(url('cuenta')) ?>" title="Mi cuenta" aria-label="Mi cuenta"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
         <?php if (es_super()): ?><a href="<?= e(url('clientes')) ?>" title="Clientes de Tukán" aria-label="Clientes de Tukán"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5M9 10h.01M15 10h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a><?php endif; ?>
+        <button type="button" class="boton-tema" id="boton-tema" title="Modo claro u oscuro" aria-label="Cambiar entre modo claro y oscuro"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
         <?= tukan_idioma_selector('idioma-barra') ?>
         <a href="<?= e(url('salir')) ?>" title="Salir" aria-label="Salir"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16l-4-4 4-4M6 12h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     </nav>
@@ -89,8 +88,8 @@ if ($u && $linea) {
     <button class="boton boton-claro">Volver a Tukán</button>
 </form>
 <?php endif; ?>
-<?php if ($gastoBarra): ?>
-<a class="tope <?= $gastoBarra['pct'] >= 100 ? 'lleno' : ($gastoBarra['pct'] >= $gastoBarra['aviso'] ? 'alerta' : '') ?>" href="<?= e(url('gasto')) ?>">
+<?php if ($gastoBarra): $topeAlerta = $gastoBarra['pct'] >= $gastoBarra['aviso']; ?>
+<a class="tope <?= $gastoBarra['pct'] >= 100 ? 'lleno' : ($topeAlerta ? 'alerta' : '') ?> <?= $topeAlerta || in_array($rutaActual, ['inicio', 'gasto'], true) ? '' : 'tope-fino' ?>" href="<?= e(url('gasto')) ?>">
     <span class="tope-texto"><?= $gastoBarra['pct'] >= 100 ? 'Tope alcanzado: ya no se envían plantillas pagadas' : 'Gasto aprox. del mes en Meta' ?></span>
     <span class="tope-cifra"><?= e(dinero($gastoBarra['g'])) ?> de <?= e(dinero($gastoBarra['t'])) ?></span>
     <span class="tope-barra"><span style="width: <?= (int) $gastoBarra['pct'] ?>%"></span></span>
@@ -118,7 +117,7 @@ if ($u && $linea) {
     <?php endforeach; ?>
 </nav>
 <?php endif; ?>
-<script src="/assets/app.js?v=10" defer></script>
+<script src="/assets/app.js?v=11" defer></script>
 <?php if ($u && $linea && !empty($linea['llamadas_activo'])): ?><script src="/assets/llamadas.js?v=1" defer></script><?php endif; ?>
 </body>
 </html>

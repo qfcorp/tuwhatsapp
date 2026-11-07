@@ -1,5 +1,5 @@
 <?php
-/** @var array $empresa @var list<array> $usuarios @var ?array $claveNueva @var ?string $tokenNuevo @var int $numeros */
+/** @var array $empresa @var list<array> $usuarios @var ?array $claveNueva @var ?string $tokenNuevo @var int $numeros @var array $plan */
 use TuWhatsApp\Empresas;
 $yo = usuario();
 $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
@@ -15,6 +15,48 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
     </p>
     <p class="suave pequeno">Entraste como <b><?= u($yo['nombre']) ?></b> (<?= e($yo['correo']) ?>) · <?= es_super() ? 'Personal de Tukán' : e(Empresas::ROLES[$yo['rol']] ?? $yo['rol']) ?></p>
 </section>
+
+<?php if ((int) $empresa['id'] !== 1 && !es_super()): $planNombre = \TuWhatsApp\Modulos::PLANES[$plan['plan']][0] ?? 'Todo incluido'; $cancela = !empty($empresa['cancelar_en']); ?>
+<section class="tarjeta plan-cuenta" id="plan">
+    <div class="pp-cabeza">
+        <h2>Tu plan: <?= e($planNombre) ?></h2>
+        <?php if (!en_app_android()): ?><span class="plan-precio"><b><?= e(dinero($plan['mensual'])) ?></b> al mes</span><?php endif; ?>
+    </div>
+    <?php if ($cancela): ?>
+    <div class="nota">Pediste cancelar: sigues usando todo hasta el <b><?= e((new DateTimeImmutable($empresa['cancelar_en']))->format('d/m/Y')) ?></b> y ya no se renueva.</div>
+    <?php elseif ($empresa['estado'] === 'demo'): ?>
+    <p class="suave">Estás en la <b>prueba gratis</b><?= $empresa['vence'] ? ' hasta el <b>' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) . '</b>' : '' ?>. No se cobra nada hasta que decidas seguir.</p>
+    <?php else: ?>
+    <p class="suave"><?= $empresa['vence'] ? 'Próxima renovación: <b>' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) . '</b>.' : 'Mes a mes, sin contrato.' ?>
+    <?= en_app_android() ? '' : 'Sin contrato y sin recargo sobre lo que cobra Meta (Meta te cobra directo a tu tarjeta).' ?></p>
+    <?php endif; ?>
+    <details class="plegable-simple">
+        <summary>Qué incluye</summary>
+        <ul class="incluye">
+            <?php foreach (\TuWhatsApp\Modulos::BASE as $b): ?><li><?= e($b) ?></li><?php endforeach; ?>
+            <?php foreach (\TuWhatsApp\Modulos::LISTA as $k => $m): ?>
+            <li class="<?= in_array($k, $plan['activos'], true) ? '' : 'no-incluye' ?>"><?= e($m[0]) ?> <?= in_array($k, $plan['activos'], true) ? '' : '<small class="suave">(extra' . (en_app_android() ? '' : ' de ' . e(dinero(\TuWhatsApp\Modulos::PRECIOS[$k] ?? 0))) . ' al mes)</small>' ?></li>
+            <?php endforeach; ?>
+        </ul>
+    </details>
+    <?php if (es_admin()): ?>
+    <?php if ($cancela): ?>
+    <form method="post"><?= csrf_campo() ?><input type="hidden" name="accion" value="seguir_plan"><button class="boton">Seguir con mi plan</button></form>
+    <?php elseif ($empresa['estado'] !== 'demo'): ?>
+    <details class="plegable-simple cancelar-plan">
+        <summary>Cancelar mi plan</summary>
+        <form method="post" class="formulario">
+            <?= csrf_campo() ?><input type="hidden" name="accion" value="cancelar_plan">
+            <p class="suave pequeno">Sigues usando todo hasta el fin del período que ya pagaste y después la cuenta se pausa. Tus chats y contactos se guardan 90 días por si vuelves.</p>
+            <label>¿Por qué te vas? (opcional, nos ayuda a mejorar)<textarea name="motivo" rows="2" maxlength="500"></textarea></label>
+            <label class="check"><input type="checkbox" name="confirmo" value="1" required> Sí, quiero cancelar mi plan</label>
+            <button class="boton boton-peligro">Cancelar mi plan</button>
+        </form>
+    </details>
+    <?php endif; ?>
+    <?php endif; ?>
+</section>
+<?php endif; ?>
 
 <details class="tarjeta plegable">
     <summary>Cambiar mi contraseña</summary>

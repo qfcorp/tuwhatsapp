@@ -5,8 +5,7 @@ use TuWhatsApp\Gasto;
 $f = fn (string $k, string $d = '') => (string) ($form[$k] ?? $d);
 $maxEsp = $plantillas ? max(array_column($plantillas, 'espacios')) : 0;
 ?>
-<div class="cabeza"><h1>Campañas</h1></div>
-<p class="suave">Envía una plantilla aprobada a muchos contactos a la vez. Sale poco a poco (para cuidar tu número), respeta el tope de gasto y <b>nunca</b> llega a Personales ni a quien pidió la baja.</p>
+<div class="cabeza"><div class="titulo"><h1>Campañas</h1><?= ayuda_inicio() ?>Envía una plantilla aprobada a muchos contactos a la vez. Sale poco a poco (para cuidar tu número), respeta el tope de gasto y <b>nunca</b> llega a Personales ni a quien pidió la baja.<?= ayuda_fin() ?></div></div>
 <p class="nota">Meta pide que en promociones solo escribas a quien <b>aceptó</b> recibirlas. Si mandas a quien no quiere, te reportan y Meta puede limitar o bloquear tu número. Hoy tienes <b><?= (int) $cuentas['acepta'] ?></b> contactos que aceptaron y <b><?= (int) $cuentas['clientes'] ?></b> clientes en total. Si alguien responde "BAJA" o "STOP", sale solo de las campañas.</p>
 
 <details class="tarjeta plegable" id="nueva-campania" <?= !$campanias || $form ? 'open' : '' ?>>

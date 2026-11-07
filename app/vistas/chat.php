@@ -8,38 +8,39 @@ $estados = ['enviando' => 'Enviando…', 'enviado' => '✓', 'entregado' => '✓
 $silencio = !empty($c['silencio_hasta']) && new DateTimeImmutable($c['silencio_hasta']) > new DateTimeImmutable();
 $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']) > new DateTimeImmutable();
 ?>
+<div class="tres-paneles">
+<aside class="col-lista" aria-label="Conversaciones">
+    <form class="buscar" method="get"><input type="hidden" name="r" value="bandeja"><input type="search" name="b" placeholder="Buscar nombre o número" aria-label="Buscar"></form>
+    <ul class="conversaciones conv-lado" id="conv-lado">
+        <?php foreach ($lado ?? [] as $x): ?>
+        <li><a href="<?= e(url('chat', ['c' => $x['id']])) ?>" class="<?= (int) $x['id'] === (int) $c['id'] ? 'actual' : '' ?> <?= $x['sin_leer'] > 0 ? 'nuevo' : '' ?>" <?= (int) $x['id'] === (int) $c['id'] ? 'aria-current="page"' : '' ?>>
+            <span class="avatar av-<?= color_contacto($x['id']) ?>" aria-hidden="true"><?= u(mb_strtoupper(mb_substr(Contactos::nombre($x), 0, 1))) ?></span>
+            <span class="conv-centro"><span class="conv-nombre"><?= u(Contactos::nombre($x)) ?></span>
+                <span class="conv-ultimo"><?= $x['ultima_direccion'] === 'sale' ? '<span class="tu">Tú:</span> ' : '' ?><?= u(mb_strimwidth((string) $x['ultimo_texto'], 0, 60, '…')) ?></span></span>
+            <span class="conv-lado"><time><?= e(hora_corta($x['ultimo_en'])) ?></time><?php if ($x['sin_leer'] > 0): ?><b class="globo"><?= (int) $x['sin_leer'] ?></b><?php endif; ?></span>
+        </a></li>
+        <?php endforeach; ?>
+    </ul>
+</aside>
+<section class="col-chat">
+<?php $puedeLlamarYa = !empty($linea['llamadas_activo']) && $c['tipo'] !== 'personal' && \TuWhatsApp\Llamadas::puedeLlamar($c); ?>
 <div class="chat-cabeza">
     <a href="<?= e(url('bandeja')) ?>" class="volver" aria-label="Volver a la bandeja">‹</a>
-    <div>
-        <h1><?= u(Contactos::nombre($c)) ?></h1>
+    <span class="avatar av-<?= color_contacto($c['id']) ?>" aria-hidden="true"><?= u(mb_strtoupper(mb_substr(Contactos::nombre($c), 0, 1))) ?></span>
+    <div class="chat-quien">
+        <h1><?= u(Contactos::nombre($c)) ?> <small class="chip chip-<?= e($c['tipo']) ?>"><?= e(tipo_contacto($c['tipo'])) ?></small></h1>
         <p class="suave"><?= e(Telefono::bonito($c['telefono'])) ?><?= $c['nombre_whatsapp'] !== '' && $c['nombre_whatsapp'] !== Contactos::nombre($c) ? ' · en WhatsApp: ' . e($c['nombre_whatsapp']) : '' ?><?= $c['etiquetas'] !== '' ? ' · ' . e($c['etiquetas']) : '' ?><?= $c['marketing'] === 'baja' ? ' · <b>no quiere promociones</b>' : '' ?></p>
     </div>
+    <div class="chat-acciones">
+        <?php if ($puedeLlamarYa): ?><button type="button" class="boton boton-verde boton-icono" title="Llamar" aria-label="Llamar" onclick="window.open('<?= e(url('llamar', ['c' => $c['id']])) ?>', 'llamada_c<?= (int) $c['id'] ?>', 'width=380,height=620')">📞</button><?php endif; ?>
+        <a class="boton boton-claro boton-ficha" href="#ficha" aria-controls="ficha">Ficha</a>
+    </div>
 </div>
-
-<form method="post" class="segmentos" aria-label="Tipo de contacto">
-    <?= csrf_campo() ?><input type="hidden" name="accion" value="tipo">
-    <?php foreach (['cliente' => 'Cliente', 'desconocido' => 'Desconocido', 'personal' => 'Personal'] as $t => $n): ?>
-    <button name="tipo" value="<?= $t ?>" class="<?= $c['tipo'] === $t ? 'activo seg-' . $t : '' ?>" <?= $c['tipo'] === $t ? 'aria-pressed="true"' : 'aria-pressed="false"' ?>><?= $n ?></button>
-    <?php endforeach; ?>
-</form>
-<?php if (count($equipo) > 1 && $c['tipo'] !== 'personal'): $yoId = (int) usuario()['id']; ?>
-<?php if (modulo('agentes')): ?>
-<form method="post" class="asignar">
-    <?= csrf_campo() ?><input type="hidden" name="accion" value="asignar">
-    <label for="asignado">Atiende</label>
-    <select id="asignado" name="usuario_id" onchange="this.form.submit()">
-        <option value="">Nadie todavía</option>
-        <?php foreach ($equipo as $x): ?>
-        <option value="<?= (int) $x['id'] ?>" <?= (int) ($c['asignado_a'] ?? 0) === (int) $x['id'] ? 'selected' : '' ?>><?= e($x['nombre']) ?><?= (int) $x['id'] === $yoId ? ' (yo)' : '' ?></option>
-        <?php endforeach; ?>
-    </select>
-    <?php if ((int) ($c['asignado_a'] ?? 0) !== $yoId): ?><button class="boton boton-claro" name="usuario_id" value="yo">Atender yo</button><?php endif; ?>
-    <noscript><button class="boton boton-claro">Cambiar</button></noscript>
-</form>
-<?php endif; ?>
-<?php endif; ?>
 <?php if ($c['tipo'] === 'personal'): ?>
 <p class="nota">Personal: el sistema <b>nunca</b> le contesta solo.<?= !empty($linea['coexistencia']) ? ' Contéstale tú desde el celular (gratis).' : '' ?></p>
+<?php endif; ?>
+<?php if (!empty($c['traspaso_nota']) && !empty($c['traspaso_en']) && new DateTimeImmutable($c['traspaso_en']) > new DateTimeImmutable('-48 hours')): ?>
+<div class="nota nota-traspaso" role="note"><b>🤖 La IA te pasó este chat</b> (<?= e(hora_corta($c['traspaso_en'])) ?>): <?= e($c['traspaso_nota']) ?></div>
 <?php endif; ?>
 <?php if ($silencio): ?>
 <form method="post" class="nota nota-silencio">
@@ -50,26 +51,6 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 <?php if ($gratis): ?>
 <p class="nota nota-ok">Llegó desde un anuncio: sus mensajes no se cobran hasta <?= e(hora_corta($c['gratis_hasta'])) ?>.</p>
 <?php endif; ?>
-<?php if (!empty($c['origen_id'])): ?>
-<p class="nota pequeno">📣 Llegó desde <?= $c['origen_tipo'] === 'publicacion' ? 'una publicación' : 'el anuncio' ?> <b><?= u($c['origen_titulo'] ?: $c['origen_id']) ?></b><?= $c['origen_en'] ? ' el ' . e((new DateTimeImmutable($c['origen_en']))->format('d/m/Y')) : '' ?><?= $c['origen_url'] ? ' · <a href="' . e($c['origen_url']) . '" target="_blank" rel="noopener">ver</a>' : '' ?>.</p>
-<?php endif; ?>
-
-<?php if (!empty($linea['llamadas_activo']) && $c['tipo'] !== 'personal'): $puedeLlamar = \TuWhatsApp\Llamadas::puedeLlamar($c); ?>
-<div class="nota llamar-chat">
-    <?php if ($puedeLlamar): ?>
-    <button type="button" class="boton boton-verde" onclick="window.open('<?= e(url('llamar', ['c' => $c['id']])) ?>', 'llamada_c<?= (int) $c['id'] ?>', 'width=380,height=620')">📞 Llamar</button>
-    <span class="suave pequeno">Te dio permiso<?= $c['llamar_permiso'] === 'temporal' && $c['llamar_hasta'] ? ' hasta ' . e(hora_corta((string) $c['llamar_hasta'])) : ' (siempre)' ?>.</span>
-    <?php else: ?>
-    <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="pedir_llamada">
-        <button class="boton boton-claro" <?= $ventana ? '' : 'disabled' ?>>📞 Pedir permiso para llamar</button></form>
-    <span class="suave pequeno"><?= $c['llamar_permiso'] === 'rechazado' ? 'No aceptó la última vez.' : ($ventana ? 'Le llega un botón de WhatsApp para aceptar.' : 'Se puede pedir cuando te escriba (24 horas).') ?></span>
-    <?php endif; ?>
-    <?php foreach ($llamadas as $l): ?>
-    <span class="pequeno ll-reciente"><?= $l['estado'] === 'perdida' ? '📵 Perdida' : ($l['direccion'] === 'entra' ? '↙ Te llamó' : '↗ Llamaste') ?><?= $l['duracion'] !== null ? ' · ' . e(\TuWhatsApp\Llamadas::duracion((int) $l['duracion'])) : '' ?> · <?= e(hora_corta((string) $l['creado'])) ?></span>
-    <?php endforeach; ?>
-</div>
-<?php endif; ?>
-
 <ol class="mensajes" id="mensajes"data-contacto="<?= (int) $c['id'] ?>" data-ultimo="<?= (int) (end($mensajes)['id'] ?? 0) ?>">
     <?php foreach ($mensajes as $m): ?>
     <li class="burbuja <?= $m['direccion'] === 'entra' ? 'entra' : 'sale origen-' . e($m['origen']) ?> <?= in_array($m['estado'], ['fallido', 'bloqueado'], true) ? 'fallo' : '' ?>">
@@ -155,8 +136,50 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <?php endif; ?>
     <?php if ($celular): ?><button class="enlace" name="accion" value="pendiente" formnovalidate>Guardar en Pendientes para enviarlo después</button><?php endif; ?>
 </form>
+</section>
 
-
+<aside class="col-ficha" id="ficha" aria-label="Ficha del cliente">
+<div class="ficha-cabeza"><h2>Ficha del cliente</h2><a class="cerrar-ficha" href="#" aria-label="Cerrar la ficha">✕</a></div>
+<form method="post" class="segmentos" aria-label="Tipo de contacto">
+    <?= csrf_campo() ?><input type="hidden" name="accion" value="tipo">
+    <?php foreach (['cliente' => 'Cliente', 'desconocido' => 'Desconocido', 'personal' => 'Personal'] as $t => $n): ?>
+    <button name="tipo" value="<?= $t ?>" class="<?= $c['tipo'] === $t ? 'activo seg-' . $t : '' ?>" <?= $c['tipo'] === $t ? 'aria-pressed="true"' : 'aria-pressed="false"' ?>><?= $n ?></button>
+    <?php endforeach; ?>
+</form>
+<?php if (count($equipo) > 1 && $c['tipo'] !== 'personal'): $yoId = (int) usuario()['id']; ?>
+<?php if (modulo('agentes')): ?>
+<form method="post" class="asignar">
+    <?= csrf_campo() ?><input type="hidden" name="accion" value="asignar">
+    <label for="asignado">Atiende</label>
+    <select id="asignado" name="usuario_id" onchange="this.form.submit()">
+        <option value="">Nadie todavía</option>
+        <?php foreach ($equipo as $x): ?>
+        <option value="<?= (int) $x['id'] ?>" <?= (int) ($c['asignado_a'] ?? 0) === (int) $x['id'] ? 'selected' : '' ?>><?= e($x['nombre']) ?><?= (int) $x['id'] === $yoId ? ' (yo)' : '' ?></option>
+        <?php endforeach; ?>
+    </select>
+    <?php if ((int) ($c['asignado_a'] ?? 0) !== $yoId): ?><button class="boton boton-claro" name="usuario_id" value="yo">Atender yo</button><?php endif; ?>
+    <noscript><button class="boton boton-claro">Cambiar</button></noscript>
+</form>
+<?php endif; ?>
+<?php endif; ?>
+<?php if (!empty($c['origen_id'])): ?>
+<p class="nota pequeno">📣 Llegó desde <?= $c['origen_tipo'] === 'publicacion' ? 'una publicación' : 'el anuncio' ?> <b><?= u($c['origen_titulo'] ?: $c['origen_id']) ?></b><?= $c['origen_en'] ? ' el ' . e((new DateTimeImmutable($c['origen_en']))->format('d/m/Y')) : '' ?><?= $c['origen_url'] ? ' · <a href="' . e($c['origen_url']) . '" target="_blank" rel="noopener">ver</a>' : '' ?>.</p>
+<?php endif; ?>
+<?php if (!empty($linea['llamadas_activo']) && $c['tipo'] !== 'personal'): $puedeLlamar = \TuWhatsApp\Llamadas::puedeLlamar($c); ?>
+<div class="nota llamar-chat">
+    <?php if ($puedeLlamar): ?>
+    <button type="button" class="boton boton-verde" onclick="window.open('<?= e(url('llamar', ['c' => $c['id']])) ?>', 'llamada_c<?= (int) $c['id'] ?>', 'width=380,height=620')">📞 Llamar</button>
+    <span class="suave pequeno">Te dio permiso<?= $c['llamar_permiso'] === 'temporal' && $c['llamar_hasta'] ? ' hasta ' . e(hora_corta((string) $c['llamar_hasta'])) : ' (siempre)' ?>.</span>
+    <?php else: ?>
+    <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="pedir_llamada">
+        <button class="boton boton-claro" <?= $ventana ? '' : 'disabled' ?>>📞 Pedir permiso para llamar</button></form>
+    <span class="suave pequeno"><?= $c['llamar_permiso'] === 'rechazado' ? 'No aceptó la última vez.' : ($ventana ? 'Le llega un botón de WhatsApp para aceptar.' : 'Se puede pedir cuando te escriba (24 horas).') ?></span>
+    <?php endif; ?>
+    <?php foreach ($llamadas as $l): ?>
+    <span class="pequeno ll-reciente"><?= $l['estado'] === 'perdida' ? '📵 Perdida' : ($l['direccion'] === 'entra' ? '↙ Te llamó' : '↗ Llamaste') ?><?= $l['duracion'] !== null ? ' · ' . e(\TuWhatsApp\Llamadas::duracion((int) $l['duracion'])) : '' ?> · <?= e(hora_corta((string) $l['creado'])) ?></span>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
 <?php if ($c['tipo'] !== 'personal'): ?>
 <details class="tarjeta plegable carrito-chat" <?= $itemsCarrito ? 'open' : '' ?>>
     <summary>🛒 Carrito y cotización<?= $carrito && $itemsCarrito ? ' · ' . e(dinero($carrito['total'])) : '' ?></summary>
@@ -276,3 +299,5 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     </form>
     <?php endif; ?>
 </details>
+</aside>
+</div>

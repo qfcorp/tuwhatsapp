@@ -18,8 +18,7 @@ if (isset($_GET['p_texto'])) {
     $prueba = Reglas::decidir($linea, ['tipo' => $tipo], (string) $_GET['p_texto'], $cuando, (int) ($_GET['p_ya'] ?? 0));
 }
 ?>
-<div class="cabeza"><h1>Respuestas automáticas</h1></div>
-<p class="suave">Recibir mensajes es gratis. Solo pagas lo que el sistema contesta solo (unos <?= e(dinero(\TuWhatsApp\Gasto::precios(db())['servicio'], true)) ?> por respuesta). Estas reglas deciden a quién se le contesta.</p>
+<div class="cabeza"><div class="titulo"><h1>Respuestas automáticas</h1><?= ayuda_inicio() ?>Recibir mensajes es gratis. Solo pagas lo que el sistema contesta solo (unos <?= e(dinero(\TuWhatsApp\Gasto::precios(db())['servicio'], true)) ?> por respuesta). Estas reglas deciden a quién se le contesta.<?= ayuda_fin() ?></div></div>
 
 <section class="tarjeta orden-auto">
     <h2>Qué contesta primero</h2>

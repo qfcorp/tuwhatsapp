@@ -2,10 +2,9 @@
 /** @var array $linea @var list<array> $flujos */
 use TuWhatsApp\Flujos;
 ?>
-<div class="cabeza"><h1>Chatbots</h1></div>
-<p class="suave">Conversaciones por pasos con botones y preguntas, sin programar. Ejemplo: "¿Qué necesitas? [Precios] [Horarios] [Hablar con alguien]".
+<div class="cabeza"><div class="titulo"><h1>Chatbots</h1><?= ayuda_inicio() ?>Conversaciones por pasos con botones y preguntas, sin programar. Ejemplo: "¿Qué necesitas? [Precios] [Horarios] [Hablar con alguien]".
 Arrancan cuando el cliente escribe una palabra clave o en su primer mensaje. Tienen prioridad sobre el agente con IA y el menú automático,
-y nunca contestan a contactos personales ni a quien ya está atendiendo una persona.</p>
+y nunca contestan a contactos personales ni a quien ya está atendiendo una persona.<?= ayuda_fin() ?></div></div>
 
 <?php if (!$flujos): ?>
 <div class="vacio"><p><b>Todavía no tienes chatbots.</b></p><p class="suave">Crea el primero: viene con un ejemplo de 3 pasos que puedes cambiar.</p></div>

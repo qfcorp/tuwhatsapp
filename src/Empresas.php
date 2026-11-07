@@ -285,4 +285,35 @@ final class Empresas
         }
         return $c;
     }
+
+    /**
+     * El cliente pide cancelar su plan desde Mi cuenta: sigue usando todo hasta el fin del período pagado (vence;
+     * si no hay fecha, fin de este mes) y ya no se renueva. Tukán recibe el aviso por Telegram.
+     * @return string la fecha hasta la que sigue (Y-m-d)
+     */
+    public static function pedirCancelacion(PDO $db, int $empresaId, string $motivo, array $quien, ?DateTimeImmutable $ahora = null): string
+    {
+        $ahora ??= new DateTimeImmutable();
+        $e = self::buscar($db, $empresaId);
+        if (!$e || $empresaId === 1) {
+            throw new RuntimeException('Esta cuenta no se puede cancelar desde aquí.');
+        }
+        $hasta = $e['vence'] && new DateTimeImmutable($e['vence']) >= $ahora->setTime(0, 0) ? (string) $e['vence'] : $ahora->modify('last day of this month')->format('Y-m-d');
+        $motivo = trim(mb_substr($motivo, 0, 500));
+        $db->prepare('UPDATE empresas SET cancelar_en = ?, cancelar_pedido = ?, cancelar_motivo = ? WHERE id = ?')
+           ->execute([$hasta, $ahora->format('c'), $motivo, $empresaId]);
+        Avisos::telegram('❌ WhatsApp Tukán: "' . $e['nombre'] . '" pidió CANCELAR su plan (sigue hasta el ' . (new DateTimeImmutable($hasta))->format('d/m/Y') . ').'
+            . "\nQuién: " . ($quien['nombre'] ?? '') . ' <' . ($quien['correo'] ?? '') . '>' . ($motivo !== '' ? "\nMotivo: " . $motivo : ''));
+        return $hasta;
+    }
+
+    /** Se arrepintió: sigue con su plan como siempre. */
+    public static function seguirConPlan(PDO $db, int $empresaId): void
+    {
+        $e = self::buscar($db, $empresaId);
+        $db->prepare("UPDATE empresas SET cancelar_en = NULL, cancelar_pedido = NULL, cancelar_motivo = '' WHERE id = ?")->execute([$empresaId]);
+        if ($e && $e['cancelar_en']) {
+            Avisos::telegram('✅ WhatsApp Tukán: "' . $e['nombre'] . '" ya NO cancela: sigue con su plan.');
+        }
+    }
 }

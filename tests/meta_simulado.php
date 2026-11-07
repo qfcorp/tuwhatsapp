@@ -53,7 +53,7 @@ if ($ruta === '/v1/messages' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         preg_match('/\[(\d+)\]/', $sis, $pid);
         $j = ['respuesta' => '¡Hola! Con gusto te ayudo. ¿Qué buscas?', 'persona' => false, 'agregar' => [], 'confirmar' => false];
         if (str_contains($ultimo, 'persona') || str_contains($ultimo, 'reclamo')) {
-            $j = ['respuesta' => 'Entiendo, en un momento te atiende una persona del equipo.', 'persona' => true];
+            $j = ['respuesta' => 'Entiendo, en un momento te atiende una persona del equipo.', 'persona' => true, 'nota' => 'Quiere hablar con una persona del equipo.'];
         } elseif (str_contains($ultimo, 'quiero 2') && $pid) {
             $j = ['respuesta' => 'Listo, te agregué 2 al carrito.', 'persona' => false, 'agregar' => [['id' => (int) $pid[1], 'cantidad' => 2], ['id' => 999999, 'cantidad' => 1]], 'confirmar' => false];
         } elseif (str_contains($ultimo, 'confirmo')) {

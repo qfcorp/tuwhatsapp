@@ -3,8 +3,7 @@
 use TuWhatsApp\Contactos;
 use TuWhatsApp\Telefono;
 ?>
-<div class="cabeza"><h1>Contactos</h1></div>
-<p class="suave"><b>Cliente</b>: puede recibir respuestas automáticas. <b>Personal</b> (familia, amigos): nunca se le contesta solo. <b>Desconocido</b>: alguien nuevo que todavía no clasificas.</p>
+<div class="cabeza"><div class="titulo"><h1>Contactos</h1><?= ayuda_inicio() ?><b>Cliente</b>: puede recibir respuestas automáticas. <b>Personal</b> (familia, amigos): nunca se le contesta solo. <b>Desconocido</b>: alguien nuevo que todavía no clasificas.<?= ayuda_fin() ?></div></div>
 <nav class="pestanas" aria-label="Tipo">
     <a href="<?= e(url('contactos', ['b' => $buscar ?: null])) ?>" class="<?= $tipo === '' ? 'activo' : '' ?>">Todos</a>
     <a href="<?= e(url('contactos', ['t' => 'cliente', 'b' => $buscar ?: null])) ?>" class="<?= $tipo === 'cliente' ? 'activo' : '' ?>">Clientes (<?= (int) $cuenta['cliente'] ?>)</a>

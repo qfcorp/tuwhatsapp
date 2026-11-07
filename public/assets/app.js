@@ -16,7 +16,13 @@
         actualizar();
     }
     var lista = $('#mensajes');
-    if (lista) { window.scrollTo(0, document.body.scrollHeight); }
+    var escritorio = window.matchMedia && window.matchMedia('(min-width: 1100px)').matches;
+    if (lista) {
+        if (escritorio) { lista.scrollTop = lista.scrollHeight; } else { window.scrollTo(0, document.body.scrollHeight); }
+        var actual = $('#conv-lado .actual');
+        if (actual && escritorio) { actual.scrollIntoView({ block: 'center' }); }
+    }
+    var convLado = $('#conv-lado'), sinLeerAntes = null;
 
     // Revisa cada 10 segundos si llegó algo nuevo (también con la pestaña en segundo plano, para avisar)
     var globo = $('#globo-bandeja');
@@ -120,13 +126,16 @@
                     lista.after(a);
                 }
             }
+            // Computadora: la lista de chats al lado del chat se pone al día si llegó algo a otro chat
+            if (convLado && escritorio && sinLeerAntes !== null && d.sin_leer > sinLeerAntes && (!texto || texto.value.trim() === '')) { location.reload(); return; }
+            sinLeerAntes = d.sin_leer;
             if (conv && !$('input:focus') && d.ultimo > (+conv.dataset.ultimo || 0)) {
                 if (conv.dataset.ultimo) { location.reload(); return; }
                 conv.dataset.ultimo = d.ultimo;
             }
         }).catch(function () {});
     }
-    if (globo || lista || conv) { revisar(); setInterval(revisar, 10000); }
+    if (globo || lista || conv || convLado) { revisar(); setInterval(revisar, 10000); }
 
     // Pendientes: después de abrir WhatsApp, preguntar si se envió
     $$('.pendiente').forEach(function (li) {
@@ -499,4 +508,40 @@
             });
         }
     }
+})();
+
+// Modo claro / oscuro (se recuerda en este navegador) y embudo de arrastrar
+(function () {
+    'use strict';
+    var boton = document.getElementById('boton-tema');
+    if (boton) {
+        boton.addEventListener('click', function () {
+            var raiz = document.documentElement;
+            var oscuro = raiz.dataset.tema ? raiz.dataset.tema === 'oscuro' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+            raiz.dataset.tema = oscuro ? 'claro' : 'oscuro';
+            try { localStorage.setItem('tuwa_tema', raiz.dataset.tema); } catch (e) {}
+        });
+    }
+    // Embudo: arrastrar una tarjeta a otra columna cambia su etapa (sin JS sigue la lista desplegable)
+    var tablero = document.querySelector('.tablero[data-arrastrar]');
+    if (!tablero) { return; }
+    var arrastrada = null;
+    Array.prototype.forEach.call(tablero.querySelectorAll('.tarjeta-embudo'), function (t) {
+        t.setAttribute('draggable', 'true');
+        t.addEventListener('dragstart', function (ev) { arrastrada = t; t.classList.add('arrastrando'); ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', t.dataset.contacto || ''); });
+        t.addEventListener('dragend', function () { t.classList.remove('arrastrando'); arrastrada = null; });
+    });
+    Array.prototype.forEach.call(tablero.querySelectorAll('.columna-embudo'), function (col) {
+        col.addEventListener('dragover', function (ev) { if (arrastrada) { ev.preventDefault(); col.classList.add('sobre'); } });
+        col.addEventListener('dragleave', function () { col.classList.remove('sobre'); });
+        col.addEventListener('drop', function (ev) {
+            ev.preventDefault(); col.classList.remove('sobre');
+            if (!arrastrada || arrastrada.closest('.columna-embudo') === col) { return; }
+            var form = arrastrada.querySelector('form'), sel = form && form.querySelector('select[name="etapa"]');
+            if (!sel) { return; }
+            sel.value = col.dataset.etapa;
+            col.querySelector('.lista-embudo').appendChild(arrastrada);
+            form.submit();
+        });
+    });
 })();

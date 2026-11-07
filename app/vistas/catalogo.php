@@ -3,9 +3,8 @@
 use TuWhatsApp\Catalogo;
 $v = $editar ?? ['id' => null, 'codigo' => '', 'nombre' => '', 'descripcion' => '', 'precio' => '', 'stock' => null, 'activo' => true, 'foto_ruta' => null];
 ?>
-<div class="cabeza"><h1>Catálogo</h1></div>
-<p class="suave">Tus productos o servicios. Desde cada chat puedes mandarlos (con foto y precio), armar el carrito del cliente y mandarle la cotización.
-Si el cliente escribe <b>catálogo</b>, le llega la lista para elegir tocando; con <b>comprar</b> confirma su carrito.</p>
+<div class="cabeza"><div class="titulo"><h1>Catálogo</h1><?= ayuda_inicio() ?>Tus productos o servicios. Desde cada chat puedes mandarlos (con foto y precio), armar el carrito del cliente y mandarle la cotización.
+Si el cliente escribe <b>catálogo</b>, le llega la lista para elegir tocando; con <b>comprar</b> confirma su carrito.<?= ayuda_fin() ?></div></div>
 
 <form method="post" class="tarjeta formulario" enctype="multipart/form-data" id="producto">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="guardar">

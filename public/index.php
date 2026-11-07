@@ -12,12 +12,12 @@ use TuWhatsApp\Meta;
 use TuWhatsApp\Pendientes;
 use TuWhatsApp\Registro;
 
-$rutas = ['login', 'salir', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr', 'plantillas',
+$rutas = ['login', 'salir', 'inicio', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'lineas', 'linea', 'plantilla', 'cambiar_linea', 'nuevos', 'conectar_qr', 'plantillas',
           'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan', 'campanias', 'respuestas', 'aceptar', 'mas', 'archivo',
           'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones',
           'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda', 'app', 'push',
           'llamada', 'llamar', 'llamadas', 'asistente'];
-$ruta = (string) ($_GET['r'] ?? 'bandeja');
+$ruta = (string) ($_GET['r'] ?? 'inicio');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
     $ruta = 'bandeja';
@@ -120,7 +120,7 @@ function vista(string $nombre, string $titulo, array $datos = []): never
 
 // Páginas que necesitan un número conectado
 $linea = usuario() ? linea_actual() : null;
-if ($linea === null && in_array($ruta, ['bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas', 'campanias', 'respuestas',
+if ($linea === null && in_array($ruta, ['inicio', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas', 'campanias', 'respuestas',
                                     'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones',
                                     'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda',
                                     'llamada', 'llamar', 'llamadas', 'asistente'], true)) {
@@ -180,7 +180,7 @@ try {
 
     case 'login':
         if (usuario()) {
-            redirigir('bandeja');
+            redirigir('inicio');
         }
         $error = null;
         $hayUsuarios = (int) db()->query('SELECT count(*) FROM usuarios')->fetchColumn() > 0;
@@ -201,7 +201,7 @@ try {
                 if ($f && password_verify((string) ($_POST['clave'] ?? ''), $f['clave'])) {
                     session_regenerate_id(true);
                     $_SESSION['usuario_id'] = (int) $f['id'];
-                    redirigir('bandeja');
+                    redirigir('inicio');
                 }
                 db()->prepare('INSERT INTO intentos_login (ip) VALUES (?)')->execute([$ip]);
                 $error = 'Correo o contraseña incorrectos.';
@@ -238,6 +238,14 @@ try {
             'url' => url('chat', ['c' => $ult['contacto_id']]),
         ] : null], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
+
+    case 'inicio':
+        vista('inicio', 'Inicio', [
+            'linea' => $linea, 'usuarioNombre' => (string) usuario()['nombre'],
+            'cifras' => \TuWhatsApp\Inicio::cifras(db(), $linea),
+            'pasos' => \TuWhatsApp\Inicio::pasos(db(), $linea, empresa_actual(), 'modulo'),
+            'resumen' => modulo('ia') ? \TuWhatsApp\Copiloto::resumenDeHoy(db(), $lid) : null,
+        ]);
 
     case 'bandeja':
         $filtro = (string) ($_GET['f'] ?? 'todos');
@@ -391,6 +399,7 @@ try {
             'itemsCarrito' => $car ? \TuWhatsApp\Pedidos::items(db(), (int) $car['id']) : [],
             'pedidosCliente' => \TuWhatsApp\Pedidos::deContacto(db(), $cid),
             'campos' => \TuWhatsApp\Campos::lista(db(), $lid),
+            'lado' => Contactos::bandeja(db(), $lid, 'todos', '', 60, (int) usuario()['id']),   // la lista de chats a la izquierda (computadora)
         ]);
 
     case 'plantilla':
@@ -512,13 +521,22 @@ try {
             } elseif ($accion === 'token_api') {
                 $_SESSION['token_mostrar'] = Empresas::nuevoTokenApi(db(), (int) $e['id']);
                 aviso('Token de API nuevo creado. El anterior ya no sirve.');
+            } elseif ($accion === 'cancelar_plan') {
+                if (empty($_POST['confirmo'])) {
+                    throw new RuntimeException('Marca la casilla para confirmar que quieres cancelar.');
+                }
+                $hasta = Empresas::pedirCancelacion(db(), (int) $e['id'], (string) ($_POST['motivo'] ?? ''), usuario());
+                aviso('Listo: tu plan no se renovará. Sigues usando todo hasta el ' . (new DateTimeImmutable($hasta))->format('d/m/Y') . '. Si cambias de idea, toca "Seguir con mi plan".');
+            } elseif ($accion === 'seguir_plan') {
+                Empresas::seguirConPlan(db(), (int) $e['id']);
+                aviso('¡Qué bueno! Tu plan sigue como siempre.');
             }
             redirigir('cuenta');
         }
         $clave = $_SESSION['clave_mostrar'] ?? null;
         $token = $_SESSION['token_mostrar'] ?? null;
         unset($_SESSION['clave_mostrar'], $_SESSION['token_mostrar']);
-        vista('cuenta', 'Mi cuenta', ['empresa' => $e, 'usuarios' => Empresas::usuarios(db(), (int) $e['id']),
+        vista('cuenta', 'Mi cuenta', ['empresa' => $e, 'usuarios' => Empresas::usuarios(db(), (int) $e['id']), 'plan' => \TuWhatsApp\Modulos::detalle($e),
             'claveNueva' => $clave, 'tokenNuevo' => $token, 'numeros' => count(Lineas::todas(db(), (int) $e['id']))]);
 
     case 'clientes':
@@ -695,6 +713,25 @@ try {
     case 'ia':
         $emp = empresa_actual();
         if ($post) {
+            if (($_POST['accion'] ?? '') === 'probar') {
+                $hist = $_SESSION['ia_prueba'][$lid] ?? [];
+                $texto = (string) ($_POST['texto'] ?? '');
+                $r = \TuWhatsApp\Bot::probar(db(), Lineas::buscar(db(), $lid), $hist, $texto);
+                if ($r['ok']) {
+                    $hist[] = ['de' => 'cliente', 'texto' => trim($texto)];
+                    $hist[] = ['de' => 'agente', 'texto' => $r['respuesta'], 'persona' => $r['persona'], 'nota' => $r['nota'], 'agregar' => $r['agregar'], 'confirmar' => $r['confirmar']];
+                    $_SESSION['ia_prueba'][$lid] = array_slice($hist, -20);
+                } else {
+                    aviso($r['error'], 'error');
+                }
+                header('Location: ' . url('ia') . '#probar');
+                exit;
+            }
+            if (($_POST['accion'] ?? '') === 'probar_borrar') {
+                unset($_SESSION['ia_prueba'][$lid]);
+                header('Location: ' . url('ia') . '#probar');
+                exit;
+            }
             if (($_POST['accion'] ?? '') === 'bot') {
                 \TuWhatsApp\Bot::guardar(db(), $lid, $_POST);
                 aviso(!empty($_POST['bot_activo']) ? 'Agente con IA encendido: desde ahora contesta solo.' : 'Agente con IA guardado (apagado).');
@@ -710,6 +747,7 @@ try {
         vista('ia', 'Agente con IA', [
             'linea' => $linea, 'disponible' => \TuWhatsApp\Asistente::disponible(),
             'gastado' => \TuWhatsApp\Asistente::gastadoMes(db(), (int) $emp['id']), 'tope' => (float) ($emp['ia_tope'] ?? 3),
+            'prueba' => $_SESSION['ia_prueba'][$lid] ?? [],
         ]);
 
     case 'asistente':   // "Pregúntale a la IA" (como Wati AI) y el resumen de cada mañana

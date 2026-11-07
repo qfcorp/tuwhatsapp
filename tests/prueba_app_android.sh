@@ -66,7 +66,9 @@ ok '[ "$(sql "$OTRAS")" = "$ANTES" ]' "crear no tocó ninguna otra cuenta"
 
 echo "== Cuenta de muestra: el revisor entra desde la app"
 entrar "$CORREO" "&app=play" "$CLAVE"
-ok 'tiene "Camila Ortega" && tiene "Tukán <b>Mensajes</b>" && ! tiene "Términos y condiciones de"' "entra directo a la bandeja (términos ya aceptados)"
+ok 'tiene "Te escribieron hoy" && tiene "Tukán <b>Mensajes</b>" && ! tiene "Términos y condiciones de" && ! tiene "Primeros pasos"' "entra directo al Inicio (términos ya aceptados; sin primeros pasos en la cuenta de muestra)"
+get "/?r=bandeja"
+ok 'tiene "Camila Ortega"' "la bandeja tiene los chats de ejemplo"
 get "/?r=mas"
 ok 'tiene "Agente con IA" && tiene "No está activo en tu cuenta" && ! tiene "Pedir a Tukán" && ! tiene "wa.me/593983662181"' "Más: el extra de IA sin enlace para pedirlo ni pagarlo"
 get "/?r=ia"
@@ -102,7 +104,7 @@ if [ "$CLAVE2" != "$CLAVE" ]; then
   entrar "$CORREO" "" "$CLAVE"
   ok 'tiene "incorrectos"' "la contraseña anterior ya no sirve"
 fi
-entrar "$CORREO" "" "$CLAVE2"; ok 'tiene "Camila Ortega"' "entra con la contraseña nueva"
+entrar "$CORREO" "" "$CLAVE2"; ok 'tiene "Te escribieron hoy"' "entra con la contraseña nueva"
 demo borrar > "$S" 2>&1
 ok '[ $? = 0 ] && grep -q "se borro la Tienda Muestra" "$S"' "borrar"
 ok '[ "$(sql "SELECT count(*) FROM empresas WHERE muestra")" = 0 ] && [ "$(sql "SELECT count(*) FROM usuarios WHERE correo='"'"'$CORREO'"'"'")" = 0 ] && [ "$(sql "SELECT count(*) FROM lineas WHERE phone_number_id LIKE '"'"'muestra-%'"'"'")" = 0 ]' "no queda la cuenta, el revisor ni el número de ficción"

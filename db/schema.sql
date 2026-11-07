@@ -694,3 +694,18 @@ ALTER TABLE llamadas ADD CONSTRAINT llamadas_estado_check
     CHECK (estado IN ('sonando', 'contestando', 'en_curso', 'terminada', 'perdida', 'rechazada', 'fallida', 'fuera_horario'));
 -- 7 nov 2026: Meta no cobra las respuestas normales dentro de las 24 horas (desde 2025): dejan de sumar al gasto.
 UPDATE ajustes SET valor = '0' WHERE clave = 'precio_servicio' AND valor <> '0';
+
+
+-- =====================================================================
+-- 7 nov 2026: lo que faltaba frente a la competencia.
+--   contactos.traspaso_nota / traspaso_en: cuando el agente con IA pasa el chat a una persona, deja una nota para el equipo
+--                   (qué quiere el cliente, qué ya le dijo y qué falta). Se ve arriba del chat.
+--   empresas.cancelar_en / cancelar_pedido / cancelar_motivo: el cliente pidió cancelar desde Mi cuenta. Sigue usando todo
+--                   hasta cancelar_en (fin del período pagado) y no se renueva. Tukán recibe el aviso.
+-- =====================================================================
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS traspaso_nota text NOT NULL DEFAULT '';
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS traspaso_en   timestamptz;
+ALTER TABLE empresas  ADD COLUMN IF NOT EXISTS cancelar_en     date;
+ALTER TABLE empresas  ADD COLUMN IF NOT EXISTS cancelar_pedido timestamptz;
+ALTER TABLE empresas  ADD COLUMN IF NOT EXISTS cancelar_motivo text NOT NULL DEFAULT '';
+

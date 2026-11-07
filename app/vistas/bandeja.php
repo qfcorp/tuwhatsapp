@@ -6,6 +6,8 @@ if (!modulo('agentes')) {
     unset($filtros['mios'], $filtros['sin_asignar']);
 }
 ?>
+<div class="bandeja-escritorio">
+<div class="col-lista-bandeja">
 <div class="cabeza">
     <h1>Bandeja</h1>
     <span class="estado-auto <?= $linea['auto_activo'] ? 'si' : 'no' ?>"><?php if (es_admin()): ?><a href="<?= e(url('reglas')) ?>">Automático: <?= $linea['auto_activo'] ? 'encendido' : 'apagado' ?></a><?php else: ?><a>Automático: <?= $linea['auto_activo'] ? 'encendido' : 'apagado' ?></a><?php endif; ?></span>
@@ -25,15 +27,17 @@ if (!modulo('agentes')) {
 </nav>
 <?php if (!$conversaciones): ?>
 <div class="vacio">
-    <p><b>Todavía no hay mensajes aquí.</b></p>
-    <p class="suave">Cuando alguien escriba a tu número de WhatsApp aparecerá en esta lista.</p>
+    <div class="vacio-dibujo" aria-hidden="true">💬</div>
+    <p><b><?= $buscar !== '' || $filtro !== 'todos' ? 'Nada con ese filtro.' : 'Todavía no hay mensajes.' ?></b></p>
+    <p class="suave"><?= $buscar !== '' || $filtro !== 'todos' ? 'Prueba con otro filtro o búsqueda.' : 'Cuando alguien escriba a tu WhatsApp aparecerá aquí. Comparte tu enlace o QR para que te escriban.' ?></p>
+    <?php if ($buscar === '' && $filtro === 'todos' && es_admin()): ?><a class="boton boton-claro" href="<?= e(url('enlaces')) ?>">Ver mi enlace y QR</a><?php endif; ?>
 </div>
 <?php else: ?>
 <ul class="conversaciones" id="conversaciones" data-linea="<?= (int) $linea['id'] ?>">
     <?php foreach ($conversaciones as $c): ?>
     <li>
         <a href="<?= e(url('chat', ['c' => $c['id']])) ?>" class="<?= $c['sin_leer'] > 0 ? 'nuevo' : '' ?>">
-            <span class="avatar tipo-<?= e($c['tipo']) ?>" aria-hidden="true"><?= u(mb_strtoupper(mb_substr(Contactos::nombre($c), 0, 1))) ?></span>
+            <span class="avatar av-<?= color_contacto($c['id']) ?>" aria-hidden="true"><?= u(mb_strtoupper(mb_substr(Contactos::nombre($c), 0, 1))) ?></span>
             <span class="conv-centro">
                 <span class="conv-nombre"><?= u(Contactos::nombre($c)) ?> <small class="chip chip-<?= e($c['tipo']) ?>"><?= e(tipo_contacto($c['tipo'])) ?></small><?php if (!empty($c['asignado_nombre'])): ?> <small class="chip chip-asignado"><?= u(explode(' ', (string) $c['asignado_nombre'])[0]) ?></small><?php endif; ?></span>
                 <span class="conv-ultimo"><?= $c['ultima_direccion'] === 'sale' ? '<span class="tu">Tú:</span> ' : '' ?><?= u(mb_strimwidth((string) $c['ultimo_texto'], 0, 80, '…')) ?></span>
@@ -57,3 +61,10 @@ if (!modulo('agentes')) {
         <button class="boton">Abrir conversación</button>
     </form>
 </details>
+</div>
+<div class="col-vacia" aria-hidden="true">
+    <div class="vacio-dibujo">💬</div>
+    <p><b>Elige una conversación</b></p>
+    <p class="suave">A la izquierda están tus chats; aquí se abre la conversación y a la derecha la ficha del cliente.</p>
+</div>
+</div>
