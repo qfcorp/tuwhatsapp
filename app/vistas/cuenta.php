@@ -10,7 +10,7 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
 <section class="tarjeta">
     <h2><?= u($empresa['nombre']) ?></h2>
     <p class="suave">
-        Plan: <b><?= e(Empresas::ESTADOS[$empresa['estado']]) ?></b><?= $empresa['vence'] ? ' hasta el ' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) : '' ?> ·
+        Estado: <b><?= e(Empresas::ESTADOS[$empresa['estado']]) ?></b><?= $empresa['vence'] ? ' hasta el ' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) : '' ?> ·
         Números: <?= $numeros ?> de <?= (int) $empresa['max_numeros'] ?> · Usuarios: <?= $activos ?> de <?= (int) $empresa['max_usuarios'] ?>
     </p>
     <p class="suave pequeno">Entraste como <b><?= u($yo['nombre']) ?></b> (<?= e($yo['correo']) ?>) · <?= es_super() ? 'Personal de Tukán' : e(Empresas::ROLES[$yo['rol']] ?? $yo['rol']) ?></p>
@@ -27,7 +27,7 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
     <?php elseif ($empresa['estado'] === 'demo'): ?>
     <p class="suave">Estás en la <b>prueba gratis</b><?= $empresa['vence'] ? ' hasta el <b>' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) . '</b>' : '' ?>. No se cobra nada hasta que decidas seguir.</p>
     <?php else: ?>
-    <p class="suave"><?= $empresa['vence'] ? 'Próxima renovación: <b>' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) . '</b>.' : 'Mes a mes, sin contrato.' ?>
+    <p class="suave"><?= $empresa['vence'] ? 'Próxima renovación: <b>' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) . '</b>.' : 'Se paga mes a mes.' ?>
     <?= en_app_android() ? '' : 'Sin contrato y sin recargo sobre lo que cobra Meta (Meta te cobra directo a tu tarjeta).' ?></p>
     <?php endif; ?>
     <details class="plegable-simple">

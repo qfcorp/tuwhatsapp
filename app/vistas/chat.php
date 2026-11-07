@@ -11,7 +11,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 <div class="tres-paneles">
 <aside class="col-lista" aria-label="Conversaciones">
     <form class="buscar" method="get"><input type="hidden" name="r" value="bandeja"><input type="search" name="b" placeholder="Buscar nombre o número" aria-label="Buscar"></form>
-    <ul class="conversaciones conv-lado" id="conv-lado">
+    <ul class="conversaciones lista-lado" id="conv-lado">
         <?php foreach ($lado ?? [] as $x): ?>
         <li><a href="<?= e(url('chat', ['c' => $x['id']])) ?>" class="<?= (int) $x['id'] === (int) $c['id'] ? 'actual' : '' ?> <?= $x['sin_leer'] > 0 ? 'nuevo' : '' ?>" <?= (int) $x['id'] === (int) $c['id'] ? 'aria-current="page"' : '' ?>>
             <span class="avatar av-<?= color_contacto($x['id']) ?>" aria-hidden="true"><?= u(mb_strtoupper(mb_substr(Contactos::nombre($x), 0, 1))) ?></span>

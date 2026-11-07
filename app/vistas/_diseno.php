@@ -48,7 +48,7 @@ if ($u && $linea) {
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="<?= e(nombre_programa()) ?>">
-<link rel="stylesheet" href="/assets/app.css?v=18">
+<link rel="stylesheet" href="/assets/app.css?v=19">
 <script>try { var t = localStorage.getItem('tuwa_tema'); if (t) { document.documentElement.dataset.tema = t; } } catch (e) {}</script>
 <?= tukan_idioma_js(require RAIZ . '/app/frases_js.php') ?>
 </head>
