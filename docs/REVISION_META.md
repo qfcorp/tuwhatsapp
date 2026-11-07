@@ -131,5 +131,5 @@ The interface is in Spanish: "Bandeja" = Inbox, "Enviar" = Send, "Plantillas" = 
 ## Después de la aprobación
 
 - Pasar a **acceso avanzado**: los otros negocios ya pueden conectar su número con el botón.
-- Reintentar el código QR con el número de Tukán (+593 99 640 8397).
+- Reintentar el código QR con el número de Tukán (+593 98 366 2181).
 - Poner el método de pago en WhatsApp Manager cuando se conecte el número real.

@@ -12,7 +12,7 @@ ob_start();
 <h1>Política de privacidad</h1>
 <p>Esta política explica cómo <b>Tukán Software</b> (marca de QF Producciones, Ecuador) trata los datos en su programa de mensajería
 <b>WhatsApp Tukán</b>, que en la app de Android se llama <b>Tukán Mensajes</b> (whatsapp.tukanec.com), y en las conexiones con la
-plataforma de WhatsApp Business de Meta. Contacto: <a href="mailto:info@tukansoftware.com">info@tukansoftware.com</a> · WhatsApp +593 99 640 8397.
+plataforma de WhatsApp Business de Meta. Contacto: <a href="mailto:info@tukansoftware.com">info@tukansoftware.com</a> · WhatsApp +593 98 366 2181.
 Tukán Mensajes es un programa independiente: no es de WhatsApp ni de Meta y no está afiliado a ellas; usa la API oficial de WhatsApp Business.</p>
 
 <h2>Quién decide sobre los datos</h2>
@@ -78,7 +78,7 @@ solo se usan cuando la persona toca <i>Grabar</i>, <i>Adjuntar</i> o contesta un
 <p>Según la LOPDP puedes pedir acceso, corrección o eliminación de tus datos, u oponerte a su uso.</p>
 <ol>
     <li><b>Si eres un negocio y quieres borrar tu cuenta y todos sus datos</b> (números conectados, contactos, mensajes, archivos, pedidos y tokens): escribe a
-        <a href="mailto:info@tukansoftware.com?subject=Eliminar%20mis%20datos">info@tukansoftware.com</a> o al WhatsApp +593 99 640 8397 desde el correo o número
+        <a href="mailto:info@tukansoftware.com?subject=Eliminar%20mis%20datos">info@tukansoftware.com</a> o al WhatsApp +593 98 366 2181 desde el correo o número
         registrado, con el asunto <b>«Eliminar mis datos»</b>. En un máximo de <b>15 días</b> lo borramos y te confirmamos por el mismo medio.
         Los pasos completos están en <a href="/eliminar-datos.php">Eliminar mis datos</a>.</li>
     <li><b>Si eres una persona del equipo</b> y quieres que se borre tu usuario: pídeselo al administrador de tu negocio (Mi cuenta → equipo) o escríbenos.</li>

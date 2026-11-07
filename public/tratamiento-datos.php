@@ -47,7 +47,7 @@ soporte.</p>
 </ul>
 
 <h2>5. Contacto</h2>
-<p>Delegado o persona de contacto de Tukán para protección de datos: <a href="mailto:info@tukansoftware.com">info@tukansoftware.com</a> · WhatsApp 099 640 8397.</p>
+<p>Delegado o persona de contacto de Tukán para protección de datos: <a href="mailto:info@tukansoftware.com">info@tukansoftware.com</a> · WhatsApp 098 366 2181.</p>
 <?php
 $contenido = (string) ob_get_clean();
 require RAIZ . '/app/vistas/_publica.php';

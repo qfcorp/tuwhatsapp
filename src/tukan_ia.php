@@ -34,7 +34,7 @@ declare(strict_types=1);
 if (!function_exists('tukan_ia_llamar')) {
 
     define('TUKAN_IA_VERSION', '1');
-    define('TUKAN_IA_CONTACTO', 'escríbanos por WhatsApp 099 640 8397');
+    define('TUKAN_IA_CONTACTO', 'escríbanos por WhatsApp 098 366 2181');
 
     /** Precios USD por millón de tokens: [entrada, salida] y, si cambia con prompts largos, [desde_tokens, entrada, salida]. */
     define('TUKAN_IA_PRECIOS', [

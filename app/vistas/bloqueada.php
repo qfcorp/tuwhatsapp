@@ -6,7 +6,7 @@
     <p class="suave">Los mensajes que te escriban se siguen guardando, pero no se contesta nada solo ni se puede enviar desde aquí. El administrador de tu negocio puede revisarlo con Tukán Software.</p>
     <?php else: ?>
     <p class="suave">Los mensajes que te escriban se siguen guardando, pero no se contesta nada solo ni se puede enviar desde aquí. Para seguir usando el programa, escribe a Tukán.</p>
-    <p><a class="boton boton-grande boton-gratis" href="https://wa.me/593996408397?text=<?= rawurlencode('Hola, quiero renovar mi cuenta de WhatsApp Tukán' . ($empresa ? ' (' . $empresa['nombre'] . ')' : '') . '.') ?>" target="_blank" rel="noopener">Escribir a Tukán por WhatsApp</a></p>
+    <p><a class="boton boton-grande boton-gratis" href="https://wa.me/593983662181?text=<?= rawurlencode('Hola, quiero renovar mi cuenta de WhatsApp Tukán' . ($empresa ? ' (' . $empresa['nombre'] . ')' : '') . '.') ?>" target="_blank" rel="noopener">Escribir a Tukán por WhatsApp</a></p>
     <?php endif; ?>
     <p><a href="<?= e(url('salir')) ?>">Salir</a></p>
 </section>

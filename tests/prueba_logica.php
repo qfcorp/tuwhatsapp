@@ -62,7 +62,7 @@ function entrante(string $de, string $texto, string $wamid, int $ts, string $nom
 {
     return cuerpoMeta([
         'messaging_product' => 'whatsapp',
-        'metadata' => ['display_phone_number' => '593996408397', 'phone_number_id' => '100'],
+        'metadata' => ['display_phone_number' => '593983662181', 'phone_number_id' => '100'],
         'contacts' => [['profile' => ['name' => $nombre], 'wa_id' => $de]],
         'messages' => [array_merge(['from' => $de, 'id' => $wamid, 'timestamp' => (string) $ts, 'type' => 'text', 'text' => ['body' => $texto]], $extra)],
     ]);
@@ -80,18 +80,18 @@ igual(Telefono::bonito('593991234567'), '099 123 4567', 'bonito');
 igual(Telefono::enlace('0991234567', 'Hola Ana, ¿cómo estás?'), 'https://wa.me/593991234567?text=Hola%20Ana%2C%20%C2%BFc%C3%B3mo%20est%C3%A1s%3F', 'enlace wa.me');
 
 echo "== Línea\n";
-$lid = Lineas::guardarConexion($db, null, ['nombre' => 'Tukán ventas', 'telefono' => '0996408397', 'phone_number_id' => '100', 'waba_id' => '200', 'token' => 'EAAGtokenDePrueba1234567890']);
+$lid = Lineas::guardarConexion($db, null, ['nombre' => 'Tukán ventas', 'telefono' => '0983662181', 'phone_number_id' => '100', 'waba_id' => '200', 'token' => 'EAAGtokenDePrueba1234567890']);
 $linea = Lineas::buscar($db, $lid);
 igual(Lineas::token($linea), 'EAAGtokenDePrueba1234567890', 'token cifrado y descifrado');
 ok(!str_contains($linea['token_cifrado'], 'EAAG'), 'el token no se guarda a la vista');
-igual($linea['telefono'], '593996408397', 'teléfono normalizado');
+igual($linea['telefono'], '593983662181', 'teléfono normalizado');
 try {
     Lineas::guardarConexion($db, null, ['nombre' => 'Otra', 'phone_number_id' => '100', 'token' => 'EAAGtokenDePrueba1234567890']);
     ok(false, 'no deja repetir el phone number id');
 } catch (RuntimeException $e) {
     ok(str_contains($e->getMessage(), 'ya está'), 'no deja repetir el phone number id');
 }
-Lineas::guardarConexion($db, $lid, ['nombre' => 'Tukán ventas', 'telefono' => '0996408397', 'phone_number_id' => '100', 'waba_id' => '200', 'token' => '']);
+Lineas::guardarConexion($db, $lid, ['nombre' => 'Tukán ventas', 'telefono' => '0983662181', 'phone_number_id' => '100', 'waba_id' => '200', 'token' => '']);
 igual(Lineas::token(Lineas::buscar($db, $lid)), 'EAAGtokenDePrueba1234567890', 'token vacío no lo borra');
 igual(count(Lineas::opciones($linea)), 3, '3 opciones de fábrica');
 igual(Lineas::horario($linea)[7], null, 'domingo no atiende');
@@ -367,7 +367,7 @@ echo "== Pendientes y eco del celular\n";
 $pid = Pendientes::agregar($db, $lid, '0997777777', 'Carla', "Hola Carla,\n tu demo está lista");
 igual(Pendientes::contar($db, $lid), 1, '1 pendiente');
 $eco = cuerpoMeta(['metadata' => ['phone_number_id' => '100'], 'message_echoes' => [[
-    'from' => '593996408397', 'to' => '593997777777', 'id' => 'wamid.ECO1', 'timestamp' => (string) $martes20->getTimestamp(),
+    'from' => '593983662181', 'to' => '593997777777', 'id' => 'wamid.ECO1', 'timestamp' => (string) $martes20->getTimestamp(),
     'type' => 'text', 'text' => ['body' => 'Hola Carla, tu demo está lista'],
 ]]], 'smb_message_echoes');
 $wh->procesar($eco);
@@ -448,7 +448,7 @@ $s = sim();
 igual([$s[3]['cuerpo']['sync_type'], $s[4]['cuerpo']['sync_type']], ['smb_app_state_sync', 'history'], 'primero contactos y después historial');
 ok(str_starts_with($s[2]['auth'], 'Bearer EAAGnegocio'), 'se suscribe con el token del negocio');
 $q = Lineas::buscar($db, $r['linea_id']);
-igual([$q['nombre'], $q['conectado_por'], $q['coexistencia'], $q['waba_id'], $q['telefono']], ['QF Producciones', 'qr', true, '300', '593996408397'], 'línea guardada');
+igual([$q['nombre'], $q['conectado_por'], $q['coexistencia'], $q['waba_id'], $q['telefono']], ['QF Producciones', 'qr', true, '300', '593983662181'], 'línea guardada');
 ok(str_starts_with(Lineas::token($q), 'EAAGnegocio') && !str_contains($q['token_cifrado'], 'EAAG'), 'token guardado cifrado');
 ok(str_starts_with($q['sync_contactos'], 'ok:REQ') && str_starts_with($q['sync_historial'], 'ok:REQ') && $q['historial_estado'] === 'recibiendo', 'sincronización pedida');
 $x = Registro::sincronizar($db, $q, 'historial');
@@ -503,14 +503,14 @@ $r = Registro::completar($db, ['code' => 'codigo_cuenta_vacia1', 'evento' => 'FI
 ok(!$r['ok'] && str_contains($r['error'], 'no tiene ningún número'), 'cuenta sin números: explica');
 
 echo "== Historial y contactos del celular (webhook)\n";
-$meta301 = ['display_phone_number' => '593996408397', 'phone_number_id' => '301'];
+$meta301 = ['display_phone_number' => '593983662181', 'phone_number_id' => '301'];
 $t0 = $martes20->getTimestamp() - 86400 * 3;
 $hist = fn (int $progreso, array $mensajes) => cuerpoMeta(['messaging_product' => 'whatsapp', 'metadata' => $meta301,
     'history' => [['metadata' => ['phase' => 0, 'chunk_order' => 1, 'progress' => $progreso], 'threads' => [['id' => '593981112222', 'messages' => $mensajes]]]]], 'history');
 limpiarSim();
 $wh->procesar($hist(55, [
     ['from' => '593981112222', 'id' => 'wamid.H1', 'timestamp' => (string) $t0, 'type' => 'text', 'text' => ['body' => 'Hola, quiero precios'], 'history_context' => ['status' => 'READ']],
-    ['from' => '593996408397', 'to' => '593981112222', 'id' => 'wamid.H2', 'timestamp' => (string) ($t0 + 60), 'type' => 'text', 'text' => ['body' => 'Claro, te cuento'], 'history_context' => ['status' => 'READ']],
+    ['from' => '593983662181', 'to' => '593981112222', 'id' => 'wamid.H2', 'timestamp' => (string) ($t0 + 60), 'type' => 'text', 'text' => ['body' => 'Claro, te cuento'], 'history_context' => ['status' => 'READ']],
     ['from' => '593981112222', 'id' => 'wamid.H3', 'timestamp' => (string) ($t0 + 120), 'type' => 'media_placeholder', 'history_context' => ['status' => 'READ']],
 ]));
 $hm = $db->query("SELECT wamid, direccion, origen, estado, leido, texto, motivo FROM mensajes WHERE wamid LIKE 'wamid.H%' ORDER BY wamid")->fetchAll();

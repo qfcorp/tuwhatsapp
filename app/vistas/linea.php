@@ -63,7 +63,7 @@ $esQr = $editar && $editar['conectado_por'] === 'qr';
     <form method="post" class="formulario">
         <?= csrf_campo() ?>
         <label>Nombre para reconocerlo<input name="nombre" required maxlength="60" value="<?= e($editar['nombre'] ?? 'Tukán ventas') ?>"></label>
-        <label>Número de WhatsApp<input name="telefono" inputmode="tel" value="<?= e($editar['telefono'] ?? '') ?>" placeholder="0996408397"></label>
+        <label>Número de WhatsApp<input name="telefono" inputmode="tel" value="<?= e($editar['telefono'] ?? '') ?>" placeholder="0983662181"></label>
         <label>Identificador del número de teléfono (Phone number ID)<input name="phone_number_id" inputmode="numeric" required value="<?= e($editar['phone_number_id'] ?? '') ?>"></label>
         <label>Identificador de la cuenta de WhatsApp Business (WABA ID)<input name="waba_id" inputmode="numeric" value="<?= e($editar['waba_id'] ?? '') ?>"></label>
         <label>Token de acceso permanente<?= $editar ? ' (déjalo vacío para no cambiarlo)' : '' ?>

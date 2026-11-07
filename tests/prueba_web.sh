@@ -28,13 +28,13 @@ ok 'tiene "id=\"btn-qr\"" && tiene "data-app=\"2592670637899782\"" && tiene "dat
 ok 'tiene "Conectar a mano"' "conectar a mano sigue disponible"
 
 echo "== Conectar número"
-post "/?r=linea" --data-urlencode "nombre=Tukán ventas" --data-urlencode "telefono=0996408397" --data-urlencode "phone_number_id=100" \
+post "/?r=linea" --data-urlencode "nombre=Tukán ventas" --data-urlencode "telefono=0983662181" --data-urlencode "phone_number_id=100" \
      --data-urlencode "waba_id=200" --data-urlencode "token=EAAGtokenDePrueba1234567890"
 ok 'tiene "Guardado y conectado con Meta" && tiene "Tukán Software"' "guarda y prueba la conexión"
 ok 'grep -q "200.\{1,2\}subscribed_apps" "$SIM_LOG" && ! tiene "todavía no avisará"' "suscribe la app a la cuenta para recibir mensajes"
 ok 'tiene "https://whatsapp.ejemplo.com/webhook.php" && tiene "verifica123"' "muestra los datos del webhook"
 ok '! tiene "EAAGtokenDePrueba"' "el token no se muestra"
-get "/?r=lineas";   ok 'tiene "Tukán ventas" && tiene "099 640 8397"' "lista de números"
+get "/?r=lineas";   ok 'tiene "Tukán ventas" && tiene "098 366 2181"' "lista de números"
 
 echo "== Webhook"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/webhook.php?hub.mode=subscribe&hub.verify_token=verifica123&hub.challenge=987654")
@@ -42,7 +42,7 @@ ok '[ "$CODIGO" = 200 ] && [ "$(cat "$P")" = 987654 ]' "verificación de Meta"
 CODIGO=$(curl -s -o /dev/null -w '%{http_code}' "$W/webhook.php?hub.mode=subscribe&hub.verify_token=mal&hub.challenge=1")
 ok '[ "$CODIGO" = 403 ]' "verificación con token malo"
 T=$(date +%s)
-MSG='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593996408397","phone_number_id":"100"},"contacts":[{"profile":{"name":"Peluquería Ana"},"wa_id":"593991111111"}],"messages":[{"from":"593991111111","id":"wamid.WEB1","timestamp":"'$T'","type":"text","text":{"body":"Hola, quiero <b>precios</b>"}}]}}]}]}'
+MSG='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593983662181","phone_number_id":"100"},"contacts":[{"profile":{"name":"Peluquería Ana"},"wa_id":"593991111111"}],"messages":[{"from":"593991111111","id":"wamid.WEB1","timestamp":"'$T'","type":"text","text":{"body":"Hola, quiero <b>precios</b>"}}]}}]}]}'
 CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -H "X-Hub-Signature-256: sha256=000" --data-binary "$MSG" "$W/webhook.php")
 ok '[ "$CODIGO" = 401 ]' "sin firma correcta se rechaza"
 ok '[ "$(PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT count(*) FROM webhook_log WHERE error LIKE '"'"'Firma no valida%'"'"'" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}")" = 1 ]' "la firma mala queda anotada para revisar"
@@ -216,7 +216,7 @@ get "$IR"
 ok 'tiene "Número conectado con código QR" && tiene "Conectado con código QR" && tiene "sigue funcionando en la app WhatsApp Business"' "pantalla del número conectado"
 ok 'tiene "Contactos del celular" && tiene "pedido a Meta" && ! tiene "Traer historial"' "contactos e historial ya pedidos"
 get "/?r=lineas";  ok 'tiene "QF Producciones" && tiene "Tukán ventas"' "los dos números en la lista"
-H='{"object":"whatsapp_business_account","entry":[{"id":"300","changes":[{"field":"history","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593996408397","phone_number_id":"301"},"history":[{"metadata":{"phase":0,"chunk_order":1,"progress":100},"threads":[{"id":"593987776655","messages":[{"from":"593987776655","id":"wamid.WEBH1","timestamp":"1760000000","type":"text","text":{"body":"Mensaje viejo del celular"}}]}]}]}}]}]}'
+H='{"object":"whatsapp_business_account","entry":[{"id":"300","changes":[{"field":"history","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593983662181","phone_number_id":"301"},"history":[{"metadata":{"phase":0,"chunk_order":1,"progress":100},"threads":[{"id":"593987776655","messages":[{"from":"593987776655","id":"wamid.WEBH1","timestamp":"1760000000","type":"text","text":{"body":"Mensaje viejo del celular"}}]}]}]}}]}]}'
 ok '[ "$(webhook "$H")" = 200 ]' "historial firmado aceptado"
 sleep 0.3
 get "/?r=bandeja"; ok 'tiene "Mensaje viejo del celular" || tiene "987 776 655"' "el historial aparece en la bandeja del número QR"
@@ -302,7 +302,7 @@ post "/?r=cliente&id=$EMP" --data-urlencode "accion=datos" --data-urlencode "nom
      --data-urlencode "motivo_suspension=Falta el pago de noviembre" --data-urlencode "max_numeros=1" --data-urlencode "max_usuarios=2"
 ok 'tiene "Datos del cliente guardados" && tiene "Falta el pago de noviembre"' "Tukán suspende al cliente"
 J="$BELLA_J"
-seguir "/?r=bandeja"; ok 'tiene "Cuenta no disponible" && tiene "Falta el pago de noviembre" && tiene "wa.me/593996408397"' "cliente suspendido ve el aviso"
+seguir "/?r=bandeja"; ok 'tiene "Cuenta no disponible" && tiene "Falta el pago de noviembre" && tiene "wa.me/593983662181"' "cliente suspendido ve el aviso"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "Authorization: Bearer $TOKEN_BELLA" -d '{"telefono":"0991234567","texto":"hola"}' "$W/api.php?accion=pendiente")
 ok '[ "$CODIGO" = 403 ]' "API de cuenta suspendida"
 
@@ -451,7 +451,7 @@ post "/?r=enlaces" --data-urlencode "accion=crear" --data-urlencode "nombre=Vola
 ok 'tiene "Enlace creado" && tiene "w.php?c=" && tiene "data-qr=" && tiene "boton.js" && tiene "qrcode.js"' "crear enlace con QR y botón web"
 COD=$(grep -o 'w.php?c=[a-z2-9]*' "$P" | head -1 | sed 's/.*c=//')
 DESTINO=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$W/w.php?c=$COD")
-ok '[ "$DESTINO" = "302 https://wa.me/593996408397?text=Hola%2C%20vi%20el%20volante" ]' "el enlace corto abre WhatsApp"
+ok '[ "$DESTINO" = "302 https://wa.me/593983662181?text=Hola%2C%20vi%20el%20volante" ]' "el enlace corto abre WhatsApp"
 get "/?r=enlaces"; ok 'tiene ">1 clic<"' "cuenta el clic"
 CODIGO=$(curl -s -o /dev/null -w '%{http_code}' "$W/w.php?c=noexis")
 ok '[ "$CODIGO" = 404 ]' "enlace que no existe"
@@ -778,7 +778,7 @@ post "/?r=llamadas" --data-urlencode "accion=encender"
 ok 'tiene "Llamadas encendidas" && tiene "Encendidas" && grep -q "100.\{1,2\}settings" "$SIM_LOG"' "encender las llamadas en Meta"
 SDP='v=0\r\no=- 1 2 IN IP4 157.240.1.1\r\ns=-\r\nt=0 0\r\nm=audio 3480 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 157.240.1.1\r\na=rtpmap:111 opus/48000/2\r\n'
 T=$(date +%s)
-LLAM='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"calls","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593996408397","phone_number_id":"100"},"contacts":[{"profile":{"name":"Peluquería Ana"},"wa_id":"593991111111"}],"calls":[{"id":"wacid.WEB1","from":"593991111111","to":"593996408397","event":"connect","direction":"USER_INITIATED","timestamp":"'$T'","session":{"sdp_type":"offer","sdp":"'$SDP'"}}]}}]}]}'
+LLAM='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"calls","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593983662181","phone_number_id":"100"},"contacts":[{"profile":{"name":"Peluquería Ana"},"wa_id":"593991111111"}],"calls":[{"id":"wacid.WEB1","from":"593991111111","to":"593983662181","event":"connect","direction":"USER_INITIATED","timestamp":"'$T'","session":{"sdp_type":"offer","sdp":"'$SDP'"}}]}}]}]}'
 ok '[ "$(webhook "$LLAM")" = 200 ]' "Meta avisa una llamada entrante"
 get "/?r=bandeja"; ok 'tiene "data-llamadas=\"1\"" && tiene "llamadas.js"' "el panel escucha las llamadas"
 get "/?r=llamada&accion=sonando"
@@ -804,7 +804,7 @@ get "/?r=llamadas"; ok 'tiene "Te llamó" && tiene "Terminada" && tiene "r=chat&
 get "/?r=chat&c=$C"; ok 'tiene "Pedir permiso para llamar" && tiene "Te llamó"' "en el chat: pedir permiso y últimas llamadas"
 post "/?r=chat&c=$C" --data-urlencode "accion=pedir_llamada"
 ok 'tiene "Pedido de permiso para llamar enviado" && grep -q "call_permission_request" "$SIM_LOG"' "pedir permiso para llamar"
-PERM='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593996408397","phone_number_id":"100"},"contacts":[{"profile":{"name":"Peluquería Ana"},"wa_id":"593991111111"}],"messages":[{"from":"593991111111","id":"wamid.PERMWEB","timestamp":"'$T'","type":"interactive","interactive":{"type":"call_permission_reply","call_permission_reply":{"response":"accept","is_permanent":true,"response_source":"user_action"}}}]}}]}]}'
+PERM='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593983662181","phone_number_id":"100"},"contacts":[{"profile":{"name":"Peluquería Ana"},"wa_id":"593991111111"}],"messages":[{"from":"593991111111","id":"wamid.PERMWEB","timestamp":"'$T'","type":"interactive","interactive":{"type":"call_permission_reply","call_permission_reply":{"response":"accept","is_permanent":true,"response_source":"user_action"}}}]}}]}]}'
 ok '[ "$(webhook "$PERM")" = 200 ]' "el cliente acepta que lo llamen"
 get "/?r=chat&c=$C"; ok 'tiene "📞 Llamar" && tiene "(siempre)" && tiene "Aceptó que lo llamen"' "ya se le puede llamar"
 get "/?r=llamar&c=$C"; ok 'tiene "id=\"ll-llamar\"" && tiene "Lista para llamar"' "ventanita para llamar"

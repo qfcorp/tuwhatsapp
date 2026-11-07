@@ -24,7 +24,7 @@ $iconos = ['entra' => '↙', 'sale' => '↗'];
                 <li>Aquí: <a href="<?= e(url('lineas')) ?>">Números conectados</a> → <b>Conectar con WhatsApp Business (código QR)</b>. En la ventana de Meta elige <b>agregar tu número</b> (no "Conectar la app WhatsApp Business"), escribe el código y toca <b>Finalizar</b>.</li>
                 <li>El programa reconoce que es el mismo número y <b>conserva tus chats y contactos</b>. Después vuelve aquí y toca <b>Encender llamadas en mi número</b>.</li>
             </ol>
-            <p class="pequeno">Si Meta dice que el número todavía está en uso, espera unos minutos más. ¿Dudas? Escríbele a Tukán al <a href="https://wa.me/593996408397" target="_blank" rel="noopener">099 640 8397</a>.</p>
+            <p class="pequeno">Si Meta dice que el número todavía está en uso, espera unos minutos más. ¿Dudas? Escríbele a Tukán al <a href="https://wa.me/593983662181" target="_blank" rel="noopener">098 366 2181</a>.</p>
         </details>
     </div>
     <?php endif; ?>

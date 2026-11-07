@@ -128,7 +128,7 @@ if (preg_match('#^/v[\d.]+/debug_token$#', $ruta)) {   // botón QR: qué cuenta
 if (preg_match('#^/v[\d.]+/(\d+)/phone_numbers$#', $ruta, $m)) {
     $nums = [
         '500' => [['id' => '502', 'display_phone_number' => '+593 98 000 0502', 'is_on_biz_app' => false],
-                  ['id' => '501', 'display_phone_number' => '+593 99 640 8397', 'verified_name' => 'Tukán Software', 'is_on_biz_app' => true]],
+                  ['id' => '501', 'display_phone_number' => '+593 98 366 2181', 'verified_name' => 'Tukán Software', 'is_on_biz_app' => true]],
         '600' => [['id' => '601', 'display_phone_number' => '+593 99 640 8301', 'verified_name' => 'Tukán Software', 'is_on_biz_app' => true]],
         '700' => [['id' => '701', 'display_phone_number' => '+593 99 640 8302', 'is_on_biz_app' => false]],
     ];
@@ -254,6 +254,6 @@ if (preg_match('#^/v[\d.]+/(\d+)$#', $ruta, $m)) {
     if (($m[1] ?? '') === '402') {   // Boutique Mía, que pasó de la app del celular a "solo API"
         sale(200, ['display_phone_number' => '+593 99 640 1111', 'verified_name' => 'Boutique Mía', 'is_on_biz_app' => false, 'id' => '402']);
     }
-    sale(200, ['display_phone_number' => '+593 99 640 8397', 'verified_name' => 'Tukán Software', 'quality_rating' => 'GREEN', 'id' => $m[1] ?? '']);
+    sale(200, ['display_phone_number' => '+593 98 366 2181', 'verified_name' => 'Tukán Software', 'quality_rating' => 'GREEN', 'id' => $m[1] ?? '']);
 }
 sale(404, ['error' => ['message' => 'ruta desconocida ' . $ruta, 'code' => 100]]);

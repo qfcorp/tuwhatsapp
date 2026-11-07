@@ -13,7 +13,7 @@ ob_start();
 <p>Sirve para WhatsApp Tukán en la web y para la app de Android <b>Tukán Mensajes</b>. En la app no se crean cuentas: las da Tukán Software.</p>
 <h2>Si eres un negocio que usa WhatsApp Tukán (Tukán Mensajes)</h2>
 <ol>
-    <li>Escribe a <a href="mailto:info@tukansoftware.com">info@tukansoftware.com</a> o al WhatsApp 099 640 8397 desde el correo o número registrado, con el asunto <b>"Eliminar mis datos"</b>.</li>
+    <li>Escribe a <a href="mailto:info@tukansoftware.com">info@tukansoftware.com</a> o al WhatsApp 098 366 2181 desde el correo o número registrado, con el asunto <b>"Eliminar mis datos"</b>.</li>
     <li>En un máximo de 15 días borramos tu cuenta, tus usuarios, tus números conectados, contactos, mensajes, fotos, audios, documentos, pedidos y tokens,
         y te confirmamos por el mismo medio. Las copias de respaldo se borran solas a los 14 días.</li>
     <li>Además puedes quitar el permiso a la app desde Facebook: <b>Configuración y privacidad → Configuración → Integraciones comerciales</b> → elige la app → <b>Eliminar</b>.</li>

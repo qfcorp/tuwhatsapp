@@ -7,7 +7,7 @@
 - Pendiente: suspender o borrar la cuenta de prueba "Meta Review" y probar el botón QR con el número de un cliente real.
 
 ## Qué es
-Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de WhatsApp de Meta**, para el número de ventas de Tukán (+593 99 640 8397) y después QF Producciones (+593 98 683 3077) en el mismo programa.
+Programa propio tipo WhatChimp (sin mensualidad) conectado a la **API oficial de WhatsApp de Meta**, para el número de ventas de Tukán (+593 98 366 2181) y después QF Producciones (+593 98 683 3077) en el mismo programa.
 
 - Repositorio: https://github.com/qfcorp/tuwhatsapp (rama `main`)
 - Dirección: **https://whatsapp.tukanec.com** (ya funciona)
@@ -48,7 +48,7 @@ Recibir mensajes y enviar desde la app del celular es **gratis**.
 | Configuración del botón QR | **ES Config** — ID `1865337081309109` (creada en Casos de uso → Conectar en WhatsApp → **Administrador de registro insertado**; token nunca vence) |
 | Configuración vieja (NO sirve) | `1118315074244612` (variación "General", sin WhatsApp) — se puede borrar |
 | Webhook | `https://whatsapp.tukanec.com/webhook.php` — verificado — campos: messages, smb_message_echoes, history, smb_app_state_sync, account_update |
-| Número Tukán | +593 99 640 8397 → cuenta "tukansoftware" (ID `2250026202491413`), tipo **App de WhatsApp Business**, calidad Alta |
+| Número Tukán | +593 98 366 2181 → cuenta "tukansoftware" (ID `2250026202491413`), tipo **App de WhatsApp Business**, calidad Alta |
 | Número QF | +593 98 683 3077 → cuenta "qfproducciones" (ID `3132653697006297`), tipo App de WhatsApp Business |
 | Número de prueba de Meta | +1 555 675 0567 — Phone Number ID `1391982964001238` — cuenta `2501989233621271` |
 
@@ -226,7 +226,7 @@ Otra sesión subió 6 cambios el 21 oct en la tarde (+3.240 líneas): **plantill
 6. **Número de prueba de Meta conectado** en el programa ("Prueba Meta") con token temporal de 24 h.
 
 ## ⚠️ Por qué todavía no está el número de Tukán
-Meta responde **"Este número no cumple los requisitos para registrarse o migrar" (#3441034)** y **no ofrece** la opción de coexistencia (QR) para el +593 99 640 8397. Se probó de 3 formas (botón QR, Meta for Developers y crear cuenta de mensajes en el portafolio): Meta no deja usar ese número en la API por ahora.
+Meta responde **"Este número no cumple los requisitos para registrarse o migrar" (#3441034)** y **no ofrece** la opción de coexistencia (QR) para el +593 98 366 2181. Se probó de 3 formas (botón QR, Meta for Developers y crear cuenta de mensajes en el portafolio): Meta no deja usar ese número en la API por ahora.
 
 Causa más probable: el número tiene **poco tiempo/actividad** en WhatsApp Business. Meta pide **mínimo 7 días** de uso real (ideal 1–2 meses), app actualizada (2.24.17 o más) y que no se borre ni reinstale.
 
@@ -250,7 +250,7 @@ Causa más probable: el número tiene **poco tiempo/actividad** en WhatsApp Busi
 
 ### 3. Reintentar el QR (en 1–2 semanas)
 1. https://whatsapp.tukanec.com → **Conectar número** → **Conectar con WhatsApp Business**.
-2. Ventana de Meta: Continuar → Qfproducciones → número 0996408397 → debe ofrecer **conectar la app WhatsApp Business** → escanear el QR con el celular → aceptar compartir historial → **Finalizar**.
+2. Ventana de Meta: Continuar → Qfproducciones → número 0983662181 → debe ofrecer **conectar la app WhatsApp Business** → escanear el QR con el celular → aceptar compartir historial → **Finalizar**.
 3. El programa guarda todo solo y pide contactos e historial (Meta lo permite **1 vez y dentro de 24 h**).
 - Opcional: probar antes con el número de **QF (098 683 3077)**, que puede tener más historial.
 

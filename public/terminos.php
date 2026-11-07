@@ -40,7 +40,7 @@ no es Meta ni WhatsApp.</p>
 
 <h2>4. Obligaciones de Tukán</h2>
 <ul>
-    <li>Mantener el programa funcionando, con respaldo diario de la base de datos, y atender el soporte por WhatsApp (099 640 8397) o correo
+    <li>Mantener el programa funcionando, con respaldo diario de la base de datos, y atender el soporte por WhatsApp (098 366 2181) o correo
     (<a href="mailto:info@tukansoftware.com">info@tukansoftware.com</a>) en horario laboral de Ecuador.</li>
     <li>Tratar los datos del Cliente según el <a href="/tratamiento-datos.php">Acuerdo de tratamiento de datos</a> y la
     <a href="/privacidad.php">Política de privacidad</a>.</li>
