@@ -230,6 +230,7 @@ $estado = fn (string $s, ?array $pricing = null, array $extra = []) => cuerpoMet
     'statuses' => [array_merge(['id' => $w, 'status' => $s, 'timestamp' => (string) time(), 'recipient_id' => '593991111111'], $pricing ? ['pricing' => $pricing] : [], $extra)]]);
 $wh->procesar($estado('delivered', ['billable' => true, 'pricing_model' => 'PMP', 'category' => 'service']));
 igual($db->query("SELECT estado FROM mensajes WHERE wamid = '$w'")->fetchColumn(), 'entregado', 'entregado');
+igual((float) $db->query("SELECT costo FROM mensajes WHERE wamid = '$w'")->fetchColumn(), 0.0113, 'si Meta cobra una respuesta (pasó su cupo gratis), cuenta a precio de utilidad');
 $wh->procesar($estado('read'));
 $wh->procesar($estado('sent'));
 igual($db->query("SELECT estado FROM mensajes WHERE wamid = '$w'")->fetchColumn(), 'leido', 'no retrocede de leído a enviado');

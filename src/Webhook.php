@@ -394,7 +394,11 @@ final class Webhook
             } elseif ((float) $msg['costo'] > 0) {
                 $costo = (float) $msg['costo'];
             } else {
-                $costo = Gasto::precios($this->db)[$categoria] ?? 0.0;
+                $precios = Gasto::precios($this->db);
+                $costo = $precios[$categoria] ?? 0.0;
+                if ($categoria === 'servicio' && $costo <= 0) {
+                    $costo = $precios['utilidad'] ?? 0.0;   // si Meta cobra una respuesta (pasó su cupo gratis), la cobra a precio de utilidad
+                }
             }
             $this->db->prepare('UPDATE mensajes SET costo = ?, categoria = ? WHERE id = ?')->execute([$costo, $categoria, $msg['id']]);
         }
