@@ -1,6 +1,11 @@
 # WhatsApp Tukán — Estado y pasos para continuar
 *Actualizado: 28 oct 2026*
 
+## 🎉 Ya somos Tech Provider de Meta (7 nov 2026)
+- Meta confirma: "Ya eres un proveedor de tecnología" (verificación del negocio ✅ + revisión de la app ✅). **Se puede vender**: cada cliente conecta su WhatsApp con el botón "Conectar con WhatsApp Business".
+- Disponible: cuenta sandbox de Meta para pruebas y enlace de registro alojado por Meta.
+- La verificación de acceso sigue en revisión; hay que completarla antes del 6 ene 2027.
+
 ## ✅ Meta aprobó la revisión de la app (5 nov 2026)
 - Permisos **whatsapp_business_messaging**, **whatsapp_business_management** y **public_profile**: aprobados, con acceso avanzado.
 - Falta solo la **verificación de acceso (Tech Provider)**, enviada el 28 oct y todavía "En revisión" (plazo de Meta: 4 ene 2027).
