@@ -1,5 +1,17 @@
 # WhatsApp Tukán — Estado y pasos para continuar
-*Actualizado: 28 oct 2026*
+*Actualizado: 7 nov 2026*
+
+## 🎨 Nueva cara para competir + app lista para Google Play (7 nov 2026, noche)
+Pedido de Dimitry: "haz todos los cambios de una vez para dejarla lista para publicarla en Google ya completa" (después del informe de la competencia).
+- **Inicio** (pantalla nueva al entrar): sin leer, esperan respuesta, te escribieron hoy, clientes nuevos, cobrado hoy, pedidos por cobrar, en juego en el embudo, llamadas perdidas. **Primeros pasos** para el administrador (se tachan solos; no salen en la cuenta de muestra). `src/Inicio.php`, `app/vistas/inicio.php`.
+- **Chat en tres paneles** en computadora (lista · conversación · ficha del cliente) con menú lateral; en celular, botón *Ficha*. Bandeja con espacio "Elige una conversación". Avatares de colores.
+- **Modo oscuro** (botón 🌙 + automático), **embudo para arrastrar**, **botón ?** con las explicaciones largas, entrada (login) nueva con beneficios.
+- **IA:** "Pruébalo aquí" (`Bot::probar`, no manda nada) y **nota para el equipo** al pasar a una persona (`contactos.traspaso_nota`).
+- **Mi cuenta:** plan, precio (oculto dentro de la app Android), qué incluye, próxima renovación y **Cancelar mi plan** (`empresas.cancelar_en`, aviso por Telegram, *Seguir con mi plan*).
+- Traducciones nuevas en en/fr/pt/it; fecha de Inicio en cada idioma.
+- **App Tukán Mensajes 1.0.2 (código 3)**: abre en Inicio. Compilada aquí (GitHub Actions no arrancó: "pagos fallidos o límite de gasto" en la cuenta de GitHub), firmada con la llave de subida (huella 39:0C:…:40:DC). Guardada en `L:\github\apps\tuwhatsapp\` con el zip de la ficha. Capturas nuevas (Inicio y ficha del cliente) en tukan-apps/tienda/tuwhatsapp. Falta: crear la app en Play Console (guía `tienda/tuwhatsapp/PUBLICAR_TUWHATSAPP_CON_CLAUDE.md`).
+- Manual (cap. 2 nuevo, IA, preguntas frecuentes) + PDF de 28 páginas, presentación (diapositiva 14 nueva), README.
+- Pruebas: idiomas 43, lógica 778+, Panel Central 163, pantallas 378+, app de Android 43: todo bien.
 
 ## 💲 Respuestas gratis y gasto aproximado (7 nov 2026, noche)
 Decisión de Dimitry: "si no se cobran no deberían aparecer en el saldo; decir que es un aproximado y dónde está el gasto real en Meta".

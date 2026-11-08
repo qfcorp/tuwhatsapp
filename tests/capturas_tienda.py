@@ -13,12 +13,10 @@ if urlparse(url).hostname not in ('127.0.0.1', 'localhost'):
 
 # En inglés, pedidos y catálogo todavía salen en español (falta su diccionario): ahí van Seguimientos y Gasto en Meta, que sí están traducidos
 PANTALLAS = {
-    'es': [('01_bandeja', '/?r=bandeja'), ('02_chat', f'/?r=chat&c={contacto}'), ('03_pedido', f'/?r=pedido&id={pedido}'),
-           ('04_pedidos', '/?r=pedidos'), ('05_embudo', '/?r=embudo'), ('06_automatico', '/?r=reglas'),
-           ('07_contactos', '/?r=contactos'), ('08_reportes', '/?r=reportes')],
-    'en': [('01_bandeja', '/?r=bandeja'), ('02_chat', f'/?r=chat&c={contacto}'), ('03_seguimientos', '/?r=seguimientos'),
-           ('04_gasto', '/?r=gasto'), ('05_embudo', '/?r=embudo'), ('06_automatico', '/?r=reglas'),
-           ('07_contactos', '/?r=contactos'), ('08_reportes', '/?r=reportes')],
+    'es': [('01_inicio', '/?r=inicio'), ('02_bandeja', '/?r=bandeja'), ('03_chat', f'/?r=chat&c={contacto}'), ('04_ficha', f'/?r=chat&c={contacto}#ficha'),
+           ('05_pedido', f'/?r=pedido&id={pedido}'), ('06_embudo', '/?r=embudo'), ('07_automatico', '/?r=reglas'), ('08_reportes', '/?r=reportes')],
+    'en': [('01_inicio', '/?r=inicio'), ('02_bandeja', '/?r=bandeja'), ('03_chat', f'/?r=chat&c={contacto}'), ('04_ficha', f'/?r=chat&c={contacto}#ficha'),
+           ('05_seguimientos', '/?r=seguimientos'), ('06_embudo', '/?r=embudo'), ('07_automatico', '/?r=reglas'), ('08_reportes', '/?r=reportes')],
 }
 
 with sync_playwright() as pw:
@@ -37,11 +35,12 @@ with sync_playwright() as pw:
         pg.click('form.tarjeta button')
         pg.wait_for_load_state('networkidle')
         for nombre, ruta in PANTALLAS[lang]:
-            pg.goto(url + ruta + f'&lang={lang}')
+            base, _, ancla = ruta.partition('#')
+            pg.goto(url + base + f'&lang={lang}' + (('#' + ancla) if ancla else ''))
             pg.wait_for_load_state('networkidle')
             # El aviso «los avisos están bloqueados» es del navegador de las capturas (sin permiso de notificaciones): no va en la foto
             pg.evaluate("document.querySelectorAll('#avisos-navegador').forEach(function (e) { e.hidden = true; })")
-            if nombre == '02_chat':   # los últimos mensajes y, debajo, los botones para responder
+            if nombre == '03_chat':   # los últimos mensajes y, debajo, los botones para responder
                 pg.evaluate("window.scrollTo(0, document.getElementById('mensajes').getBoundingClientRect().bottom + window.scrollY - 560)")
             pg.wait_for_timeout(500)
             pg.screenshot(path=str(dest / f'{nombre}.png'))

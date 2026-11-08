@@ -38,6 +38,11 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 ### Lo que trae el plan (dónde está)
 | Función | Qué hace | Dónde |
 |---|---|---|
+| **Inicio** | Al entrar: mensajes sin leer, quién espera respuesta (24 h), te escribieron hoy, clientes nuevos, cobrado hoy, pedidos por cobrar, lo que está en juego en el embudo y llamadas perdidas. El administrador ve los **Primeros pasos** (se tachan solos) | Menú → Inicio |
+| **Chat en tres paneles** | En computadora (1100 px o más): menú a la izquierda, lista de chats, conversación y **ficha del cliente** lado a lado; la lista se actualiza sola. En el celular la ficha se abre con el botón *Ficha* | Bandeja → un chat |
+| **Modo oscuro** | Botón 🌙 arriba; sin elegir, sigue al celular o la computadora (se recuerda en ese equipo) | Barra de arriba |
+| **Ayuda ?** | Las explicaciones largas quedan en un botón ? junto al título | Contactos, Embudo, Catálogo, Campañas, Automático, Chatbots, Enlaces, Pregúntale a la IA |
+| **Mi plan** | Plan, precio (no se muestra dentro de la app de Android), qué incluye, próxima renovación y **Cancelar mi plan** (sigue hasta el fin del período pagado, no se renueva, aviso a Tukán por Telegram; *Seguir con mi plan* lo deshace) | Mi cuenta |
 | Campañas masivas | Plantilla a muchos contactos, por etiqueta, con el costo antes de enviar | Más → Campañas |
 | Varios agentes | Asignar conversaciones, filtros Míos / Sin asignar | Chat → Atiende |
 | **Reparto automático** | A mano, por turnos o a quien tenga menos chats; reglas por tema (palabras clave → persona); cada persona se marca *disponible*; el supervisor ve quién tiene cuántos chats esperando y pasa los chats de una persona a otra | Más → Equipo y reparto |
@@ -48,7 +53,7 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 | **Chatbots por pasos** | Mensaje, botones (hasta 3, o lista hasta 10), pregunta (guarda nombre, correo, notas o un campo propio) y pasar a una persona; etiquetas y etapa del embudo por opción. Se encienden con palabras clave o con el primer mensaje | Más → Chatbots |
 | **Campos propios** | Datos extra de cada contacto (texto, número, fecha o lista de opciones) que se llenan en el chat o con un chatbot y salen en el Excel | Más → Campos de contactos |
 | **Origen por anuncio** | Si el cliente llega desde un anuncio de clic a WhatsApp, el chat dice de qué anuncio y el reporte cuenta cuántos trajo cada uno | Chat y Más → Reportes |
-| Embudo de ventas | Nuevo → Interesado → Cotizado → Ganado / Perdido con el valor de cada venta | Menú de abajo → Embudo |
+| Embudo de ventas | Nuevo → Interesado → Cotizado → Ganado / Perdido con el valor de cada venta; en computadora se **arrastran las tarjetas** | Menú de abajo → Embudo |
 | Seguimientos | "Si no responde en 2 días, escribirle" | Chat → Programar seguimiento |
 | Reportes | Personas que escribieron, mensajes, tiempo de respuesta, pedidos pagados, anuncios | Más → Reportes |
 | Enlaces, QR y botón web | Enlace corto que cuenta los clics, su QR y botón para la página web | Más → Enlaces y QR |
@@ -60,7 +65,8 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 ### El extra: agente con IA (`ia`)
 - Contesta solo con lo que el negocio escribe en **Lo que sabe la IA** y con el **catálogo** (precios y stock). Siempre o solo fuera del horario; con nombre propio y un máximo de respuestas al día por persona.
 - Puede armar el carrito y, cuando el cliente confirma, deja el pedido en *pendiente de pago* y le manda el resumen con cómo pagar.
-- Pasa la conversación a una persona del equipo (con el reparto) si se la piden, si el cliente está molesto o si no sabe la respuesta.
+- Pasa la conversación a una persona del equipo (con el reparto) si se la piden, si el cliente está molesto o si no sabe la respuesta, y deja una **nota para el equipo** arriba del chat ("🤖 La IA te pasó este chat: …").
+- **Pruébalo aquí** (Más → Agente con IA): chat de prueba que muestra qué contestaría, qué pondría en el carrito y si pasaría a una persona, **sin mandar nada** ni tocar carritos o pedidos.
 - **Se calla** cuando alguien del equipo contesta (desde el panel o desde el celular), por las horas de silencio de Respuestas automáticas.
 - Si la IA falla o está fuera del horario elegido, siguen las respuestas automáticas de siempre.
 - Orden de lo que contesta: chatbot en curso → catálogo (palabras "catálogo", "comprar"…) → chatbot que se enciende → agente con IA → respuestas automáticas.
@@ -81,9 +87,9 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 
 
 ## App de Android (Google Play): «Tukán Mensajes»
-App `com.tukansoftware.tuwhatsapp` (en qfcorp/tukan-apps) que abre `https://whatsapp.tukanec.com/?r=bandeja&app=play` a pantalla completa.
+App `com.tukansoftware.tuwhatsapp` (en qfcorp/tukan-apps) que abre `https://whatsapp.tukanec.com/?r=inicio&app=play` a pantalla completa (versión 1.0.2, código 3).
 En la tienda y dentro de la app se llama **Tukán Mensajes** (Google no deja usar la marca WhatsApp como nombre propio; en la web sigue «WhatsApp Tukán»).
-**Sin cobro dentro de la app** (1.0.0): no se ven los precios del plan ni «Pedir a Tukán» / «Escribir a Tukán por WhatsApp» para contratar o renovar;
+**Sin cobro dentro de la app** (1.0.2): no se ven los precios del plan ni «Pedir a Tukán» / «Escribir a Tukán por WhatsApp» para contratar o renovar;
 cobro con Google Play preparado y apagado (`TUWA_GOOGLE_PLAY_COBRO`). Cuenta de muestra para el revisor de Google (nunca llama a Meta):
 `php /var/www/tuwhatsapp/deploy/demo_google.php crear`. Todo en [docs/GOOGLE_PLAY.md](docs/GOOGLE_PLAY.md).
 

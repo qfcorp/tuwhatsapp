@@ -15,7 +15,7 @@ La app abre este sistema a pantalla completa (Trusted Web Activity). Se compila 
 | Capturas para la tienda | `tests/capturas_tienda.sh` (programa LOCAL con datos de ejemplo, nunca el servidor real) |
 
 ## Modo app
-La app abre `/?r=bandeja&app=play`: el parámetro deja la cookie `tuwa_app` (1 año) y `en_app_android()` sabe que es la app. Dentro de la app:
+La app (versión 1.0.2) abre `/?r=inicio&app=play` (Inicio): el parámetro deja la cookie `tuwa_app` (1 año) y `en_app_android()` sabe que es la app. Dentro de la app:
 - El programa se llama **Tukán Mensajes** (título, barra de arriba y pantalla de entrar): Google no deja usar la marca «WhatsApp» como nombre propio
   (`nombre_programa()`). En la web sigue siendo «WhatsApp Tukán».
 - **Más → Agente con IA** (si la cuenta no lo tiene) dice «No está activo en tu cuenta» sin el enlace «Pedir a Tukán».
@@ -76,9 +76,9 @@ Google vuelve a firmar la app con **su propia llave**. Hay que agregar esa huell
 4. En el servidor, los dos comandos de arriba (instalar y app_android). `app_android.sh` revisa que el JSON esté bien escrito antes de tocar nada.
 5. Revisa: https://whatsapp.tukanec.com/.well-known/assetlinks.json debe mostrar las dos huellas.
 
-## Cobro con Google Play (APAGADO en la versión 1.0.0)
+## Cobro con Google Play (APAGADO en la versión 1.0.2)
 
-La versión 1.0.0 es solo para entrar con la cuenta que Tukán le da al cliente: **no** hay precios del programa, planes, botones de compra
+La versión 1.0.2 es solo para entrar con la cuenta que Tukán le da al cliente: **no** hay precios del programa, planes, botones de compra
 ni enlaces para pagar afuera dentro de la app. Queda preparado con dos interruptores apagados:
 - Servidor: `TUWA_GOOGLE_PLAY_COBRO=1` en `config/.env` prende `cobro_google_play()` (el instalador lo conserva). Hoy ninguna pantalla lo usa todavía.
 - App: `"cobroGooglePlay": true` en `tukan-apps/apps/tuwhatsapp/app.json` agrega Google Play Billing a la app (versión nueva).

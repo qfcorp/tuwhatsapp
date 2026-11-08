@@ -23,7 +23,7 @@ if (!empty($linea['llamadas_activo'])) {
 ?>
 <div class="cabeza">
     <div>
-        <h1><?= e($saludo) ?>, <?= u(explode(' ', $usuarioNombre)[0]) ?></h1>
+        <h1><span><?= e($saludo) ?></span>, <?= u(explode(' ', $usuarioNombre)[0]) ?></h1>
         <p class="suave"><?= u($linea['nombre']) ?> · <?= e(fecha_larga(new DateTimeImmutable())) ?></p>
     </div>
     <a class="boton" href="<?= e(url('bandeja')) ?>">Ir a la bandeja</a>

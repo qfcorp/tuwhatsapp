@@ -233,9 +233,23 @@ function ayuda(string $html): string
 /** "sábado 7 de noviembre" */
 function fecha_larga(DateTimeImmutable $d): string
 {
-    $dias = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-    $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-    return $dias[(int) $d->format('N')] . ' ' . (int) $d->format('j') . ' de ' . $meses[(int) $d->format('n')];
+    $idioma = function_exists('tukan_idioma_actual') ? tukan_idioma_actual() : 'es';
+    $n = (int) $d->format('N');
+    $m = (int) $d->format('n');
+    $j = (int) $d->format('j');
+    $l = [
+        'en' => [['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']],
+        'fr' => [['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'], ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']],
+        'pt' => [['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo'], ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']],
+        'it' => [['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'], ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']],
+        'es' => [['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'], ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']],
+    ];
+    [$dias, $meses] = $l[$idioma] ?? $l['es'];
+    return match ($idioma) {
+        'en' => $dias[$n - 1] . ', ' . $meses[$m - 1] . ' ' . $j,
+        'fr', 'it' => $dias[$n - 1] . ' ' . $j . ' ' . $meses[$m - 1],
+        default => $dias[$n - 1] . ' ' . $j . ' de ' . $meses[$m - 1],
+    };
 }
 
 /** Color fijo por contacto (0 a 7) para el círculo con su inicial. */
