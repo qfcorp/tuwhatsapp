@@ -105,7 +105,7 @@ Pedido de Dimitry: todos los programas listos para Google Play (Producción, tod
 - **Privacidad** reescrita (mensajes, fotos, audios, videos, documentos, contactos de terceros por la API de Meta, IA de Anthropic, Plux/Payphone,
   avisos, cómo borrar la cuenta) y eliminar-datos ampliada.
 - **assetlinks.json** con la huella de la llave de subida; nginx lo muestra (instalador y `deploy/app_android.sh`).
-- **Cuenta del revisor de Google**: `php /var/www/tuwhatsapp/deploy/demo_google.php crear | borrar` → «Tienda Muestra Tukán» (`empresas.muestra`),
+- **Cuenta del revisor de Google**: `sudo php /var/www/tuwhatsapp/deploy/demo_google.php crear | borrar` → «Tienda Muestra Tukán» (`empresas.muestra`),
   número de ficción `muestra-…` que `src/Meta.php` nunca manda a Meta; no deja conectar números, cambiar la contraseña ni poner claves de cobro.
 - Pendiente (Dimitry): en el servidor `instalar.sh` → `sudo bash deploy/app_android.sh` → `demo_google.php crear`; subir a Play Console; luego la huella de Google.
 

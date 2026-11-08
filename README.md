@@ -91,7 +91,7 @@ App `com.tukansoftware.tuwhatsapp` (en qfcorp/tukan-apps) que abre `https://what
 En la tienda y dentro de la app se llama **Tukán Mensajes** (Google no deja usar la marca WhatsApp como nombre propio; en la web sigue «WhatsApp Tukán»).
 **Sin cobro dentro de la app** (1.0.2): no se ven los precios del plan ni «Pedir a Tukán» / «Escribir a Tukán por WhatsApp» para contratar o renovar;
 cobro con Google Play preparado y apagado (`TUWA_GOOGLE_PLAY_COBRO`). Cuenta de muestra para el revisor de Google (nunca llama a Meta):
-`php /var/www/tuwhatsapp/deploy/demo_google.php crear`. Todo en [docs/GOOGLE_PLAY.md](docs/GOOGLE_PLAY.md).
+`sudo php /var/www/tuwhatsapp/deploy/demo_google.php crear`. Todo en [docs/GOOGLE_PLAY.md](docs/GOOGLE_PLAY.md).
 
 ## Idiomas (botón 🌐)
 

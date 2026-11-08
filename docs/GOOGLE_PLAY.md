@@ -36,7 +36,7 @@ El segundo debe terminar en `OK: la app de Android ya puede verificar el sitio.`
 ## Cuenta de demostración para el revisor de Google
 
 ```bash
-php /var/www/tuwhatsapp/deploy/demo_google.php crear
+sudo php /var/www/tuwhatsapp/deploy/demo_google.php crear
 ```
 Crea la **Tienda Muestra Tukán**, una cuenta de **muestra** aparte (`empresas.muestra = true`, demo de 180 días, plan Todo incluido **sin IA**,
 términos ya aceptados) con el administrador `revisor.google@tukanec.com`, un agente de ejemplo, un «número» de ficción (`phone_number_id` que empieza con
@@ -48,7 +48,7 @@ términos ya aceptados) con el administrador `revisor.google@tukanec.com`, un ag
 
 Cuando Google apruebe (o para dejar de usarla):
 ```bash
-php /var/www/tuwhatsapp/deploy/demo_google.php borrar
+sudo php /var/www/tuwhatsapp/deploy/demo_google.php borrar
 ```
 
 ## Después de subir la app a Google Play por primera vez (MUY importante)
