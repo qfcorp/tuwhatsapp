@@ -474,7 +474,7 @@ final class TukanCentralV2
                   . '. ¿Te ayudo a elegir tu plan para que sigas usándolo?' : null,
             'recordar_renovacion' => $c['estado'] === 'por_vencer'
                 ? "$hola, soy de Tukán Software. El plan de WhatsApp Tukán de $nombre vence el " . self::fechaCorta($c['fechas']['vence'])
-                  . " ($precio al mes). ¿Te paso los datos para renovarlo?" : null,
+                  . " ($precio + IVA al mes). ¿Te paso los datos para renovarlo?" : null,
             'vencido' => $c['estado'] === 'vencido'
                 ? "$hola, soy de Tukán Software. Vi que $nombre ya no tiene WhatsApp Tukán activo. Tus conversaciones siguen guardadas. ¿Te ayudo a renovarlo?" : null,
         ];
