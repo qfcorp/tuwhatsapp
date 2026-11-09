@@ -262,7 +262,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--n
 .ayuda-exportar { margin-top: 6px; border-top: 1px solid var(--linea); padding-top: 10px; }
 
 /* Conectar con código QR */
-.qr { border: 2px solid var(--naranja); }
+.tarjeta-qr { border: 2px solid var(--naranja); }
 .insignia { display: inline-block; vertical-align: middle; font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--naranja-claro); color: var(--naranja-oscuro); }
 .pasos-cortos { padding-left: 20px; margin: 8px 0 14px; }
 .pasos-cortos li { margin-bottom: 6px; }

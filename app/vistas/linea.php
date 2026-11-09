@@ -38,7 +38,7 @@ $esQr = $editar && $editar['conectado_por'] === 'qr';
     <?php endif; ?>
 </section>
 <?php elseif (!$editar): ?>
-<section class="tarjeta qr">
+<section class="tarjeta tarjeta-qr">
     <h2>Conectar con WhatsApp Business (código QR) <span class="insignia">recomendado</span></h2>
     <p>Si tu número ya está en la app <b>WhatsApp Business</b> del celular, <b>lo sigues usando ahí</b> y además aparece aquí, con tus contactos y el historial de chats.</p>
     <ol class="pasos-cortos">
@@ -47,6 +47,7 @@ $esQr = $editar && $editar['conectado_por'] === 'qr';
         <li>Escribe tu número. Meta te muestra un <b>código QR</b>: escanéalo desde WhatsApp Business en el celular y acepta compartir el historial.</li>
         <li>Llega hasta <b>Finalizar</b>. Este programa guarda todo solo.</li>
     </ol>
+    <p class="suave pequeno">📞 ¿Número nuevo, <b>solo para este programa</b> (con llamadas)? En la ventana de Meta elige <b>"Agregar un número nuevo"</b> y escribe el código que te llega por SMS o llamada. No instales WhatsApp con ese número en ningún celular.</p>
     <?php if ($qrListo): ?>
     <label>Nombre para reconocerlo<input id="qr-nombre" maxlength="60" placeholder="Ejemplo: Ventas"></label>
     <button type="button" class="boton boton-grande" id="btn-qr" data-app="<?= e(Registro::appId()) ?>" data-config="<?= e(Registro::configId()) ?>"
