@@ -1300,6 +1300,15 @@ try {
         if ($post) {
             if (($_POST['accion'] ?? '') === 'probar' && $editar) {
                 $prueba = Meta::deLinea($editar)->probar();
+            } elseif (($_POST['accion'] ?? '') === 'registrar_api' && $editar && es_admin()) {
+                $r = Registro::registrarManual(db(), $editar);
+                if ($r['ok']) {
+                    $_SESSION['pin_mostrar'] = $r['pin'];
+                    aviso('Número registrado en la API de WhatsApp. Ya puede mandar y recibir mensajes y tener llamadas.');
+                } else {
+                    aviso('Meta no registró el número: ' . $r['error'], 'error');
+                }
+                redirigir('linea', ['id' => $editar['id']]);
             } elseif (in_array($_POST['accion'] ?? '', ['sync_contactos', 'sync_historial'], true) && $editar) {
                 $cual = $_POST['accion'] === 'sync_contactos' ? 'contactos' : 'historial';
                 $x = Registro::sincronizar(db(), $editar, $cual);
@@ -1322,7 +1331,9 @@ try {
                 redirigir('linea', ['id' => $id]);
             }
         }
-        vista('linea', $editar ? 'Número: ' . $editar['nombre'] : 'Conectar número', ['editar' => $editar, 'prueba' => $prueba]);
+        $pinNuevo = $_SESSION['pin_mostrar'] ?? null;
+        unset($_SESSION['pin_mostrar']);
+        vista('linea', $editar ? 'Número: ' . $editar['nombre'] : 'Conectar número', ['editar' => $editar, 'prueba' => $prueba, 'pinNuevo' => $pinNuevo]);
     }
 } catch (\PDOException $e) {
     error_log('tuwhatsapp: ' . $e);

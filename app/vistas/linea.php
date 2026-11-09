@@ -1,5 +1,5 @@
 <?php
-/** @var ?array $editar @var ?array $prueba */
+/** @var ?array $editar @var ?array $prueba @var ?string $pinNuevo */
 use TuWhatsApp\Registro;
 
 $base = rtrim((string) (getenv('TUWA_URL') ?: ((($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? ''))), '/');
@@ -75,6 +75,18 @@ $esQr = $editar && $editar['conectado_por'] === 'qr';
 </details>
 <?php if ($editar): ?>
 <form method="post"><?= csrf_campo() ?><button class="boton boton-claro" name="accion" value="probar">Probar conexión otra vez</button></form>
+<?php endif; ?>
+<?php if (!empty($pinNuevo)): ?>
+<div class="aviso aviso-ok">PIN de verificación en dos pasos del número: <b style="font-size:1.3em;letter-spacing:2px"><?= e($pinNuevo) ?></b><br>
+Cópialo y guárdalo fuera de este programa (por ejemplo, en tus notas). Solo se muestra esta vez.</div>
+<?php endif; ?>
+<?php if ($editar && !$esQr && es_admin() && (empty($editar['coexistencia']) || $editar['coexistencia'] === 'f')): ?>
+<details class="tarjeta plegable">
+    <summary><b>Número nuevo agregado en WhatsApp Manager: registrarlo en la API</b></summary>
+    <p class="suave">Úsalo solo si agregaste el número en WhatsApp Manager (business.facebook.com → WhatsApp Manager → Números de teléfono → Agregar) y Meta lo marca como <i>pendiente</i> o "sin conectar".
+    El programa lo registra con un PIN nuevo de 6 dígitos (te lo muestra una vez). <b>No lo uses</b> con un número que está en la app WhatsApp Business de un celular.</p>
+    <form method="post"><?= csrf_campo() ?><button class="boton" name="accion" value="registrar_api">Registrar en la API</button></form>
+</details>
 <?php endif; ?>
 
 <section class="tarjeta">

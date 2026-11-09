@@ -34,6 +34,11 @@ ok 'tiene "Guardado y conectado con Meta" && tiene "Tukán Software"' "guarda y 
 ok 'grep -q "200.\{1,2\}subscribed_apps" "$SIM_LOG" && ! tiene "todavía no avisará"' "suscribe la app a la cuenta para recibir mensajes"
 ok 'tiene "https://whatsapp.ejemplo.com/webhook.php" && tiene "verifica123"' "muestra los datos del webhook"
 ok '! tiene "EAAGtokenDePrueba"' "el token no se muestra"
+ok 'tiene "Registrar en la API"' "número a mano: opción para registrarlo en la API (agregado en WhatsApp Manager)"
+LID100=$(psql -tA -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}" -c "SELECT id FROM lineas WHERE phone_number_id = '100'")
+post "/?r=linea&id=$LID100" --data-urlencode "accion=registrar_api"
+ok 'tiene "Número registrado en la API" && grep -qE "^[0-9]{6}$" <(grep -o "letter-spacing:2px\">[0-9]*" "$P" | grep -o "[0-9]*$")' "registra el número con un PIN de 6 dígitos y lo muestra una vez"
+ok 'grep -q "100.\{1,2\}register" "$SIM_LOG"' "Meta recibió el registro del número"
 get "/?r=lineas";   ok 'tiene "Tukán ventas" && tiene "098 366 2181"' "lista de números"
 
 echo "== Webhook"

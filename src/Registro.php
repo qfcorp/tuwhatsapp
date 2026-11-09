@@ -172,6 +172,34 @@ final class Registro
     }
 
     /**
+     * Número conectado a mano (con token) que se agregó en WhatsApp Manager y todavía no está en la API:
+     * lo registra con un PIN nuevo de 6 dígitos (se muestra una vez y se guarda cifrado) y suscribe la app a la cuenta.
+     * Nunca se usa con un número que está en la app WhatsApp Business del celular (Meta lo rechazaría y lo podría sacar del celular).
+     * @return array{ok:bool, pin:string, error:string}
+     */
+    public static function registrarManual(PDO $db, array $linea): array
+    {
+        $token = $linea['token_cifrado'] !== '' ? Cifrado::descifrar((string) $linea['token_cifrado']) : '';
+        $pnid = trim((string) $linea['phone_number_id']);
+        if ($token === '' || $pnid === '') {
+            return ['ok' => false, 'pin' => '', 'error' => 'Faltan el identificador del número o el token.'];
+        }
+        if (!empty($linea['coexistencia']) && $linea['coexistencia'] !== 'f') {
+            return ['ok' => false, 'pin' => '', 'error' => 'Este número está en la app WhatsApp Business del celular: no se registra aparte.'];
+        }
+        $pin = (string) random_int(100000, 999999);
+        $g = self::pedir('POST', '/' . $pnid . '/register', ['messaging_product' => 'whatsapp', 'pin' => $pin], $token);
+        if (!$g['ok']) {
+            return ['ok' => false, 'pin' => '', 'error' => $g['error']];
+        }
+        $db->prepare('UPDATE lineas SET pin_cifrado = ? WHERE id = ?')->execute([Cifrado::cifrar($pin), (int) $linea['id']]);
+        if (trim((string) $linea['waba_id']) !== '') {
+            self::pedir('POST', '/' . trim((string) $linea['waba_id']) . '/subscribed_apps', [], $token);
+        }
+        return ['ok' => true, 'pin' => $pin, 'error' => ''];
+    }
+
+    /**
      * Pide a Meta que mande los contactos o el historial de la app del celular (llegan por el webhook).
      * Meta lo permite una sola vez por tipo y dentro de las 24 horas después de conectar.
      */
