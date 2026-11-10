@@ -1,10 +1,15 @@
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "com.tukansoftware.tuwhatsapp",
-    "sha256_cert_fingerprints": [
-      "39:0C:08:10:D4:40:C1:71:C4:30:C8:D0:F1:93:7B:8F:E4:37:03:25:27:2E:B2:F6:2E:4E:A6:5E:01:98:40:DC"
-    ]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tukansoftware.tuwhatsapp",
+      "sha256_cert_fingerprints": [
+        "02:CB:31:0C:97:FC:D2:5C:D8:CE:D5:F2:CE:DB:37:75:B8:26:25:3A:19:A7:33:5B:6A:62:2C:44:A3:AE:14:4A",
+        "39:0C:08:10:D4:40:C1:71:C4:30:C8:D0:F1:93:7B:8F:E4:37:03:25:27:2E:B2:F6:2E:4E:A6:5E:01:98:40:DC"
+      ]
+    }
   }
-}]
+]
