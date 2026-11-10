@@ -6,7 +6,8 @@ namespace TuWhatsApp;
 use PDO;
 
 /**
- * Precio TODO INCLUIDO (decisión de Dimitry, 28 oct 2026): un solo plan con todo el programa por unos $20 al mes,
+ * Precio TODO INCLUIDO (decisión de Dimitry, 28 oct 2026): un solo plan con todo el programa por $15 al mes más IVA
+ * (10 nov 2026; antes $20; con IA $20, antes $25),
  * para romper el mercado (Mercately cobra desde $299). El ÚNICO extra que se cobra aparte es la IA
  * (asistente que sugiere y resume + agente IA que contesta solo 24/7), unos $5 más.
  *
@@ -35,8 +36,8 @@ final class Modulos
      * clave => [nombre, precio, números, usuarios, extras incluidos, tope de IA en dólares]
      */
     public const PLANES = [
-        'todo'    => ['Todo incluido', 20, 1, 50, [], 3],
-        'todo_ia' => ['Todo incluido + IA', 25, 1, 50, ['ia'], 3],
+        'todo'    => ['Todo incluido', 15, 1, 50, [], 3],      // (10 nov 2026) antes $20
+        'todo_ia' => ['Todo incluido + IA', 20, 1, 50, ['ia'], 3], // (10 nov 2026) antes $25
     ];
 
     /** Precio mensual de cada extra (dólares, sin IVA): se suma si se enciende fuera del plan y se descuenta si se apaga. */

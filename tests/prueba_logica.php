@@ -895,14 +895,14 @@ Modulos::guardar($db, $e2, ['reportes', 'ia', 'otra']);
 igual(Modulos::deEmpresa(Empresas::buscar($db, $e2)), ['ia'], 'se guarda el extra de IA');
 $pl = Modulos::aplicarPlan($db, $e2, 'todo');
 $fe2 = Empresas::buscar($db, $e2);
-ok($pl[1] === 20 && !Modulos::activo($fe2, 'ia') && Modulos::activo($fe2, 'embudo') && (int) $fe2['max_usuarios'] >= 50, 'plan Todo incluido $20');
+ok($pl[1] === 15 && !Modulos::activo($fe2, 'ia') && Modulos::activo($fe2, 'embudo') && (int) $fe2['max_usuarios'] >= 50, 'plan Todo incluido $15');
 $x = Modulos::detalle($fe2);
-igual([$x['plan'], $x['mensual']], ['todo', 20.0], 'cuesta $20 al mes');
+igual([$x['plan'], $x['mensual']], ['todo', 15.0], 'cuesta $15 al mes');
 Modulos::guardar($db, $e2, ['ia']);
 $x = Modulos::detalle(Empresas::buscar($db, $e2));
-igual([$x['plan'], $x['extra'], $x['mensual']], ['todo', ['ia'], 25.0], 'con IA aparte: $25');
+igual([$x['plan'], $x['extra'], $x['mensual']], ['todo', ['ia'], 20.0], 'con IA aparte: $20');
 $pl = Modulos::aplicarPlan($db, $e2, 'todo_ia');
-igual(Modulos::detalle(Empresas::buscar($db, $e2))['mensual'], 25.0, 'plan Todo incluido + IA: $25');
+igual(Modulos::detalle(Empresas::buscar($db, $e2))['mensual'], 20.0, 'plan Todo incluido + IA: $20');
 try { Modulos::aplicarPlan($db, $e2, 'negocio'); ok(false, 'plan viejo ya no existe'); } catch (RuntimeException $e) { ok(true, 'plan viejo ya no existe'); }
 Modulos::guardar($db, $e2, []);
 igual(Modulos::deEmpresa(Empresas::buscar($db, $e2)), [], 'se puede quitar la IA');

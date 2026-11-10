@@ -30,8 +30,8 @@ Todo viene en **un solo plan**. Lo único que se cobra aparte es el **agente con
 
 | Plan | Precio | Números | Usuarios | Incluye |
 |---|---|---|---|---|
-| Todo incluido | unos $20/mes | 1 | 50 | Todo lo de esta página, menos el agente con IA |
-| Todo incluido + IA | unos $25/mes | 1 | 50 | Todo + agente con IA que contesta solo, ✨ Sugerir respuesta, Resumir, Pregúntale a la IA y resumen de cada mañana |
+| Todo incluido | $15/mes + IVA | 1 | 50 | Todo lo de esta página, menos el agente con IA |
+| Todo incluido + IA | $20/mes + IVA | 1 | 50 | Todo + agente con IA que contesta solo, ✨ Sugerir respuesta, Resumir, Pregúntale a la IA y resumen de cada mañana |
 
 Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. Las cuentas que tenían los planes viejos (Básico, Negocio, Pro) pasan solas a "Todo incluido" o a "Todo incluido + IA" según tuvieran IA. En **Más**, si la cuenta no tiene IA, el agente aparece con la etiqueta *Extra* y el botón **Pedir a Tukán**. En la web, las presentaciones y los manuales **no se publican precios** (regla de la marca): se pide cotización.
 

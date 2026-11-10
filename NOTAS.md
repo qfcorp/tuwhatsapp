@@ -345,3 +345,9 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 - Hecho: varios agentes (contactos.asignado_a, filtros Míos/Sin asignar) y respuestas rápidas (tabla respuestas_rapidas). Pruebas: lógica 282, pantallas 129. Tablas: 13.
 - Hecho: conector con el Panel Tukán Central v1 (public/tukan_central.php, src/TukanCentral.php, deploy/conectar_central.sh). Producto "tuwhatsapp". Tablas: 15. Pruebas: lógica 302, pantallas 134.
 - Hecho: términos y condiciones + acuerdo de tratamiento de datos (públicos) y aceptación del admin del cliente al entrar (empresas.terminos_*). Pruebas: lógica 306, pantallas 140.
+
+## Precios del 10 nov 2026 (decisión de Dimitry, Excel «Precios y planes Tukán»)
+- **Todo incluido: $15 al mes** (antes $20). **Todo incluido + IA: $20 al mes** (antes $25). Más IVA.
+- La IA como extra sigue en $5. Meta se cobra aparte, directo a la tarjeta del cliente.
+- Los precios están en `src/Modulos.php` (`PLANES`). El Panel Tukán Central los lee de ahí.
+- Solo mensual (sin semestral ni anual).
