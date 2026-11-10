@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Corre todas las pruebas con Meta simulado. Necesita PostgreSQL.
-# Variables: PGHOST (127.0.0.1) PGPORT (5432) PGUSER (postgres) PGPASSWORD, SIM_PUERTO (8097), WEB_PUERTO (8096), PLUX_PUERTO (8098)
+# Variables: PGHOST (127.0.0.1) PGPORT (5432) PGUSER (postgres) PGPASSWORD, SIM_PUERTO (8097), WEB_PUERTO (8096), PLUX_PUERTO (8098), PANEL_PUERTO (8095)
 set -u
 cd "$(dirname "$0")/.."
 export PGHOST="${PGHOST:-127.0.0.1}" PGPORT="${PGPORT:-5432}" PGUSER="${PGUSER:-postgres}"
@@ -9,6 +9,7 @@ export TUWA_DB_PRUEBA="$DB"
 SIM_PUERTO="${SIM_PUERTO:-8097}"
 WEB_PUERTO="${WEB_PUERTO:-8096}"
 PLUX_PUERTO="${PLUX_PUERTO:-8098}"
+PANEL_PUERTO="${PANEL_PUERTO:-8095}"
 export SIM_LOG="$(mktemp)"
 export SIM_URL="http://127.0.0.1:$SIM_PUERTO"
 export TUWA_ARCHIVOS="$(mktemp -d)"
@@ -27,7 +28,12 @@ export PLUX_PUB="$PLUX_DIR/publica.pem" PLUX_LOG="$PLUX_DIR/plux.log" PLUX_URL="
 FALSO_LOG="$PLUX_LOG" FALSO_ID_CLIENTE=cliente_plux_prueba FALSO_CLAVE=clave_plux_prueba FALSO_LLAVE_PRIVADA="$PLUX_DIR/privada.pem" \
   FALSO_ESTABLECIMIENTO=EST-123 FALSO_BASE="$PLUX_URL" php -S "127.0.0.1:$PLUX_PUERTO" tests/plux_falso.php > /dev/null 2>&1 &
 PLUXF=$!
-trap 'kill $SIM $PLUXF ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS" "$PLUX_DIR"' EXIT
+# Panel Tukán Central SIMULADO (pagar el plan con tarjeta desde Mi cuenta): empieza con el pago con tarjeta APAGADO, como hoy
+export PANEL_ESTADO="$PLUX_DIR/panel.json" PANEL_LOG="$PLUX_DIR/panel.log" PANEL_SECRETO="$(printf 'a1%.0s' $(seq 32))" PANEL_BASE="http://127.0.0.1:$PANEL_PUERTO"
+: > "$PANEL_LOG"
+php -S "127.0.0.1:$PANEL_PUERTO" tests/panel_simulado.php > /dev/null 2>&1 &
+PANELF=$!
+trap 'kill $SIM $PLUXF $PANELF ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS" "$PLUX_DIR"' EXIT
 sleep 0.5
 
 export TUWA_DB_HOST="$PGHOST" TUWA_DB_PORT="$PGPORT" TUWA_DB_NAME="$DB" TUWA_DB_USER="$PGUSER" TUWA_DB_PASS="${PGPASSWORD:-}"
@@ -59,7 +65,7 @@ META_APP_ID=2592670637899782
 META_ES_CONFIG_ID=1112223334445
 TUKAN_CENTRAL_ID=tuwhatsapp
 TUKAN_CENTRAL_SECRET=$(printf 'a1%.0s' $(seq 32))
-TUKAN_CENTRAL_URL=https://panel.ejemplo.com
+TUKAN_CENTRAL_URL=$PANEL_BASE
 TUKAN_IA_CLAVE=sk-ant-prueba-buena-0123456789
 TUKAN_IA_URL=$SIM_URL
 TUKAN_IA_ESPERA_MS=0

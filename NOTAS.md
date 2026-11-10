@@ -198,7 +198,7 @@ Panel Central v2 162, pantallas 212 (crear demo por HTTP, SSO con `ir`) → **TO
 **Pendiente:**
 - Dimitry: confirmar los precios de los módulos sueltos (`Modulos::PRECIOS`).
 - No hay correo de bienvenida (el programa no envía correos): la demo se manda por WhatsApp desde el panel.
-- Sin `registrar_pago` ni `finanzas`: WhatsApp Tukán no guarda pagos; si se quiere, agregar una tabla de pagos y esas acciones.
+- (10 nov 2026) Ya tiene `registrar_pago` (tabla `pagos_plan`); sigue sin `finanzas` ni `cotizar`. Ver «Pagar el plan solo, con tarjeta» al final.
 
 ## 🚀 Mejoras para competir (22 oct 2026)
 Se investigaron 17 programas que venden lo mismo (Wati, Callbell, Kommo, Leadsales, Respond.io, WhatChimp, Wasapi, Whaticket, Zoko, AiSensy, etc.).
@@ -351,3 +351,40 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 - La IA como extra sigue en $5. Meta se cobra aparte, directo a la tarjeta del cliente.
 - Los precios están en `src/Modulos.php` (`PLANES`). El Panel Tukán Central los lee de ahí.
 - Solo mensual (sin semestral ni anual).
+
+## Pagar el plan SOLO, con tarjeta, desde «Mi cuenta» (10 nov 2026, pedido de Dimitry)
+**Para qué:** que el cliente (en demo, pagando o con la cuenta vencida) elija su plan y pague con tarjeta sin que Dimitry le mande el enlace.
+
+**Cómo queda para el cliente**
+- En **Mi cuenta → Tu plan** (solo el administrador, solo en la web) salen los dos planes (Todo incluido / Todo incluido + IA, con el precio de
+  `src/Modulos.php` «al mes + IVA» y el total con IVA) y el botón **Pagar con tarjeta**. Es **suscripción mensual**: se cobra sola cada mes. No hay 6 meses ni año.
+- Lo manda a la página segura de pagos (Tukán Pagos). Al volver: «¡Pago recibido!» o «El pago no se completó».
+- Cuenta **demo**: al aprobarse queda como cliente activo, un mes desde el día del pago, con el plan que pagó.
+- Cuenta **vencida o demo terminada** (ya no entra): el mismo botón sale en la pantalla «Cuenta no disponible» (sigue también el WhatsApp de Tukán).
+- Con una suscripción viva: se ve su estado (hasta cuándo está pagada) y NO se ofrece otra. Un cobro que no se terminó de pagar se puede «Terminar» o «Quitar».
+- **Cancelar mi plan** ahora también cancela la tarjeta en el Panel (para que Plux no cobre el mes siguiente). Si no se logra cancelar la tarjeta, se le dice y NO se marca como cancelado.
+- En modo de prueba (sandbox) avisa: «modo de prueba: no se cobra de verdad».
+- Dentro de la **app de Android** no aparece nada de esto (regla de Google); tampoco en la cuenta de Tukán, ni en una suspendida, ni en la cuenta de muestra de Google.
+- Si el Panel no contesta o el pago con tarjeta está apagado para WhatsApp Tukán: Mi cuenta queda **exactamente como antes**.
+
+**Cómo está hecho**
+- `src/PagosCentral.php`: pide al Panel (`POST {TUKAN_CENTRAL_URL}/plux_api.php`, token v2 «plux» firmado con `TUKAN_CENTRAL_SECRET`) `estado`, `crear`
+  (suscripción mensual, `subtotal` SIN IVA), `cancelar` y `cancelar_plan`. WhatsApp Tukán no habla con Plux para esto ni guarda tarjetas.
+- `app/vistas/_pago_tarjeta.php` (se incluye en `cuenta.php` y `bloqueada.php`); acciones `pagar_tarjeta` y `cancelar_tarjeta` en `public/index.php`.
+- **Nuevo en el conector v2: `registrar_pago`** (`src/TukanCentralV2.php`, antes no existía). El Panel lo llama solo cuando Plux aprueba (y Dimitry lo puede
+  usar a mano desde la ficha del cliente: botón «Registrar pago»). Solo mensual. Demo o vencida: un mes desde el pago; al día: suma un mes a su vencimiento.
+  Pone el plan pagado, borra un pedido de cancelar pendiente y guarda el pago en la tabla nueva `pagos_plan` (sale en la ficha del Panel). Una suspendida sigue suspendida.
+  `capacidades` ahora declara `registrar_pago` y las formas de pago (`plux`, tarjeta, transferencia…).
+- Pruebas: Panel simulado `tests/panel_simulado.php` (puerto 8095). Resultado del 10 nov: idiomas 43, lógica 778, TuFactura 29, Panel Central v2 223 (antes 163),
+  pantallas 439 (antes 394), app de Android 44. Todo bien.
+
+**Para que funcione de verdad (Dimitry, en el servidor y en el Panel)**
+1. Actualizar WhatsApp Tukán en el servidor (corre `db/schema.sql`: crea la tabla `pagos_plan`).
+2. En el Panel Tukán Central → Programas → WhatsApp Tukán → **Probar conexión** (para que lea que ya acepta `registrar_pago`).
+3. En el Panel → Más → **Pagos con Plux**: marcar WhatsApp Tukán entre los programas que cobran con tarjeta, y tener en Plux los planes de los dos
+   valores con IVA ($17,25 y $23,00 mensual). Mientras eso no esté, Mi cuenta queda como antes.
+
+**Falta / por decidir**
+- Los textos nuevos están solo en español (el botón 🌐 no los traduce todavía).
+- Un cliente con precio especial no existe en WhatsApp Tukán (los precios son fijos): si algún día se acuerda un precio distinto, hay que cobrarlo desde el Panel.
+- Probado con un Panel simulado, no contra el Panel ni Plux de verdad: hacer un pago de prueba en sandbox antes de anunciarlo.

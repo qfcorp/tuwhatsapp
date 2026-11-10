@@ -709,3 +709,22 @@ ALTER TABLE empresas  ADD COLUMN IF NOT EXISTS cancelar_en     date;
 ALTER TABLE empresas  ADD COLUMN IF NOT EXISTS cancelar_pedido timestamptz;
 ALTER TABLE empresas  ADD COLUMN IF NOT EXISTS cancelar_motivo text NOT NULL DEFAULT '';
 
+
+-- =====================================================================
+-- 10 nov 2026: el cliente paga su plan SOLO, con tarjeta, desde «Mi cuenta» (el cobro lo hace el Panel Tukán Central con
+-- Tukán Pagos + Plux; aquí no se guarda ninguna tarjeta). Cuando el pago se aprueba, el Panel avisa con «registrar_pago» y la
+-- cuenta queda activa un mes más. pagos_plan guarda cada pago del plan (también los que Tukán registra a mano desde el Panel).
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS pagos_plan (
+    id           bigserial PRIMARY KEY,
+    empresa_id   integer NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    plan         text NOT NULL,
+    meses        integer NOT NULL DEFAULT 1,
+    monto        numeric(10,2) NOT NULL,          -- sin IVA
+    metodo       text NOT NULL,
+    fecha        date NOT NULL,                   -- día del pago
+    hasta        date NOT NULL,                   -- hasta cuándo quedó activa la cuenta
+    nota         text NOT NULL DEFAULT '',
+    creado       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS pagos_plan_empresa ON pagos_plan (empresa_id, fecha DESC);

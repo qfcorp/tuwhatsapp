@@ -1,5 +1,6 @@
 <?php
-/** @var array $empresa @var list<array> $usuarios @var ?array $claveNueva @var ?string $tokenNuevo @var int $numeros @var array $plan */
+/** @var array $empresa @var list<array> $usuarios @var ?array $claveNueva @var ?string $tokenNuevo @var int $numeros @var array $plan
+ *  @var ?array $pago pagar el plan con tarjeta (null = no se muestra: como antes) */
 use TuWhatsApp\Empresas;
 $yo = usuario();
 $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
@@ -39,6 +40,7 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
             <?php endforeach; ?>
         </ul>
     </details>
+    <?php if (!empty($pago)) { require __DIR__ . '/_pago_tarjeta.php'; } ?>
     <?php if (es_admin()): ?>
     <?php if ($cancela): ?>
     <form method="post"><?= csrf_campo() ?><input type="hidden" name="accion" value="seguir_plan"><button class="boton">Seguir con mi plan</button></form>

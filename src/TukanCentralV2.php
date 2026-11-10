@@ -15,12 +15,14 @@ use Throwable;
  * X-Tukan-Token (mismo secreto y misma firma que v1, con "v":2 y "bh" = hash del cuerpo) y un cuerpo JSON.
  *
  * Lectura: capacidades, clientes, cliente, planes, modulos (Anexo B) e ia_uso (Anexo C).
- * Escritura: ejecutar (crear_demo, extender_prueba, suspender, reactivar, cambiar_plan, nueva_clave_dueno, nota_interna,
- *            cambiar_modulos e ia_tope).
+ * Escritura: ejecutar (crear_demo, extender_prueba, registrar_pago, suspender, reactivar, cambiar_plan, nueva_clave_dueno,
+ *            nota_interna, cambiar_modulos e ia_tope).
  * Los clientes son las empresas (la empresa 1, Tukán, no es un cliente). Las reglas son las mismas de "Clientes de Tukán"
  * (Empresas::crear, Empresas::guardar, Empresas::cambiarUsuario, Modulos): aquí solo se validan los datos, se arma la
  * respuesta y se garantiza que una operación repetida no se haga dos veces (tabla tukan_central_operaciones).
- * WhatsApp Tukán no cobra suscripciones dentro del programa (no hay tabla de pagos): sin cotizar, finanzas ni registrar_pago.
+ * (10 nov 2026) registrar_pago: el plan se paga mes a mes. Lo usa el Panel cuando el cliente paga SOLO con tarjeta desde
+ * «Mi cuenta» (src/PagosCentral.php) y también Tukán para anotar un pago a mano. Cada pago queda en la tabla pagos_plan.
+ * Sin cotizar ni finanzas (los precios están en src/Modulos.php).
  * Tampoco tiene pedidos de demo ni tickets: sin solicitudes.
  */
 final class TukanCentralV2
@@ -34,7 +36,7 @@ final class TukanCentralV2
     public const ACCIONES_PROTOCOLO = ['capacidades', 'clientes', 'cliente', 'cotizar', 'planes', 'solicitudes', 'solicitud', 'adjunto', 'finanzas', 'ejecutar', 'modulos', 'ia_uso'];
     /** Las que WhatsApp Tukán contesta. Las demás pasan por toda la validación y terminan en 403 no_permitido. */
     public const ACCIONES = ['capacidades', 'clientes', 'cliente', 'planes', 'ejecutar', 'modulos', 'ia_uso'];
-    public const OPERACIONES = ['crear_demo', 'extender_prueba', 'suspender', 'reactivar', 'cambiar_plan', 'nueva_clave_dueno',
+    public const OPERACIONES = ['crear_demo', 'extender_prueba', 'registrar_pago', 'suspender', 'reactivar', 'cambiar_plan', 'nueva_clave_dueno',
                                 'nota_interna', 'cambiar_modulos', 'ia_tope'];
     /** Operaciones que no son sobre un cliente que ya existe. */
     public const SIN_CLIENTE = ['crear_demo'];
@@ -47,6 +49,9 @@ final class TukanCentralV2
     public const DIAS_PRUEBA_MAX = 90;
     public const PLAN_DEMO = 'todo_ia';   // la demo ve todo (incluida la IA) salvo que se elijan otros
     public const ID = '/^[A-Za-z0-9_.:-]{1,80}$/';
+    /** Formas de pago del plan (registrar_pago). «plux» = tarjeta por el Panel (Tukán Pagos). */
+    public const METODOS_PAGO = ['plux' => 'Tarjeta (Plux)', 'tarjeta' => 'Tarjeta', 'transferencia' => 'Transferencia', 'deposito' => 'Depósito',
+                                 'efectivo' => 'Efectivo', 'otro' => 'Otro'];
 
     private TukanCentral $v1;
     private DateTimeImmutable $hoy;
@@ -232,7 +237,7 @@ final class TukanCentralV2
             'estados_detalle' => self::ESTADOS_DETALLE,
             'periodos' => [['periodo' => 'mensual', 'meses' => 1]],
             'meses_libres' => false,
-            'metodos_pago' => [],
+            'metodos_pago' => self::opcionesMetodo('metodo', 'nombre'),
             'planes_editar' => false,
             'filtros_clientes' => ['buscar', 'estados', 'plan', 'vence_desde', 'vence_hasta', 'alta_desde', 'alta_hasta', 'sin_uso_dias', 'origen', 'ids'],
             // Anexo B: los precios están en el código (src/Modulos.php), no se editan desde el panel; la demo acepta datos.modulos
@@ -256,7 +261,12 @@ final class TukanCentralV2
             (SELECT count(*) FROM contactos c JOIN lineas l ON l.id = c.linea_id WHERE l.empresa_id = e.id) AS contactos,
             (SELECT count(*) FROM mensajes m JOIN lineas l ON l.id = m.linea_id WHERE l.empresa_id = e.id AND m.creado >= now() - interval '30 days') AS mensajes_30,
             (SELECT max(m.creado) FROM mensajes m JOIN lineas l ON l.id = m.linea_id WHERE l.empresa_id = e.id) AS ultimo_mensaje,
-            (SELECT max(r.momento) FROM tukan_central_registro r WHERE r.empresa_id = e.id) AS ultimo_cambio
+            (SELECT max(r.momento) FROM tukan_central_registro r WHERE r.empresa_id = e.id) AS ultimo_cambio,
+            (SELECT coalesce(sum(p.monto), 0) FROM pagos_plan p WHERE p.empresa_id = e.id) AS pagos_total,
+            (SELECT count(*) FROM pagos_plan p WHERE p.empresa_id = e.id) AS pagos_cantidad,
+            (SELECT min(p.fecha) FROM pagos_plan p WHERE p.empresa_id = e.id) AS primer_pago,
+            (SELECT max(p.fecha) FROM pagos_plan p WHERE p.empresa_id = e.id) AS ultimo_pago,
+            (SELECT p.monto FROM pagos_plan p WHERE p.empresa_id = e.id ORDER BY p.fecha DESC, p.id DESC LIMIT 1) AS ultimo_monto
         FROM empresas e WHERE e.id <> 1";
 
     /** Todas las empresas cliente (sin Tukán), por id. */
@@ -333,7 +343,8 @@ final class TukanCentralV2
                 'email' => ($dueno['correo'] ?? null) ?: ($e['correo'] ?: null),
             ],
             'ultima_actividad' => self::momento($actividad),
-            'pagos' => ['total' => 0.0, 'cantidad' => 0, 'primer_pago' => null, 'ultimo_pago' => null, 'ultimo_monto' => null],
+            'pagos' => ['total' => round((float) ($e['pagos_total'] ?? 0), 2), 'cantidad' => (int) ($e['pagos_cantidad'] ?? 0), 'primer_pago' => ($e['primer_pago'] ?? null) ?: null,
+                        'ultimo_pago' => ($e['ultimo_pago'] ?? null) ?: null, 'ultimo_monto' => isset($e['ultimo_monto']) ? round((float) $e['ultimo_monto'], 2) : null],
             // Lo que vale al mes si está pagando (activa con fecha y al día): plan + módulos (Anexo B). Demo, cortesía o vencida: 0
             'mensual_estimado' => $e['estado'] === 'activa' && $vence !== null && in_array($c['estado'], ['activo', 'por_vencer'], true) ? $mods['mensual'] : 0.0,
             'modulos' => $mods,
@@ -500,6 +511,17 @@ final class TukanCentralV2
             $a[] = ['accion' => 'extender_prueba', 'etiqueta' => 'Alargar demo', 'estilo' => 'principal', 'confirmar' => '¿Alargar la demo de ' . $c['nombre'] . '?',
                     'datos' => $datos, 'campos' => [['campo' => 'dias', 'etiqueta' => 'Días más', 'tipo' => 'dias', 'requerido' => true, 'valor' => 7, 'min' => 1, 'max' => self::DIAS_PRUEBA_MAX]]];
         }
+        if ($c['estado'] !== 'suspendido') {
+            $a[] = ['accion' => 'registrar_pago', 'etiqueta' => 'Registrar pago', 'estilo' => 'principal', 'confirmar' => '¿Registrar el pago de ' . $c['nombre'] . '?',
+                    'datos' => $datos, 'campos' => [
+                        ['campo' => 'plan', 'etiqueta' => 'Plan', 'tipo' => 'opcion', 'requerido' => true, 'valor' => $c['plan']['codigo'], 'opciones' => self::opcionesPlan()],
+                        ['campo' => 'periodo', 'etiqueta' => 'Tiempo', 'tipo' => 'opcion', 'requerido' => true, 'valor' => 'mensual', 'opciones' => [['valor' => 'mensual', 'etiqueta' => '1 mes']]],
+                        ['campo' => 'monto', 'etiqueta' => 'Valor recibido sin IVA ($)', 'tipo' => 'dinero', 'requerido' => true, 'valor' => $c['modulos']['mensual'], 'min' => 0],
+                        ['campo' => 'metodo', 'etiqueta' => 'Forma de pago', 'tipo' => 'opcion', 'requerido' => true, 'valor' => 'transferencia', 'opciones' => self::opcionesMetodo('valor', 'etiqueta')],
+                        ['campo' => 'fecha', 'etiqueta' => 'Fecha del pago', 'tipo' => 'fecha', 'requerido' => true, 'valor' => $this->hoy->format('Y-m-d')],
+                        ['campo' => 'nota', 'etiqueta' => 'Nota', 'tipo' => 'texto', 'requerido' => false, 'max' => 200, 'ayuda' => 'N° de transferencia, factura…'],
+                    ]];
+        }
         $a[] = ['accion' => 'cambiar_modulos', 'etiqueta' => 'Módulos', 'estilo' => 'normal',
                 'confirmar' => '¿Guardar los módulos de ' . $c['nombre'] . '? Apagar un módulo no borra sus datos.', 'datos' => $datos,
                 'campos' => self::camposModulos($c['modulos'])];
@@ -531,6 +553,15 @@ final class TukanCentralV2
         $r = [];
         foreach (Modulos::PLANES as $k => $p) {
             $r[] = ['valor' => $k, 'etiqueta' => $p[0] . ' (' . self::dinero((float) $p[1]) . ' al mes)'];
+        }
+        return $r;
+    }
+
+    private static function opcionesMetodo(string $clave, string $nombre): array
+    {
+        $r = [];
+        foreach (self::METODOS_PAGO as $k => $n) {
+            $r[] = [$clave => $k, $nombre => $n];
         }
         return $r;
     }
@@ -787,6 +818,7 @@ final class TukanCentralV2
             return match ($accion) {
                 'crear_demo' => $this->opCrearDemo($d),
                 'extender_prueba' => $this->opExtenderPrueba($id, $d),
+                'registrar_pago' => $this->opRegistrarPago($id, $d),
                 'suspender' => $this->opSuspender($id, $d),
                 'reactivar' => $this->opReactivar($id),
                 'cambiar_plan' => $this->opCambiarPlan($id, $d),
@@ -893,6 +925,75 @@ final class TukanCentralV2
         $this->guardarEmpresa($id, ['vence' => $hasta]);
         return ['mensaje' => "Demo de {$e['nombre']} hasta el " . self::fechaTexto($hasta) . '.', 'resultado' => ['prueba_hasta' => $hasta],
                 'registro' => "Demo alargada $dias días, hasta $hasta"];
+    }
+
+    /**
+     * (10 nov 2026) Pago del plan: la cuenta queda ACTIVA un mes más con el plan pagado. Una demo pasa a cliente (cuenta desde
+     * el día del pago); una cuenta al día suma el mes a su vencimiento; una vencida cuenta desde el día del pago. Si había
+     * pedido cancelar, el pago nuevo deja sin efecto ese pedido. Una cuenta suspendida sigue suspendida (se reactiva aparte).
+     */
+    private function opRegistrarPago(int $id, array $d): array
+    {
+        $e = $this->fila($id);
+        $plan = $d['plan'] ?? null;
+        if ($plan === null || $plan === '') {
+            $plan = Modulos::planDe($e);
+        }
+        if (!is_string($plan) || !isset(Modulos::PLANES[$plan])) {
+            throw TukanCentralError::campo('datos.plan', 'Ese plan no existe en WhatsApp Tukán (' . implode(', ', array_keys(Modulos::PLANES)) . ').');
+        }
+        if (($d['periodo'] ?? 'mensual') !== 'mensual') {
+            throw TukanCentralError::campo('datos.periodo', 'WhatsApp Tukán se paga mes a mes (periodo: mensual).');
+        }
+        if (isset($d['meses']) && (int) $d['meses'] !== 1) {
+            throw TukanCentralError::campo('datos.meses', 'WhatsApp Tukán se paga mes a mes (un mes por pago).');
+        }
+        $monto = $d['monto'] ?? (float) Modulos::PLANES[$plan][1];
+        if (!is_int($monto) && !is_float($monto) || $monto < 0 || $monto > 100000) {
+            throw TukanCentralError::campo('datos.monto', 'El valor del pago no es válido.');
+        }
+        $monto = round((float) $monto, 2);
+        $metodo = $this->opcion($d, 'metodo', array_keys(self::METODOS_PAGO), 'transferencia');
+        $hoy = $this->hoy->format('Y-m-d');
+        $fecha = $this->fecha($d, 'fecha') ?? $hoy;
+        if ($fecha > $this->hoy->modify('+1 day')->format('Y-m-d') || $fecha < $this->hoy->modify('-366 days')->format('Y-m-d')) {
+            throw TukanCentralError::campo('datos.fecha', 'La fecha del pago no puede ser futura ni de hace más de un año.');
+        }
+        $fecha = min($fecha, $hoy);   // el Panel puede ir unas horas adelante (otro huso horario): cuenta como hoy
+        $nota = $this->texto($d, 'nota', 200);
+
+        $suspendida = $e['estado'] === 'suspendida';
+        $eraActiva = ($suspendida ? ($e['estado_antes'] ?? '') : $e['estado']) === 'activa';
+        // Al día y pagando: el mes se suma a su vencimiento. Demo, vencida o sin fecha: cuenta desde el día del pago.
+        $desde = $eraActiva && $e['vence'] && (string) $e['vence'] >= $fecha ? (string) $e['vence'] : $fecha;
+        $hasta = self::sumarMes($desde);
+        // Módulos del plan pagado; la factura electrónica (extra aparte, sin costo aquí) se conserva si ya estaba encendida
+        $mods = array_merge(Modulos::PLANES[$plan][4], array_intersect(Modulos::SOLO_A_PEDIDO, Modulos::deEmpresa($e)));
+        Modulos::aplicarPlan($this->db, $id, $plan, $mods);
+        if ($suspendida) {
+            $this->db->prepare("UPDATE empresas SET vence = ?, estado_antes = 'activa', cancelar_en = NULL, cancelar_pedido = NULL, cancelar_motivo = '' WHERE id = ?")
+                     ->execute([$hasta, $id]);
+        } else {
+            $this->db->prepare("UPDATE empresas SET estado = 'activa', vence = ?, cancelar_en = NULL, cancelar_pedido = NULL, cancelar_motivo = '' WHERE id = ?")
+                     ->execute([$hasta, $id]);
+        }
+        $st = $this->db->prepare('INSERT INTO pagos_plan (empresa_id, plan, meses, monto, metodo, fecha, hasta, nota) VALUES (?, ?, 1, ?, ?, ?, ?, ?) RETURNING id');
+        $st->execute([$id, $plan, $monto, $metodo, $fecha, $hasta, $nota]);
+        $pagoId = (string) $st->fetchColumn();
+        $nombrePlan = Modulos::PLANES[$plan][0];
+        return ['mensaje' => "Pago registrado. {$e['nombre']} queda " . ($suspendida ? 'pagada (sigue suspendida)' : 'activa') . ' hasta el ' . self::fechaTexto($hasta) . " con el plan $nombrePlan.",
+                'resultado' => ['pago_id' => $pagoId, 'activo_hasta' => $hasta, 'monto' => $monto, 'plan' => $plan, 'comision' => null],
+                'registro' => 'Pago de ' . self::dinero($monto) . " ($metodo, plan $plan): " . ($e['estado'] === 'demo' ? 'la demo pasa a cliente, ' : '') . "activa hasta $hasta"
+                              . ($nota !== '' ? " · $nota" : '')];
+    }
+
+    /** Un mes después (el 31 de enero pasa al último día de febrero, no a marzo). */
+    public static function sumarMes(string $fecha): string
+    {
+        $f = new DateTimeImmutable($fecha);
+        $sig = $f->modify('first day of next month');
+        $dia = min((int) $f->format('j'), (int) $sig->format('t'));
+        return $sig->setDate((int) $sig->format('Y'), (int) $sig->format('n'), $dia)->format('Y-m-d');
     }
 
     private function opSuspender(int $id, array $d): array

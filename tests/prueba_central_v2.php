@@ -14,7 +14,7 @@ foreach (['TUWA_LLAVE' => str_repeat('ab', 32), 'TUWA_URL' => 'https://whatsapp.
 }
 require dirname(__DIR__) . '/app/bootstrap.php';
 
-use TuWhatsApp\{Empresas, Modulos, TukanCentral, TukanCentralError, TukanCentralV2};
+use TuWhatsApp\{Empresas, Modulos, PagosCentral, TukanCentral, TukanCentralError, TukanCentralV2};
 
 $bien = 0;
 $mal = 0;
@@ -98,10 +98,10 @@ ok($r[0] === 200 && $cap['ok'] === true && $cap['protocolo'] === 2 && $cap['prod
 ok(json_decode(json_encode($cap, FLAGS), true) === $cap, 'capacidades: JSON válido');
 igual($cap['unico'], false, 'no es de una sola empresa');
 igual($cap['acciones'], ['capacidades', 'estado', 'sso', 'clientes', 'cliente', 'planes', 'ejecutar', 'modulos', 'ia_uso'], 'acciones que de verdad contesta');
-foreach (['crear_demo', 'extender_prueba', 'nueva_clave_dueno', 'suspender', 'reactivar', 'cambiar_plan', 'cambiar_modulos'] as $o) {
+foreach (['crear_demo', 'extender_prueba', 'registrar_pago', 'nueva_clave_dueno', 'suspender', 'reactivar', 'cambiar_plan', 'cambiar_modulos'] as $o) {
     ok(in_array($o, $cap['ejecutar'], true), "ejecutar tiene $o");
 }
-ok(!array_intersect(['registrar_pago', 'anular_pago', 'aprobar_comprobante', 'pausar', 'borrar_cliente'], $cap['ejecutar']), 'no declara operaciones que no tiene');
+ok(!array_intersect(['anular_pago', 'aprobar_comprobante', 'pausar', 'borrar_cliente'], $cap['ejecutar']), 'no declara operaciones que no tiene');
 igual($cap['limites']['dias_prueba_max'], 90, 'límite de días de demo');
 igual($cap['formularios']['crear_demo'], [], 'crear_demo sin campos propios');
 ok($cap['modulos']['crear_demo'] === true && $cap['modulos']['editable'] === false, 'capacidades.modulos (Anexo B)');
@@ -149,8 +149,8 @@ $codigo($pedir('borrar'), 400, 'invalido', 'acción que no existe en el protocol
 $r = $pedir('finanzas');
 $codigo($r, 403, 'no_permitido', 'acción del protocolo que WhatsApp Tukán no tiene');
 igual($r[1]['detalle']['motivo'] ?? null, 'no_disponible', 'no_disponible');
-$r = $ejecutar('registrar_pago', ['monto' => 19.0], (string) $eActiva);
-$codigo($r, 403, 'no_permitido', 'operación que no tiene (registrar_pago)');
+$r = $ejecutar('anular_pago', ['pago_id' => '1'], (string) $eActiva);
+$codigo($r, 403, 'no_permitido', 'operación que no tiene (anular_pago)');
 $codigo($pedir('ejecutar', ['accion' => 'nota_interna', 'cliente_id' => (string) $eActiva, 'datos' => []]), 422, 'invalido', 'ejecutar sin operacion_id', 'operacion_id');
 putenv('TUKAN_CENTRAL_SECRET=corto');
 $codigo($pedir('capacidades'), 404, 'sin_configurar', 'sin configurar');
@@ -390,6 +390,164 @@ try {
 }
 ok(TukanCentral::irValido('/?r=cliente&id=3') && !TukanCentral::irValido('//malo.com') && !TukanCentral::irValido('https://malo.com/?r=cliente')
    && !TukanCentral::irValido('/?r=bandeja') && !TukanCentral::irValido("/?r=cliente\n"), 'ir del SSO: solo rutas seguras');
+
+echo "== registrar_pago (10 nov 2026: el cliente paga solo con tarjeta y el Panel avisa)\n";
+$mes = fn (string $f) => TukanCentralV2::sumarMes($f);
+igual($mes('2026-12-15'), '2027-01-15', 'un mes después');
+igual($mes('2027-01-31'), '2027-02-28', 'el 31 de enero pasa a fin de febrero (no a marzo)');
+igual($mes('2028-01-30'), '2028-02-29', 'año bisiesto');
+$pago = fn (string $plan, float $monto) => ['plan' => $plan, 'periodo' => 'mensual', 'metodo' => 'plux', 'monto' => $monto, 'fecha' => $hoy->format('Y-m-d'), 'nota' => 'Pagado con Plux · Tukán Pagos #5'];
+// Demo que paga: queda como cliente activo, un mes desde el pago, con el plan que pagó
+$pDemo = $crear('Demo Que Paga', 'demo', $d('+5 days'), 'paga@cliente.com');
+$r = $ejecutar('registrar_pago', $pago('todo', 15.0), (string) $pDemo);
+$e = Empresas::buscar($db, $pDemo);
+ok($r[0] === 200 && $r[1]['resultado']['activo_hasta'] === $mes($hoy->format('Y-m-d')) && $r[1]['resultado']['monto'] === 15.0 && is_string($r[1]['resultado']['pago_id']),
+   'demo que paga: resultado con pago_id, activo_hasta y monto');
+ok($e['estado'] === 'activa' && $e['vence'] === $mes($hoy->format('Y-m-d')) && $e['plan'] === 'todo' && !Modulos::activo($e, 'ia'), 'demo que paga: activa un mes, plan Todo incluido sin IA');
+ok($r[1]['cliente']['estado'] === 'activo' && $r[1]['cliente']['estado_detalle'] === 'activa' && $r[1]['cliente']['pagos'] === ['total' => 15.0, 'cantidad' => 1,
+   'primer_pago' => $hoy->format('Y-m-d'), 'ultimo_pago' => $hoy->format('Y-m-d'), 'ultimo_monto' => 15.0], 'la ficha del cliente muestra el pago');
+ok(str_contains($r[1]['mensaje'], 'queda activa hasta el'), 'mensaje claro');
+// Demo terminada (ya no entra) y cuenta vencida: desde el día del pago
+$pFin = $crear('Demo Fin Que Paga', 'demo', $d('-3 days'), 'pagafin@cliente.com');
+$r = $ejecutar('registrar_pago', $pago('todo_ia', 20.0), (string) $pFin);
+$e = Empresas::buscar($db, $pFin);
+ok($r[0] === 200 && $e['estado'] === 'activa' && $e['vence'] === $mes($hoy->format('Y-m-d')) && $e['plan'] === 'todo_ia' && Modulos::activo($e, 'ia') && Empresas::alDia($e), 'demo terminada que paga: vuelve a entrar, con IA');
+$pVen = $crear('Vencida Que Paga', 'activa', $d('-10 days'), 'pagaven@cliente.com');
+$r = $ejecutar('registrar_pago', $pago('todo', 15.0), (string) $pVen);
+igual(Empresas::buscar($db, $pVen)['vence'], $mes($hoy->format('Y-m-d')), 'vencida que paga: un mes desde el pago');
+// Cuenta al día (cobro de cada mes de la suscripción): el mes se suma a su vencimiento, y dos cobros son dos meses
+$pAct = $crear('Al Día Que Paga', 'activa', $d('+12 days'), 'pagaact@cliente.com');
+Modulos::aplicarPlan($db, $pAct, 'todo', ['facturacion']);
+Empresas::pedirCancelacion($db, $pAct, 'prueba', ['nombre' => 'Ana', 'correo' => 'pagaact@cliente.com']);
+$op1 = bin2hex(random_bytes(16));
+$r = $ejecutar('registrar_pago', $pago('todo_ia', 20.0), (string) $pAct, $op1);
+$e = Empresas::buscar($db, $pAct);
+igual($e['vence'], $mes($d('+12 days')), 'al día: suma un mes a su vencimiento');
+ok($e['cancelar_en'] === null && Modulos::activo($e, 'ia') && Modulos::activo($e, 'facturacion'), 'el pago nuevo deja sin efecto el pedido de cancelar y conserva la factura electrónica');
+$r2 = $ejecutar('registrar_pago', $pago('todo_ia', 20.0), (string) $pAct, $op1);
+ok($r2[1]['repetida'] === true && Empresas::buscar($db, $pAct)['vence'] === $mes($d('+12 days')) && $cuenta("SELECT count(*) FROM pagos_plan WHERE empresa_id = $pAct") === 1, 'el mismo aviso dos veces: un solo pago');
+$ejecutar('registrar_pago', $pago('todo_ia', 20.0), (string) $pAct);
+ok(Empresas::buscar($db, $pAct)['vence'] === $mes($mes($d('+12 days'))) && $cuenta("SELECT count(*) FROM pagos_plan WHERE empresa_id = $pAct") === 2, 'el cobro del mes siguiente suma otro mes');
+// Sin plan ni monto: el plan que tiene y su precio; transferencia por defecto
+$r = $ejecutar('registrar_pago', [], (string) $pVen);
+ok($r[0] === 200 && $r[1]['resultado']['plan'] === 'todo' && $r[1]['resultado']['monto'] === 15.0
+   && $db->query("SELECT metodo FROM pagos_plan WHERE empresa_id = $pVen ORDER BY id DESC LIMIT 1")->fetchColumn() === 'transferencia', 'sin datos: su plan, su precio y transferencia');
+// Suspendida: el pago se anota y la fecha corre, pero sigue suspendida hasta que se reactive
+$pSus = $crear('Suspendida Que Paga', 'activa', $d('+2 days'), 'pagasus@cliente.com');
+$ejecutar('suspender', ['motivo' => 'Falta de pago'], (string) $pSus);
+$r = $ejecutar('registrar_pago', $pago('todo', 15.0), (string) $pSus);
+$e = Empresas::buscar($db, $pSus);
+ok($r[0] === 200 && $e['estado'] === 'suspendida' && $e['vence'] === $mes($d('+2 days')) && str_contains($r[1]['mensaje'], 'sigue suspendida'), 'suspendida: paga pero sigue suspendida');
+$ejecutar('reactivar', [], (string) $pSus);
+igual(Empresas::buscar($db, $pSus)['estado'], 'activa', 'al reactivar queda activa');
+// Datos malos
+$codigo($ejecutar('registrar_pago', ['plan' => 'oro'] + $pago('todo', 15.0), (string) $pVen), 422, 'invalido', 'plan que no existe', 'datos.plan');
+$codigo($ejecutar('registrar_pago', ['periodo' => 'semestral'] + $pago('todo', 15.0), (string) $pVen), 422, 'invalido', 'solo mensual (sin 6 meses)', 'datos.periodo');
+$codigo($ejecutar('registrar_pago', ['periodo' => 'anual'] + $pago('todo', 15.0), (string) $pVen), 422, 'invalido', 'solo mensual (sin año)', 'datos.periodo');
+$codigo($ejecutar('registrar_pago', ['meses' => 6] + $pago('todo', 15.0), (string) $pVen), 422, 'invalido', 'meses distintos de 1', 'datos.meses');
+$codigo($ejecutar('registrar_pago', ['monto' => -1.0] + $pago('todo', 15.0), (string) $pVen), 422, 'invalido', 'monto negativo', 'datos.monto');
+$codigo($ejecutar('registrar_pago', ['monto' => '15'] + $pago('todo', 15.0), (string) $pVen), 422, 'invalido', 'monto que no es número', 'datos.monto');
+$codigo($ejecutar('registrar_pago', ['metodo' => 'bitcoin'] + $pago('todo', 15.0), (string) $pVen), 422, 'invalido', 'forma de pago desconocida');
+$codigo($ejecutar('registrar_pago', ['fecha' => $d('+2 days')] + $pago('todo', 15.0), (string) $pVen), 422, 'invalido', 'fecha futura', 'datos.fecha');
+$pHuso = $crear('Paga De Madrugada', 'demo', $d('+5 days'), 'pagahuso@cliente.com');
+$r = $ejecutar('registrar_pago', ['fecha' => $d('+1 day')] + $pago('todo', 15.0), (string) $pHuso);
+ok($r[0] === 200 && Empresas::buscar($db, $pHuso)['vence'] === $mes($hoy->format('Y-m-d')), 'fecha de mañana (el Panel en otro huso horario): se acepta y cuenta como hoy');
+// Lo que el Panel necesita para registrar solo el pago con tarjeta: período mensual y método «plux»
+$cap2 = $pedir('capacidades')[1];
+ok(in_array('registrar_pago', $cap2['ejecutar'], true) && $cap2['periodos'] === [['periodo' => 'mensual', 'meses' => 1]]
+   && in_array(['metodo' => 'plux', 'nombre' => 'Tarjeta (Plux)'], $cap2['metodos_pago'], true) && $cap2['meses_libres'] === false, 'capacidades: registrar_pago, solo mensual y método plux');
+$botones = array_column($pedir('cliente', ['id' => (string) $pVen])[1]['cliente']['acciones_posibles'], null, 'accion');
+ok(isset($botones['registrar_pago']) && array_column($botones['registrar_pago']['campos'], 'campo') === ['plan', 'periodo', 'monto', 'metodo', 'fecha', 'nota']
+   && count($botones['registrar_pago']['campos'][1]['opciones']) === 1, 'botón «Registrar pago» en la ficha (solo 1 mes)');
+
+echo "== PagosCentral: pedir el cobro con tarjeta al Panel (con un Panel de mentira)\n";
+putenv('TUKAN_CENTRAL_URL=https://panel.prueba.ec');
+$pedidos = [];
+$contesta = [200, ['ok' => true, 'activo' => true, 'iva' => 15.0, 'pruebas' => true, 'cobros' => []]];
+PagosCentral::$transporte = function (string $url, array $cab, string $cuerpo, int $tiempo) use (&$pedidos, &$contesta): array {
+    $pedidos[] = ['url' => $url, 'cab' => $cab, 'cuerpo' => $cuerpo, 'json' => json_decode($cuerpo, true)];
+    return [$contesta[0], is_array($contesta[1]) ? json_encode($contesta[1], FLAGS) : (string) $contesta[1]];
+};
+$eDemoPc = Empresas::buscar($db, $eDemo);
+$yo = ['nombre' => 'Ana Pérez', 'correo' => 'demo@cliente.com'];
+$pant = PagosCentral::pantalla($eDemoPc);
+ok($pant !== null && $pant['pruebas'] === true && $pant['suscripcion'] === null && array_keys($pant['planes']) === ['todo', 'todo_ia']
+   && $pant['planes']['todo']['precio'] === (float) Modulos::PLANES['todo'][1] && $pant['planes']['todo_ia']['precio'] === (float) Modulos::PLANES['todo_ia'][1], 'activo: los planes y precios de Modulos (sin inventar)');
+igual($pant['elegido'], Modulos::activo($eDemoPc, 'ia') ? 'todo_ia' : 'todo', 'empieza marcado el plan que ya usa');
+ok(PagosCentral::planSugerido(['modulos' => 'ia', 'plan' => 'todo'] + $eDemoPc) === 'todo_ia' && PagosCentral::planSugerido(['modulos' => '', 'plan' => 'todo'] + $eDemoPc) === 'todo', 'con la IA encendida se marca el plan con IA');
+$pd = $pedidos[0];
+[$tA, $tB] = explode('.', substr((string) array_values(array_filter($pd['cab'], fn ($c) => str_starts_with($c, 'X-Tukan-Token: ')))[0], 15));
+$tok = json_decode((string) TukanCentral::unb64($tA), true);
+ok($pd['url'] === 'https://panel.prueba.ec/plux_api.php' && $pd['json'] === ['accion' => 'estado', 'cliente_id' => (string) $eDemo], 'pregunta el estado al plux_api.php del Panel');
+ok(hash_equals($b64(hash_hmac('sha256', $tA, $SEC, true)), $tB) && $tok['v'] === 2 && $tok['tipo'] === 'plux' && $tok['inst'] === 'tuwhatsapp'
+   && $tok['bh'] === $b64(hash('sha256', $pd['cuerpo'], true)) && $tok['exp'] - $tok['iat'] === 60 && strlen($tok['nonce']) === 32 && filter_var($tok['email'], FILTER_VALIDATE_EMAIL),
+   'token v2 «plux» firmado con el secreto del Panel y con el hash del cuerpo');
+PagosCentral::pantalla($eDemoPc);
+igual(count($pedidos), 1, 'una sola consulta al Panel por página');
+// Apagado, caído o sin conectar: no se muestra nada (Mi cuenta como siempre)
+foreach ([[[200, ['ok' => true, 'activo' => false, 'cobros' => []]], 'apagado en el Panel'], [[0, ''], 'el Panel no contesta'], [[500, 'Error'], 'el Panel con error'],
+          [[200, '<html>'], 'respuesta que no es JSON'], [[401, ['ok' => false, 'error' => 'Token']], 'el Panel rechaza el token']] as [$c, $que]) {
+    $contesta = $c;
+    PagosCentral::olvidar();
+    ok(PagosCentral::pantalla($eDemoPc) === null && !PagosCentral::activo($eDemoPc), "$que: no se muestra el pago");
+}
+$contesta = [200, ['ok' => true, 'activo' => true, 'iva' => 15.0, 'pruebas' => false, 'cobros' => []]];
+PagosCentral::olvidar();
+$n0 = count($pedidos);
+ok(PagosCentral::pantalla(Empresas::buscar($db, 1)) === null && PagosCentral::pantalla(['estado' => 'suspendida'] + $eDemoPc) === null && count($pedidos) === $n0, 'la cuenta de Tukán y una suspendida: nada (ni se pregunta)');
+putenv('TUKAN_CENTRAL_ID=');
+PagosCentral::olvidar();
+ok(PagosCentral::pantalla($eDemoPc) === null && PagosCentral::llamar('estado', ['cliente_id' => '5']) === [0, null] && count($pedidos) === $n0, 'programa sin conectar al Panel: nada');
+putenv('TUKAN_CENTRAL_ID=tuwhatsapp');
+// Crear la suscripción
+PagosCentral::olvidar();
+$contesta = [201, ['ok' => true, 'cobro' => ['id' => 9, 'tipo' => 'suscripcion', 'estado' => 'pendiente', 'url_pago' => 'https://pagos.prueba.ec/p/9']]];
+$c = PagosCentral::crear($eDemoPc, $yo, 'todo');
+$j = end($pedidos)['json'];
+ok($c['url_pago'] === 'https://pagos.prueba.ec/p/9' && $j['accion'] === 'crear' && $j['tipo'] === 'suscripcion' && $j['cliente_id'] === (string) $eDemo && $j['plan'] === 'todo'
+   && $j['plan_nombre'] === 'Todo incluido' && $j['periodo'] === 'mensual' && $j['meses'] === 1 && (float) $j['subtotal'] === (float) Modulos::PLANES['todo'][1]
+   && $j['volver'] === 'https://whatsapp.ejemplo.com/?r=cuenta' && $j['comprador']['correo'] === 'demo@cliente.com' && mb_strlen($j['descripcion']) <= 90, 'crear: suscripción mensual con el precio del plan SIN IVA');
+$falla = function (callable $f): string {
+    try {
+        $f();
+        return '';
+    } catch (RuntimeException $e) {
+        return $e->getMessage();
+    }
+};
+$n0 = count($pedidos);
+ok($falla(fn () => PagosCentral::crear($eDemoPc, $yo, 'oro')) === 'Elige un plan.' && count($pedidos) === $n0, 'plan que no existe: ni se pide');
+$contesta = [409, ['ok' => false, 'codigo' => 'ya_tiene', 'error' => 'Ya tiene una suscripción con tarjeta (Activa).']];
+igual($falla(fn () => PagosCentral::crear($eDemoPc, $yo, 'todo')), 'Ya tiene una suscripción con tarjeta (Activa).', 'ya tiene suscripción (409): se muestra lo que dice el Panel');
+$contesta = [0, ''];
+ok(str_contains($falla(fn () => PagosCentral::crear($eDemoPc, $yo, 'todo')), 'No se pudo conectar'), 'Panel caído al pagar: mensaje claro');
+$contesta = [201, ['ok' => true, 'cobro' => ['id' => 9, 'url_pago' => 'javascript:alert(1)']]];
+ok(str_contains($falla(fn () => PagosCentral::crear($eDemoPc, $yo, 'todo')), 'no devolvió el enlace'), 'enlace de pago raro: no se manda al cliente ahí');
+// Suscripción viva
+$sus = ['id' => 9, 'tipo' => 'suscripcion', 'estado' => 'activa', 'estado_texto' => 'Activa', 'descripcion' => 'Plan Todo incluido', 'total' => 17.25, 'cobra_sola' => true];
+foreach (['pendiente' => true, 'rechazado' => true, 'activa' => true, 'en_gracia' => true, 'cancelada' => false, 'vencida' => false, 'anulado' => false] as $est => $viva) {
+    $contesta = [200, ['ok' => true, 'activo' => true, 'cobros' => [['estado' => $est] + $sus]]];
+    PagosCentral::olvidar();
+    ok((PagosCentral::suscripcion($eDemoPc) !== null) === $viva, "suscripción $est: " . ($viva ? 'viva (no se ofrece otra)' : 'no cuenta como viva'));
+}
+$contesta = [200, ['ok' => true, 'activo' => true, 'cobros' => [['tipo' => 'cobro', 'estado' => 'pendiente'] + $sus]]];
+PagosCentral::olvidar();
+ok(PagosCentral::suscripcion($eDemoPc) === null && count(PagosCentral::pantalla($eDemoPc)['cobros']) === 1, 'un pago de una sola vez pendiente se muestra, pero no impide suscribirse');
+// Cancelar mi plan con tarjeta
+$contesta = [200, ['ok' => true, 'canceladas' => 1, 'programadas' => 0, 'errores' => []]];
+igual($falla(fn () => PagosCentral::cancelarPlan($eDemoPc, '2026-12-01', 'caro', $yo)), '', 'cancelar plan: el Panel cancela la tarjeta');
+$j = end($pedidos)['json'];
+ok($j['accion'] === 'cancelar_plan' && $j['cliente_id'] === (string) $eDemo && $j['hasta'] === '2026-12-01' && $j['motivo'] === 'caro' && $j['quien'] === 'Ana Pérez <demo@cliente.com>', 'cancelar plan: datos que recibe el Panel');
+$contesta = [200, ['ok' => true, 'canceladas' => 0, 'programadas' => 0, 'errores' => ['#9: Plux no contesta']]];
+ok(str_contains($falla(fn () => PagosCentral::cancelarPlan($eDemoPc, null, '', $yo)), 'No se pudo cancelar el cobro con tarjeta'), 'si Plux no cancela: se dice (no se finge que quedó cancelado)');
+$contesta = [0, ''];
+ok(str_contains($falla(fn () => PagosCentral::cancelarPlan($eDemoPc, null, '', $yo)), 'No se pudo cancelar el cobro con tarjeta'), 'Panel caído al cancelar la tarjeta: se dice');
+$contesta = [200, ['ok' => true, 'programada' => false, 'cobro' => ['id' => 9, 'estado' => 'cancelada']]];
+ok(PagosCentral::cancelar($eDemoPc, 9, $yo)['estado'] === 'cancelada' && end($pedidos)['json'] === ['accion' => 'cancelar', 'cliente_id' => (string) $eDemo, 'id' => 9], 'quitar un cobro pendiente');
+ok(PagosCentral::avisoVuelta('') === null && PagosCentral::avisoVuelta('aprobado')[0] === 'ok' && str_contains(PagosCentral::avisoVuelta('rechazado')[1], 'no se completó'), 'avisos al volver de la página de pago');
+PagosCentral::$transporte = null;
+PagosCentral::olvidar();
+putenv('TUKAN_CENTRAL_URL=');
 
 putenv('TUKAN_CENTRAL_ID=');
 putenv('TUKAN_CENTRAL_SECRET=');

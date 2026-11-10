@@ -43,7 +43,8 @@ if (usuario()) {
     // Cuenta suspendida o vencida: no entra (el personal de Tukán sí, para dar soporte)
     $empresaHoy = empresa_actual();
     if (!es_super() && !Empresas::alDia($empresaHoy) && !in_array($ruta, ['salir', 'bloqueada'], true)) {
-        redirigir('bloqueada');
+        // Si vuelve de pagar con tarjeta (?plux=...), el aviso se muestra en la pantalla de cuenta vencida
+        redirigir('bloqueada', $ruta === 'cuenta' && is_string($_GET['plux'] ?? null) ? ['plux' => substr($_GET['plux'], 0, 20)] : []);
     }
     // Módulo apagado para esta cuenta: se ofrece pedirlo a Tukán
     if ($nombreMod = \TuWhatsApp\Modulos::rutaBloqueada($empresaHoy, $ruta)) {
@@ -103,6 +104,47 @@ if ($post && !csrf_ok()) {
     aviso('La página estaba abierta hace mucho. Intenta de nuevo.', 'error');
     header('Location: ' . ($_SERVER['REQUEST_URI'] ?? '/'));
     exit;
+}
+
+/**
+ * (10 nov 2026) Lo que se muestra para pagar el plan con tarjeta (src/PagosCentral.php): solo al administrador del cliente,
+ * fuera de la app de Android (regla de Google) y si el Panel Tukán Central lo tiene activo. null = la pantalla queda como antes.
+ */
+function pago_tarjeta(?array $e): ?array
+{
+    if (!$e || es_super() || !es_admin() || en_app_android()) {
+        return null;
+    }
+    $p = \TuWhatsApp\PagosCentral::pantalla($e);
+    if ($p !== null && ($v = \TuWhatsApp\PagosCentral::avisoVuelta(is_string($_GET['plux'] ?? null) ? $_GET['plux'] : ''))) {
+        aviso($v[1], $v[0]);
+    }
+    return $p;
+}
+
+/** Atiende «Pagar con tarjeta» y «Quitar este cobro». Devuelve false si la acción no es de pagos. */
+function accion_pago_tarjeta(array $e, string $accion, string $ruta): bool
+{
+    if (!in_array($accion, ['pagar_tarjeta', 'cancelar_tarjeta'], true)) {
+        return false;
+    }
+    if (!es_admin() || es_super()) {
+        throw new RuntimeException('Solo el administrador de la cuenta puede pagar el plan.');
+    }
+    if (en_app_android()) {   // app de Google Play: sin cobro dentro de la app
+        throw new RuntimeException('Esto no está disponible dentro de la app.');
+    }
+    if (\TuWhatsApp\PagosCentral::pantalla($e) === null) {
+        throw new RuntimeException('El pago con tarjeta no está disponible por ahora. Escribe a Tukán para renovar.');
+    }
+    if ($accion === 'pagar_tarjeta') {
+        $c = \TuWhatsApp\PagosCentral::crear($e, usuario(), (string) ($_POST['plan'] ?? ''));
+        header('Location: ' . $c['url_pago']);   // la página segura donde se pone la tarjeta
+        exit;
+    }
+    $x = \TuWhatsApp\PagosCentral::cancelar($e, (int) ($_POST['id'] ?? 0), usuario());
+    aviso(!empty($x['programada']) ? 'Cancelación pendiente: se cancela sola en unos minutos.' : 'Listo: ese cobro con tarjeta quedó cancelado.');
+    redirigir($ruta);
 }
 
 /** Muestra una vista dentro del diseño. */
@@ -473,9 +515,14 @@ try {
     case 'bloqueada':
         $e = empresa_actual();
         if (es_super() || Empresas::alDia($e)) {
-            redirigir('bandeja');
+            // Acaba de pagar con tarjeta y la cuenta ya se activó: a «Mi cuenta» con el aviso
+            is_string($_GET['plux'] ?? null) ? redirigir('cuenta', ['plux' => substr($_GET['plux'], 0, 20)]) : redirigir('bandeja');
         }
-        vista('bloqueada', 'Cuenta no disponible', ['linea' => null, 'empresa' => $e]);
+        if ($post && $e) {
+            accion_pago_tarjeta($e, (string) ($_POST['accion'] ?? ''), 'bloqueada');
+            redirigir('bloqueada');
+        }
+        vista('bloqueada', 'Cuenta no disponible', ['linea' => null, 'empresa' => $e, 'pago' => pago_tarjeta($e)]);
 
     case 'aceptar':
         $e = empresa_actual();
@@ -504,6 +551,8 @@ try {
                 aviso('Tu contraseña se cambió.');
             } elseif (!es_admin()) {
                 throw new RuntimeException('Solo el administrador de la cuenta puede cambiar eso.');
+            } elseif (accion_pago_tarjeta($e, $accion, 'cuenta')) {
+                // (no llega aquí: manda a la página de pago o vuelve a Mi cuenta)
             } elseif ($accion === 'agregar_usuario') {
                 $clave = Empresas::agregarUsuario(db(), (int) $e['id'], (string) ($_POST['correo'] ?? ''), (string) ($_POST['nombre'] ?? ''), (string) ($_POST['rol'] ?? 'agente'));
                 $_SESSION['clave_mostrar'] = ['correo' => mb_strtolower(trim((string) $_POST['correo'])), 'clave' => $clave];
@@ -525,10 +574,17 @@ try {
                 if (empty($_POST['confirmo'])) {
                     throw new RuntimeException('Marca la casilla para confirmar que quieres cancelar.');
                 }
+                // (10 nov 2026) Si paga con tarjeta, primero se cancela la suscripción en el Panel (para que no se cobre el mes siguiente)
+                if (!en_app_android() && \TuWhatsApp\PagosCentral::suscripcion($e)) {
+                    \TuWhatsApp\PagosCentral::cancelarPlan($e, $e['vence'] ?: null, (string) ($_POST['motivo'] ?? ''), usuario());
+                }
                 $hasta = Empresas::pedirCancelacion(db(), (int) $e['id'], (string) ($_POST['motivo'] ?? ''), usuario());
                 aviso('Listo: tu plan no se renovará. Sigues usando todo hasta el ' . (new DateTimeImmutable($hasta))->format('d/m/Y') . '. Si cambias de idea, toca "Seguir con mi plan".');
             } elseif ($accion === 'seguir_plan') {
                 Empresas::seguirConPlan(db(), (int) $e['id']);
+                if (!en_app_android() && \TuWhatsApp\PagosCentral::activo($e)) {   // el Panel también borra el pedido de cancelación
+                    \TuWhatsApp\PagosCentral::llamar('cancelar_plan', ['cliente_id' => (string) $e['id'], 'nombre' => (string) $e['nombre'], 'deshacer' => true], usuario(), 10);
+                }
                 aviso('¡Qué bueno! Tu plan sigue como siempre.');
             }
             redirigir('cuenta');
@@ -536,7 +592,7 @@ try {
         $clave = $_SESSION['clave_mostrar'] ?? null;
         $token = $_SESSION['token_mostrar'] ?? null;
         unset($_SESSION['clave_mostrar'], $_SESSION['token_mostrar']);
-        vista('cuenta', 'Mi cuenta', ['empresa' => $e, 'usuarios' => Empresas::usuarios(db(), (int) $e['id']), 'plan' => \TuWhatsApp\Modulos::detalle($e),
+        vista('cuenta', 'Mi cuenta', ['empresa' => $e, 'usuarios' => Empresas::usuarios(db(), (int) $e['id']), 'plan' => \TuWhatsApp\Modulos::detalle($e), 'pago' => pago_tarjeta($e),
             'claveNueva' => $clave, 'tokenNuevo' => $token, 'numeros' => count(Lineas::todas(db(), (int) $e['id']))]);
 
     case 'clientes':

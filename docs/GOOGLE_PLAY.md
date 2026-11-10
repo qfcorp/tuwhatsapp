@@ -85,3 +85,7 @@ ni enlaces para pagar afuera dentro de la app. Queda preparado con dos interrupt
 
 Antes de prenderlo falta programar la pantalla de planes (solo dentro de la app) y la verificación de compras con la API de Google Play
 (cuenta de servicio). Pasos y lo que cambia en Play Console: guía de publicación, sección «Más adelante: cobro con Google Play».
+
+## Pago del plan con tarjeta (10 nov 2026)
+En la web, el administrador puede pagar su plan con tarjeta desde Mi cuenta (`src/PagosCentral.php`). **Dentro de la app de Android no se muestra**
+(`en_app_android()`): ni el botón, ni los precios, ni se acepta el formulario aunque se fuerce. Lo revisa `tests/prueba_web.sh` («en la app de Android»).

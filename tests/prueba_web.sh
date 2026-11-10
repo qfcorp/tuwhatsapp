@@ -894,6 +894,105 @@ ok 'tiene "Marca la casilla"' "cancelar pide confirmar"
 post "/?r=cuenta" --data-urlencode "accion=cancelar_plan" --data-urlencode "motivo=prueba" --data-urlencode "confirmo=1"
 ok 'tiene "tu plan no se renovará" && tiene "Pediste cancelar" && tiene "Seguir con mi plan"' "cancelar: sigue hasta el fin del período"
 post "/?r=cuenta" --data-urlencode "accion=seguir_plan"; ok 'tiene "Tu plan sigue como siempre" && tiene "Cancelar mi plan"' "se arrepiente y sigue"
+echo "== Pagar el plan solo, con tarjeta (Panel Tukán Central SIMULADO, tests/panel_simulado.php)"
+panel() { php tests/panel_simulado.php "$@"; }
+sqlp() { PGPASSWORD="${PGPASSWORD:-}" psql -qtAc "$1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}"; }
+enlog() { grep -c -- "$1" "$PANEL_LOG"; }
+registrarPago() { pedirV2 ejecutar '{"operacion_id":"'"$1"'","accion":"registrar_pago","cliente_id":"'"$EMP"'","datos":{"plan":"'"$2"'","periodo":"mensual","metodo":"plux","monto":'"$3"',"fecha":"'"$(date +%F)"'","nota":"Pagado con Plux · Tukán Pagos #7"}}'; }
+sqlp "CREATE TABLE _emp_antes AS SELECT * FROM empresas WHERE id = $EMP"
+VENCE0=$(sqlp "SELECT vence FROM empresas WHERE id = $EMP")
+# 1. Apagado en el Panel (como está hoy) y Panel caído: Mi cuenta queda igual
+get "/?r=cuenta"; ok '! tiene "Pagar con tarjeta" && ! tiene "pago-tarjeta" && tiene "Cancelar mi plan" && tiene "Próxima renovación"' "tarjeta apagada en el Panel: Mi cuenta queda como siempre"
+ok '[ "$(enlog "\"accion\":\"estado\",\"cliente_id\":\"$EMP\"")" -ge 1 ]' "Mi cuenta le pregunta al Panel (pedido firmado que el Panel acepta)"
+post "/?r=cuenta" --data-urlencode "accion=pagar_tarjeta" --data-urlencode "plan=todo"
+ok 'tiene "no está disponible por ahora" && [ "$(enlog "\"accion\":\"crear\"")" = 0 ]' "apagado: no se puede crear un cobro ni forzando el formulario"
+panel modo caido
+get "/?r=cuenta"; ok '[ "$CODIGO" = 200 ] && ! tiene "Pagar con tarjeta" && tiene "Cancelar mi plan"' "Panel caído: Mi cuenta queda como siempre"
+post "/?r=cuenta" --data-urlencode "accion=cancelar_plan" --data-urlencode "confirmo=1"; ok 'tiene "tu plan no se renovará"' "Panel caído: cancelar el plan sigue funcionando como hoy"
+post "/?r=cuenta" --data-urlencode "accion=seguir_plan"; ok 'tiene "Tu plan sigue como siempre"' "Panel caído: seguir con el plan también"
+# 2. Activo: planes, precio sin IVA y botón
+panel modo activo
+get "/?r=cuenta"
+ok 'tiene "Pagar con tarjeta" && tiene "Paga tu plan con tarjeta" && tiene "value=\"todo\"" && tiene "value=\"todo_ia\""' "activo: aparecen los dos planes y el botón Pagar con tarjeta"
+ELEGIDO=$(sqlp "SELECT CASE WHEN modulos LIKE '%ia%' THEN 'todo_ia' ELSE 'todo' END FROM empresas WHERE id = $EMP")
+ok 'tiene "value=\"$ELEGIDO\" checked"' "viene marcado el plan que ya usa ($ELEGIDO)"
+ok 'tiene "\$15,00 al mes + IVA" && tiene "\$17,25 con IVA" && tiene "\$20,00 al mes + IVA" && tiene "\$23,00 con IVA"' "precios de hoy sin IVA y con IVA"
+ok 'tiene "suscripción mensual" && tiene "se cobra sola a tu tarjeta cada mes" && ! tiene "6 meses" && ! tiene "anual"' "dice claro que es suscripción mensual (sin 6 meses ni año)"
+ok 'tiene "modo de prueba" && tiene "no se cobra de verdad" && tiene "Cancelar mi plan"' "modo de prueba avisado; sigue el botón de cancelar"
+panel pruebas no
+get "/?r=cuenta"; ok '! tiene "modo de prueba"' "en producción no sale el aviso de prueba"
+panel pruebas si
+post "/?r=cuenta" --data-urlencode "accion=pagar_tarjeta" --data-urlencode "plan=oro"
+ok 'tiene "Elige un plan" && [ "$(enlog "\"accion\":\"crear\"")" = 0 ]' "plan que no existe: no se crea nada"
+# 3. Paga: va a la página de pago; el Panel recibe la suscripción mensual con el precio sin IVA
+post "/?r=cuenta" --data-urlencode "accion=pagar_tarjeta" --data-urlencode "plan=todo_ia"
+ok 'tiene "PAGINA DE PAGO SIMULADA"' "Pagar con tarjeta lleva a la página de pago"
+ok 'grep -q "\"accion\":\"crear\",\"tipo\":\"suscripcion\",\"cliente_id\":\"$EMP\",\"nombre\":\"Salón Bella\",\"plan\":\"todo_ia\",\"plan_nombre\":\"Todo incluido + IA\",\"periodo\":\"mensual\",\"meses\":1,\"subtotal\":20" "$PANEL_LOG"' "el Panel recibe: suscripción mensual, plan y valor sin IVA"
+ok 'grep -q "\"volver\":\"https://whatsapp.ejemplo.com/?r=cuenta\"" "$PANEL_LOG" && grep -q "\"correo\":\"bella@salon.com\"" "$PANEL_LOG" && grep -q "\"_email\":\"bella@salon.com\"" "$PANEL_LOG"' "con a dónde volver y quién paga"
+get "/?r=cuenta"
+ok 'tiene "Esperando el pago" && tiene "Terminar el pago" && tiene "/pagar/1" && tiene "Quitar este cobro" && ! tiene "Pagar con tarjeta"' "con un cobro esperando: se muestra y NO se ofrece crear otro"
+post "/?r=cuenta" --data-urlencode "accion=pagar_tarjeta" --data-urlencode "plan=todo"
+ok 'tiene "Ya tiene una suscripción con tarjeta"' "forzar otra suscripción: el Panel contesta que ya tiene una (409)"
+seguir "/?r=cuenta&plux=rechazado"; ok 'tiene "El pago no se completó" && ! tiene "Pago recibido"' "regreso sin completar el pago: aviso claro"
+post "/?r=cuenta" --data-urlencode "accion=cancelar_tarjeta" --data-urlencode "id=1"
+ok 'tiene "quedó cancelado" && tiene "Pagar con tarjeta" && ! tiene "Esperando el pago"' "quitar el cobro que no se pagó: vuelve el botón"
+post "/?r=cuenta" --data-urlencode "accion=cancelar_tarjeta" --data-urlencode "id=999"; ok 'tiene "no existe"' "no puede cancelar un cobro que no es suyo"
+# 4. Paga y Plux aprueba: el Panel avisa con registrar_pago y la cuenta queda con el plan pagado un mes más
+post "/?r=cuenta" --data-urlencode "accion=pagar_tarjeta" --data-urlencode "plan=todo_ia"; ok 'tiene "PAGINA DE PAGO SIMULADA"' "paga otra vez"
+panel aprobar
+registrarPago 11111111111111111111111111111111 todo_ia 20.0
+ESPERADO=$(sqlp "SELECT (date '$VENCE0' + interval '1 month')::date")
+ok '[ "$CODIGO" = 200 ] && grep -q "\"activo_hasta\":\"$ESPERADO\"" "$P" && grep -q "\"pago_id\":\"[0-9]*\"" "$P" && grep -q "\"monto\":20" "$P"' "registrar_pago del Panel: cuenta al día suma un mes a su vencimiento"
+ok '[ "$(sqlp "SELECT estado||plan||modulos||vence FROM empresas WHERE id = $EMP")" = "activatodo_iaia$ESPERADO" ]' "queda activa con el plan pagado (con IA) y la fecha nueva"
+ok '[ "$(sqlp "SELECT count(*)||metodo||monto FROM pagos_plan WHERE empresa_id = $EMP GROUP BY metodo, monto")" = "1plux20.00" ]' "el pago queda guardado"
+registrarPago 11111111111111111111111111111111 todo_ia 20.0
+ok 'grep -q "\"repetida\":true" "$P" && [ "$(sqlp "SELECT count(*) FROM pagos_plan WHERE empresa_id = $EMP")" = 1 ] && [ "$(sqlp "SELECT vence FROM empresas WHERE id = $EMP")" = "$ESPERADO" ]' "el mismo aviso dos veces no suma dos meses"
+seguir "/?r=cuenta&plux=aprobado"
+ok 'tiene "Pago recibido" && tiene "Tu plan: Todo incluido + IA" && tiene "se cobra sola a tu tarjeta cada mes" && tiene "pagada hasta el"' "regreso aprobado: aviso de recibido y la suscripción a la vista"
+ok '! tiene "Pagar con tarjeta" && tiene "Cancelar mi plan" && tiene "usa «Cancelar mi plan»"' "con suscripción viva no se ofrece otra; se mantiene Cancelar mi plan"
+# 5. Cancelar mi plan con suscripción: también se cancela la tarjeta en el Panel
+post "/?r=cuenta" --data-urlencode "accion=cancelar_plan" --data-urlencode "motivo=muy caro" --data-urlencode "confirmo=1"
+ok 'tiene "tu plan no se renovará" && tiene "Pediste cancelar"' "cancelar mi plan con tarjeta"
+ok 'grep -q "\"accion\":\"cancelar_plan\",\"cliente_id\":\"$EMP\",\"nombre\":\"Salón Bella\",\"hasta\":\"$ESPERADO\",\"motivo\":\"muy caro\"" "$PANEL_LOG" && grep -q "\"estado\":\"cancelada\"" "$PANEL_ESTADO"' "el Panel recibe la cancelación y cancela la suscripción (no se cobra el mes siguiente)"
+post "/?r=cuenta" --data-urlencode "accion=seguir_plan"
+ok 'tiene "Tu plan sigue como siempre" && tiene "Pagar con tarjeta" && grep -q "\"deshacer\":true" "$PANEL_LOG"' "se arrepiente: puede volver a pagar con tarjeta y el Panel lo sabe"
+# 6. Dentro de la app de Android (Google Play): ni pago con tarjeta ni precios
+GALLETAS="$(sed 's/^#HttpOnly_//' "$J" | awk '!/^#/ && NF >= 7 { printf "%s=%s; ", $6, $7 }')tuwa_app=play"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "Cookie: $GALLETAS" "$W/?r=cuenta")
+ok '[ "$CODIGO" = 200 ] && tiene "Tu plan: Todo incluido" && ! tiene "Pagar con tarjeta" && ! tiene "pago-tarjeta" && ! tiene "\$15" && ! tiene "\$20" && ! tiene "\$23"' "en la app de Android: sin pago con tarjeta y sin precios"
+CREAR0=$(enlog "\"accion\":\"crear\"")
+CODIGO=$(curl -s -L -o "$P" -w '%{http_code}' -H "Cookie: $GALLETAS" --data-urlencode "csrf=$(csrf)" --data-urlencode "accion=pagar_tarjeta" --data-urlencode "plan=todo" "$W/?r=cuenta")
+ok '! tiene "PAGINA DE PAGO" && tiene "no está disponible dentro de la app" && [ "$(enlog "\"accion\":\"crear\"")" = "$CREAR0" ]' "en la app de Android: tampoco forzando el formulario"
+# 7. Cuenta DEMO: elige plan, paga y queda como cliente activo
+panel limpiar
+sqlp "UPDATE empresas SET estado = 'demo', vence = current_date + 3, plan = 'todo_ia', modulos = 'ia' WHERE id = $EMP"
+get "/?r=cuenta"
+ok 'tiene "prueba gratis" && tiene "Sigue con tu cuenta: elige tu plan y paga con tarjeta" && tiene "Pagar con tarjeta" && tiene "value=\"todo_ia\" checked" && ! tiene "Cancelar mi plan"' "demo: puede elegir plan y pagar"
+post "/?r=cuenta" --data-urlencode "accion=pagar_tarjeta" --data-urlencode "plan=todo"; ok 'tiene "PAGINA DE PAGO SIMULADA" && grep -q "\"plan\":\"todo\",\"plan_nombre\":\"Todo incluido\",\"periodo\":\"mensual\",\"meses\":1,\"subtotal\":15" "$PANEL_LOG"' "demo: paga el plan Todo incluido"
+panel aprobar
+registrarPago 22222222222222222222222222222222 todo 15.0
+MES=$(sqlp "SELECT (current_date + interval '1 month')::date")
+ok '[ "$CODIGO" = 200 ] && grep -q "\"activo_hasta\":\"$MES\"" "$P" && grep -q "\"estado\":\"activo\"" "$P"' "registrar_pago en una demo: activa un mes desde el pago"
+ok '[ "$(sqlp "SELECT estado||plan||modulos||vence FROM empresas WHERE id = $EMP")" = "activatodo$MES" ]' "la demo pasa a cliente activo con el plan que pagó (sin IA)"
+seguir "/?r=cuenta&plux=aprobado"; ok 'tiene "Pago recibido" && tiene "Tu plan: Todo incluido" && tiene "Próxima renovación" && ! tiene "prueba gratis" && tiene "Cancelar mi plan"' "la demo que pagó ve su cuenta activa"
+# 8. Cuenta vencida (no entra): también puede pagar desde la pantalla de cuenta no disponible
+panel limpiar
+sqlp "UPDATE empresas SET vence = current_date - 2 WHERE id = $EMP"
+seguir "/?r=cuenta"; ok 'tiene "Cuenta no disponible" && tiene "Tu plan venció" && tiene "Pagar con tarjeta" && tiene "wa.me/593983662181"' "vencida: puede pagar con tarjeta (y sigue el WhatsApp de Tukán)"
+post "/?r=bloqueada" --data-urlencode "accion=pagar_tarjeta" --data-urlencode "plan=todo"; ok 'tiene "PAGINA DE PAGO SIMULADA"' "vencida: paga"
+seguir "/?r=cuenta&plux=aprobado"; ok 'tiene "Cuenta no disponible" && tiene "Pago recibido" && tiene "Terminar el pago"' "vuelve antes de que llegue el aviso del Panel: ve que se recibió"
+panel aprobar
+registrarPago 33333333333333333333333333333333 todo 15.0
+ok '[ "$CODIGO" = 200 ] && [ "$(sqlp "SELECT estado||vence FROM empresas WHERE id = $EMP")" = "activa$MES" ]' "registrar_pago en una vencida: activa un mes desde el pago"
+seguir "/?r=bloqueada&plux=aprobado"; ok 'tiene "Mi cuenta" && tiene "Pago recibido" && tiene "Próxima renovación"' "ya entra: llega a Mi cuenta con el aviso"
+panel modo apagado
+seguir "/?r=cuenta"; ok '! tiene "pago-tarjeta" && tiene "Cancelar mi plan"' "si Tukán lo apaga en el Panel, Mi cuenta vuelve a como siempre"
+sqlp "UPDATE empresas SET vence = current_date - 2 WHERE id = $EMP"
+seguir "/?r=cuenta"; ok 'tiene "Cuenta no disponible" && ! tiene "Pagar con tarjeta" && tiene "wa.me/593983662181"' "vencida con la tarjeta apagada: como siempre (escribir a Tukán)"
+# Dejar la cuenta como estaba para las pruebas que siguen
+panel limpiar
+sqlp "UPDATE empresas e SET estado = a.estado, vence = a.vence, plan = a.plan, modulos = a.modulos, max_numeros = a.max_numeros, max_usuarios = a.max_usuarios, ia_tope = a.ia_tope,
+      cancelar_en = a.cancelar_en, cancelar_pedido = a.cancelar_pedido, cancelar_motivo = a.cancelar_motivo FROM _emp_antes a WHERE e.id = a.id; DROP TABLE _emp_antes"
 J="$TUKAN_J"
 
 echo "== Permisos de lo nuevo"
