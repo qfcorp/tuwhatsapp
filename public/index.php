@@ -624,11 +624,22 @@ try {
                 }
                 aviso('Cambiado.');
             } elseif (str_starts_with((string) ($_POST['accion'] ?? ''), 'plan:')) {
-                $plan = \TuWhatsApp\Modulos::aplicarPlan(db(), (int) $e['id'], substr((string) $_POST['accion'], 5));
+                // (10 nov 2026) Con suscripción con tarjeta: no se baja durante el período pagado; si sube, el Panel ajusta y prorratea
+                $nuevoPlan = substr((string) $_POST['accion'], 5);
+                $rev = isset(\TuWhatsApp\Modulos::PLANES[$nuevoPlan])
+                    ? \TuWhatsApp\PagosCentral::revisarCambio($e, ['plan' => $nuevoPlan, 'modulos' => implode(',', \TuWhatsApp\Modulos::PLANES[$nuevoPlan][4])] + $e) : null;
+                $plan = \TuWhatsApp\Modulos::aplicarPlan(db(), (int) $e['id'], $nuevoPlan);
                 aviso('Plan ' . $plan[0] . ' aplicado: módulos, ' . $plan[2] . ' número(s) y ' . $plan[3] . ' usuarios como mínimo.');
+                if ($rev && ($av = \TuWhatsApp\PagosCentral::ajustarSuscripcion($e, $rev, usuario()))) {
+                    aviso($av[1], $av[0]);
+                }
             } elseif (($_POST['accion'] ?? '') === 'modulos') {
+                $rev = \TuWhatsApp\PagosCentral::revisarCambio($e, ['modulos' => implode(',', \TuWhatsApp\Modulos::limpiar((array) ($_POST['modulos'] ?? [])))] + $e);
                 \TuWhatsApp\Modulos::guardar(db(), (int) $e['id'], (array) ($_POST['modulos'] ?? []));
                 aviso('Módulos guardados.');
+                if ($av = \TuWhatsApp\PagosCentral::ajustarSuscripcion($e, $rev, usuario())) {
+                    aviso($av[1], $av[0]);
+                }
             } else {
                 Empresas::guardar(db(), (int) $e['id'], $_POST);
                 aviso('Datos del cliente guardados.');

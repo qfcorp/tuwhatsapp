@@ -388,3 +388,17 @@ php /var/www/tuwhatsapp/bin/crear_usuario.php
 - Los textos nuevos están solo en español (el botón 🌐 no los traduce todavía).
 - Un cliente con precio especial no existe en WhatsApp Tukán (los precios son fijos): si algún día se acuerda un precio distinto, hay que cobrarlo desde el Panel.
 - Probado con un Panel simulado, no contra el Panel ni Plux de verdad: hacer un pago de prueba en sandbox antes de anunciarlo.
+
+### Segunda parte (10 nov 2026, tarde): cambios de plan o extras con suscripción con tarjeta
+Decisión de Dimitry: la suscripción se ajusta sola cuando cambia; si sube, se prorratea; no puede bajar durante el plan.
+- El único lugar del programa donde cambian el plan o los extras es **Clientes de Tukán → ficha del cliente** (botones de plan y «Guardar extras»).
+  El cliente no cambia módulos solo (en Mi cuenta solo los ve). Los cambios hechos desde el Panel (cambiar_plan / cambiar_modulos) los ajusta el Panel.
+- `PagosCentral::revisarCambio()` antes de cambiar: si el valor mensual (plan + extras, `Modulos::detalle`) **baja** y el cliente tiene una suscripción
+  con tarjeta **pagada** (activa o en gracia), se rechaza: «Los módulos ya contratados no se pueden quitar mientras dure el período pagado (hasta el dd/mm/aaaa)».
+  Si el Panel no contesta, se usa el último pago con tarjeta guardado aquí (`pagos_plan`, método plux) para saber si el período sigue.
+- `PagosCentral::ajustarSuscripcion()` después: si el valor cambió y tiene suscripción pagada, manda `cambiar` al Panel con el valor mensual nuevo
+  sin IVA. Aviso: «La suscripción con tarjeta queda en $X + IVA desde el próximo cobro. Por los días que faltan se cobra aparte $Y: enlace».
+  El cliente ve ese cobro proporcional en Mi cuenta («Terminar el pago»). Si el valor no cambia, no se manda nada. Panel caído: el cambio se hace
+  y se avisa «se ajustará cuando el Panel responda» (sin reintento automático: revisarlo en el Panel). Primera cuota sin pagar: no se manda.
+- Panel simulado con `cambiar` como el real (sube con prorrateo, 409 no_baja, igual, 409 sin_pagar).
+- Pruebas: idiomas 43, lógica 778, TuFactura 29, Panel Central v2 230, pantallas 451, app de Android 44. Todo bien.

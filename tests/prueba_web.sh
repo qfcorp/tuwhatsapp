@@ -989,6 +989,46 @@ panel modo apagado
 seguir "/?r=cuenta"; ok '! tiene "pago-tarjeta" && tiene "Cancelar mi plan"' "si Tukán lo apaga en el Panel, Mi cuenta vuelve a como siempre"
 sqlp "UPDATE empresas SET vence = current_date - 2 WHERE id = $EMP"
 seguir "/?r=cuenta"; ok 'tiene "Cuenta no disponible" && ! tiene "Pagar con tarjeta" && tiene "wa.me/593983662181"' "vencida con la tarjeta apagada: como siempre (escribir a Tukán)"
+echo "== Cambiar plan o extras con suscripción con tarjeta (Clientes de Tukán → ficha; el Panel prorratea si sube)"
+BELLA_J2="$J"
+panel modo activo; panel limpiar
+sqlp "UPDATE empresas SET estado = 'activa', vence = current_date + 20, plan = 'todo', modulos = '' WHERE id = $EMP"
+get "/?r=cuenta"; post "/?r=cuenta" --data-urlencode "accion=pagar_tarjeta" --data-urlencode "plan=todo"; ok 'tiene "PAGINA DE PAGO SIMULADA"' "el cliente se suscribe con tarjeta (Todo incluido)"
+panel aprobar
+registrarPago 44444444444444444444444444444444 todo 15.0; ok '[ "$CODIGO" = 200 ]' "el Panel registra el pago"
+cambios() { enlog "\"accion\":\"cambiar\""; }
+# Panel caído: subir se hace igual con aviso; bajar se frena con el último pago con tarjeta guardado aquí
+J="$TUKAN_J"
+panel modo caido
+get "/?r=cliente&id=$EMP"; post "/?r=cliente&id=$EMP" --data-urlencode "accion=plan:todo_ia"
+ok 'tiene "Plan Todo incluido + IA aplicado" && tiene "se ajustará cuando el Panel responda" && [ "$(sqlp "SELECT plan FROM empresas WHERE id = $EMP")" = todo_ia ]' "Panel caído: el cambio se hace igual y avisa que se ajustará"
+post "/?r=cliente&id=$EMP" --data-urlencode "accion=plan:todo"
+ok 'tiene "no se pueden quitar mientras dure el período pagado" && [ "$(sqlp "SELECT plan FROM empresas WHERE id = $EMP")" = todo_ia ]' "Panel caído: no deja bajar de plan durante el período pagado"
+# Panel activo: sube encendiendo la IA → cambiar con el valor nuevo y prorrateo aparte
+panel modo activo
+sqlp "UPDATE empresas SET plan = 'todo', modulos = '' WHERE id = $EMP"
+C0=$(cambios)
+get "/?r=cliente&id=$EMP"; post "/?r=cliente&id=$EMP" --data-urlencode "accion=modulos" --data-urlencode "modulos[]=ia"
+ok 'tiene "Módulos guardados" && tiene "queda en \$20,00 + IVA (\$23,00) desde el próximo cobro" && tiene "se cobra aparte" && tiene "/pagar/"' "sube: aviso con el valor nuevo y el prorrateo con su enlace"
+ok '[ "$(cambios)" = $((C0+1)) ] && grep -q "\"accion\":\"cambiar\",\"cliente_id\":\"$EMP\",\"id\":[0-9]*,\"subtotal\":20" "$PANEL_LOG"' "el Panel recibe «cambiar» con el valor mensual nuevo sin IVA"
+ok '[ "$(sqlp "SELECT modulos FROM empresas WHERE id = $EMP")" = ia ] && grep -q "\"subtotal\":20" "$PANEL_ESTADO"' "la IA queda encendida y la suscripción en el valor nuevo"
+J="$BELLA_J2"
+get "/?r=cuenta"; ok 'tiene "Proporcional módulos" && tiene "Terminar el pago" && ! tiene "Pagar con tarjeta"' "el cliente ve el cobro proporcional en Mi cuenta"
+# Baja: apagar la IA o bajar de plan no se permite durante el período pagado
+J="$TUKAN_J"
+C0=$(cambios)
+get "/?r=cliente&id=$EMP"; post "/?r=cliente&id=$EMP" --data-urlencode "accion=modulos"
+ok 'tiene "Los módulos ya contratados no se pueden quitar mientras dure el período pagado (hasta el" && [ "$(sqlp "SELECT modulos FROM empresas WHERE id = $EMP")" = ia ]' "apagar la IA: no se permite y la IA sigue encendida"
+post "/?r=cliente&id=$EMP" --data-urlencode "accion=plan:todo"
+ok 'tiene "no se pueden quitar" && [ "$(sqlp "SELECT plan||modulos FROM empresas WHERE id = $EMP")" = todoia ] && [ "$(cambios)" = "$C0" ]' "bajar de plan: no se permite (ni se le pide al Panel)"
+# Igual: pasar a «Todo incluido + IA» teniendo la IA encendida no cambia el valor → no se manda nada
+post "/?r=cliente&id=$EMP" --data-urlencode "accion=plan:todo_ia"
+ok 'tiene "Plan Todo incluido + IA aplicado" && ! tiene "desde el próximo cobro" && [ "$(cambios)" = "$C0" ]' "mismo valor: se cambia sin avisar al Panel"
+# Sin suscripción con tarjeta: los cambios son como siempre
+panel limpiar
+post "/?r=cliente&id=$EMP" --data-urlencode "accion=modulos"
+ok 'tiene "Módulos guardados" && ! tiene "no se pueden quitar" && [ "$(sqlp "SELECT modulos FROM empresas WHERE id = $EMP")" = "" ] && [ "$(cambios)" = "$C0" ]' "sin suscripción: se puede apagar la IA como siempre"
+J="$BELLA_J2"
 # Dejar la cuenta como estaba para las pruebas que siguen
 panel limpiar
 sqlp "UPDATE empresas e SET estado = a.estado, vence = a.vence, plan = a.plan, modulos = a.modulos, max_numeros = a.max_numeros, max_usuarios = a.max_usuarios, ia_tope = a.ia_tope,

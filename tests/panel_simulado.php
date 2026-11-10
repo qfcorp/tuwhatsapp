@@ -4,7 +4,9 @@ declare(strict_types=1);
 /**
  * PANEL TUKÁN CENTRAL SIMULADO para las pruebas de «pagar el plan solo con tarjeta» (src/PagosCentral.php).
  * Hace de /plux_api.php del Panel: revisa el token v2 «plux» (firma, programa y hash del cuerpo) y contesta como
- * PagosPlux::atenderPrograma() del Panel de verdad: estado, crear, cancelar y cancelar_plan. Nunca llama a Plux ni cobra.
+ * PagosPlux::atenderPrograma() del Panel de verdad: estado, crear, cancelar, cambiar y cancelar_plan. Nunca llama a Plux ni cobra.
+ * «cambiar» (10 nov 2026) como el real: sube → próximos cobros con el valor nuevo + prorrateo aparte de lo que falta del período
+ * pagado; baja → 409 no_baja; igual → cambio false; primera cuota sin pagar → 409 sin_pagar.
  *
  * Servidor:  PANEL_ESTADO=archivo.json PANEL_LOG=archivo PANEL_SECRETO=... PANEL_BASE=http://127.0.0.1:8095 php -S 127.0.0.1:8095 tests/panel_simulado.php
  * Desde las pruebas (cambia el archivo de estado):
@@ -134,6 +136,57 @@ if ($accion === 'cancelar') {
     }
     unset($c);
     $responder(404, ['ok' => false, 'codigo' => 'no_encontrado', 'error' => 'Esa suscripción no existe.']);
+    return;
+}
+if ($accion === 'cambiar') {
+    $i = null;
+    foreach ($e['cobros'] as $k => $c) {
+        if ($c['cliente_id'] === $cid && $c['tipo'] === 'suscripcion' && ((int) ($b['id'] ?? 0) > 0 ? $c['id'] === (int) $b['id'] : $viva($c))) {
+            $i = $k;
+        }
+    }
+    if ($i === null) {
+        $responder(404, ['ok' => false, 'codigo' => 'no_encontrado', 'error' => 'Esa suscripción no existe.']);
+        return;
+    }
+    $f = $e['cobros'][$i];
+    $nuevo = round((float) ($b['subtotal'] ?? 0), 2);
+    $antes = round((float) $f['subtotal'], 2);
+    if (in_array($f['estado'], ['pendiente', 'rechazado'], true)) {
+        $responder(409, ['ok' => false, 'codigo' => 'sin_pagar', 'error' => 'Todavía no pagó la primera cuota: cancele ese pago y vuelva a pagar con el valor nuevo.', 'cobro' => $publico($f)]);
+        return;
+    }
+    if (abs($nuevo - $antes) < 0.01) {
+        $responder(200, ['ok' => true, 'cambio' => false, 'cobro' => $publico($f)]);
+        return;
+    }
+    $hasta = (string) ($f['pagado_hasta'] ?? '');
+    if ($nuevo < $antes) {
+        $responder(409, ['ok' => false, 'codigo' => 'no_baja', 'cobro' => $publico($f), 'error' => 'Los módulos ya contratados no se pueden quitar mientras dure el período pagado'
+            . ($hasta !== '' ? ' (hasta el ' . date('d/m/Y', strtotime($hasta)) . ')' : '') . '.']);
+        return;
+    }
+    $e['cobros'][$i]['subtotal'] = $nuevo;
+    $e['cobros'][$i]['total'] = round($nuevo * 1.15, 2);
+    $prop = null;
+    if ($hasta !== '' && date('Y-m-d') < $hasta) {
+        $fin = strtotime($hasta);
+        $ini = strtotime($hasta . ' -' . max(1, (int) $f['meses']) . ' months');
+        $sub = round(($nuevo - $antes) * max(0.0, min(1.0, ($fin - strtotime(date('Y-m-d'))) / max(1, $fin - $ini))), 2);
+        if ($sub >= 1.0) {
+            $id = (int) $e['sig'];
+            $e['sig'] = $id + 1;
+            $prop = ['id' => $id, 'cliente_id' => $cid, 'tipo' => 'cobro', 'estado' => 'pendiente', 'estado_texto' => 'Esperando el pago',
+                     'descripcion' => 'Proporcional módulos del ' . date('d/m') . ' al ' . date('d/m/Y', $fin), 'plan' => $f['plan'], 'periodo' => null, 'meses' => 1,
+                     'subtotal' => $sub, 'total' => round($sub * 1.15, 2), 'url_pago' => rtrim((string) getenv('PANEL_BASE'), '/') . '/pagar/' . $id,
+                     'cobra_sola' => false, 'pagado_hasta' => null, 'cuotas' => 0, 'pruebas' => (bool) $e['pruebas'], 'creado' => date('c'),
+                     'cancelar_hasta' => null, 'cancelacion_programada' => null];
+            $e['cobros'][] = $prop;
+        }
+    }
+    $guardar($e);
+    $responder(200, ['ok' => true, 'cambio' => true, 'cambiado_en_plux' => true, 'mensaje' => 'Suscripción cambiada.',
+                     'proporcional' => $prop ? $publico($prop) : null, 'cobro' => $publico($e['cobros'][$i])]);
     return;
 }
 if ($accion !== 'crear') {

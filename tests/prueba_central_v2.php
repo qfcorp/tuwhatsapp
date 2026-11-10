@@ -545,6 +545,28 @@ ok(str_contains($falla(fn () => PagosCentral::cancelarPlan($eDemoPc, null, '', $
 $contesta = [200, ['ok' => true, 'programada' => false, 'cobro' => ['id' => 9, 'estado' => 'cancelada']]];
 ok(PagosCentral::cancelar($eDemoPc, 9, $yo)['estado'] === 'cancelada' && end($pedidos)['json'] === ['accion' => 'cancelar', 'cliente_id' => (string) $eDemo, 'id' => 9], 'quitar un cobro pendiente');
 ok(PagosCentral::avisoVuelta('') === null && PagosCentral::avisoVuelta('aprobado')[0] === 'ok' && str_contains(PagosCentral::avisoVuelta('rechazado')[1], 'no se completó'), 'avisos al volver de la página de pago');
+// Cambio de plan o extras dentro del programa con suscripción con tarjeta (revisarCambio / ajustarSuscripcion)
+$conIa = ['modulos' => 'ia'] + $eDemoPc;
+$sinIa = ['modulos' => '', 'plan' => 'todo'] + $eDemoPc;
+$susPagada = ['id' => 9, 'tipo' => 'suscripcion', 'estado' => 'activa', 'pagado_hasta' => $d('+20 days'), 'total' => 17.25];
+$contesta = [200, ['ok' => true, 'activo' => true, 'iva' => 15.0, 'cobros' => [$susPagada]]];
+PagosCentral::olvidar();
+ok(str_contains($falla(fn () => PagosCentral::revisarCambio($conIa, $sinIa)), 'hasta el ' . $hoy->modify('+20 days')->format('d/m/Y')), 'baja con suscripción pagada: no se permite y dice hasta cuándo');
+$rev = PagosCentral::revisarCambio($sinIa, $conIa);
+ok($rev['antes'] === 15.0 && $rev['nuevo'] === 20.0 && $rev['suscripcion']['id'] === 9, 'sube: se permite y sabe qué suscripción ajustar');
+$contesta = [409, ['ok' => false, 'codigo' => 'no_baja', 'error' => 'Los módulos ya contratados no se pueden quitar.']];
+ok(PagosCentral::ajustarSuscripcion($sinIa, $rev, $yo) === ['error', 'Los módulos ya contratados no se pueden quitar.'], 'si el Panel contesta 409, se muestra su texto');
+$contesta = [200, ['ok' => true, 'cambio' => false]];
+ok(PagosCentral::ajustarSuscripcion($sinIa, $rev, $yo) === null, 'el Panel dice que no cambió: nada que avisar');
+$contesta = [0, ''];
+ok(PagosCentral::ajustarSuscripcion($sinIa, $rev, $yo)[0] === 'info', 'Panel caído al ajustar: aviso de que se ajustará después');
+$contesta = [200, ['ok' => true, 'activo' => true, 'cobros' => [['estado' => 'pendiente'] + $susPagada]]];
+PagosCentral::olvidar();
+$n0 = count($pedidos);
+$rev = PagosCentral::revisarCambio($conIa, $sinIa);
+ok($rev['suscripcion'] === null && PagosCentral::ajustarSuscripcion($conIa, $rev, $yo) === null && count($pedidos) === $n0 + 1, 'primera cuota sin pagar: se puede bajar y no se manda «cambiar»');
+$n0 = count($pedidos);
+ok(PagosCentral::revisarCambio($conIa, ['plan' => 'todo_ia'] + $conIa)['nuevo'] === PagosCentral::revisarCambio($conIa, $conIa)['antes'] && count($pedidos) === $n0, 'si el valor no cambia: ni se pregunta al Panel');
 PagosCentral::$transporte = null;
 PagosCentral::olvidar();
 putenv('TUKAN_CENTRAL_URL=');

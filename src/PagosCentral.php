@@ -217,4 +217,91 @@ final class PagosCentral
             ? ['ok', '¡Pago recibido! Tu plan se activa en unos segundos (recarga la página). La factura te llega al correo.']
             : ['info', 'El pago no se completó. Puedes intentarlo otra vez con otra tarjeta.'];
     }
+
+    // ------------------------------------------------------------------
+    // (10 nov 2026, Dimitry) Cambio de plan o de extras hecho DENTRO del programa (Clientes de Tukán → ficha del cliente)
+    // con una suscripción con tarjeta viva: si sube, se avisa al Panel («cambiar») y él cobra aparte el prorrateo; si baja, NO
+    // se permite mientras dure el período pagado (no hay cómo quitar lo ya contratado). Los cambios hechos desde el Panel los
+    // ajusta el Panel solo.
+    // ------------------------------------------------------------------
+
+    /** Estados de una suscripción ya pagada (con período en curso). */
+    public const PAGADA = ['activa', 'en_gracia'];
+
+    /**
+     * Revisa un cambio antes de hacerlo. $despues = la empresa como quedaría (mismo arreglo con plan / modulos nuevos).
+     * Lanza el error para mostrarlo si baja el valor durante el período pagado. Devuelve lo que necesita ajustarSuscripcion().
+     * @return array{antes:float, nuevo:float, suscripcion:?array, panel:bool}
+     */
+    public static function revisarCambio(array $empresa, array $despues, ?\DateTimeImmutable $hoy = null): array
+    {
+        $antes = Modulos::detalle($empresa)['mensual'];
+        $nuevo = Modulos::detalle($despues)['mensual'];
+        $r = ['antes' => $antes, 'nuevo' => $nuevo, 'suscripcion' => null, 'panel' => true];
+        if (abs($nuevo - $antes) < 0.01 || (int) $empresa['id'] === Empresas::TUKAN) {
+            return $r;   // no mueve el valor: nada que revisar ni que avisar
+        }
+        $estado = self::estado($empresa);
+        $r['panel'] = $estado !== null;
+        $sus = self::suscripcion($empresa);
+        $pagada = $sus !== null && in_array($sus['estado'] ?? '', self::PAGADA, true);
+        $r['suscripcion'] = $pagada ? $sus : null;
+        $hasta = $pagada ? substr((string) ($sus['pagado_hasta'] ?? ''), 0, 10) : '';
+        if ($estado === null) {
+            // El Panel no contesta: el último pago con tarjeta guardado aquí dice si el período pagado sigue en curso
+            $st = db()->prepare("SELECT max(hasta) FROM pagos_plan WHERE empresa_id = ? AND metodo = 'plux'");
+            $st->execute([(int) $empresa['id']]);
+            $h = (string) $st->fetchColumn();
+            if ($h !== '' && $h >= ($hoy ?? new \DateTimeImmutable('today'))->format('Y-m-d')) {
+                $pagada = true;
+                $hasta = $h;
+            }
+        }
+        if ($pagada && $nuevo < $antes) {
+            $hasta = $hasta !== '' ? $hasta : (string) ($empresa['vence'] ?? '');
+            throw new RuntimeException('Los módulos ya contratados no se pueden quitar mientras dure el período pagado'
+                . ($hasta !== '' ? ' (hasta el ' . (new \DateTimeImmutable($hasta))->format('d/m/Y') . ')' : '')
+                . '. Tampoco se puede bajar de plan. Encender o subir sí se puede.');
+        }
+        return $r;
+    }
+
+    /**
+     * Después de hacer el cambio: si tiene suscripción con tarjeta pagada y el valor cambió, le pide al Panel el valor nuevo.
+     * Devuelve [tipo de aviso, texto] para mostrar, o null si no hay nada que decir.
+     */
+    public static function ajustarSuscripcion(array $empresa, array $revision, array $yo): ?array
+    {
+        if (abs($revision['nuevo'] - $revision['antes']) < 0.01) {
+            return null;
+        }
+        if (!$revision['panel']) {
+            return ['info', 'El Panel Tukán Central no contestó: si este cliente paga con tarjeta, su suscripción se ajustará cuando el Panel responda (revísalo en el Panel).'];
+        }
+        if ($revision['suscripcion'] === null) {
+            return null;   // no paga con tarjeta (o todavía no pagó la primera cuota)
+        }
+        $iva = (float) (self::estado($empresa)['iva'] ?? 15);
+        [$http, $j] = self::llamar('cambiar', ['cliente_id' => (string) $empresa['id'], 'id' => (int) ($revision['suscripcion']['id'] ?? 0),
+                                               'subtotal' => round($revision['nuevo'], 2)], $yo, 30);
+        self::olvidar();
+        if ($http === 0 || $j === null || $http >= 500) {
+            return ['info', 'Cambio hecho. El Panel Tukán Central no contestó: la suscripción con tarjeta se ajustará cuando el Panel responda (revísalo en el Panel).'];
+        }
+        if (empty($j['ok'])) {
+            return ['error', (string) ($j['error'] ?? 'El Panel no aceptó el valor nuevo de la suscripción.')];
+        }
+        if (empty($j['cambio'])) {
+            return null;
+        }
+        $total = is_numeric($j['cobro']['total'] ?? null) ? (float) $j['cobro']['total'] : round($revision['nuevo'] * (1 + $iva / 100), 2);
+        $txt = 'La suscripción con tarjeta queda en ' . dinero($revision['nuevo']) . ' + IVA (' . dinero($total) . ') desde el próximo cobro.';
+        $p = is_array($j['proporcional'] ?? null) ? $j['proporcional'] : null;
+        if ($p) {
+            $txt .= ' Por los días que faltan del período pagado se cobra aparte ' . dinero((float) ($p['total'] ?? 0)) . ' con IVA'
+                . (is_string($p['url_pago'] ?? null) && preg_match('#^https?://#', $p['url_pago']) ? ': ' . $p['url_pago'] : '')
+                . ' (el cliente lo ve en Mi cuenta y le llega por correo).';
+        }
+        return ['ok', $txt];
+    }
 }
