@@ -353,6 +353,7 @@ final class Plux
         } catch (RuntimeException $e) {
             $db->prepare("UPDATE pedidos SET estado = 'pagado', pagado_en = now(), actualizado = now(), notas = trim(notas || ' ' || ?) WHERE id = ?")
                ->execute(['[Pagado con Plux, revisar: ' . $e->getMessage() . ']', (int) $pedido['id']]);
+            FacturaTukan::alCobrar($db, (int) $linea['id'], (int) $pedido['id']);   // TuFactura: factura sola si se eligió «automático»
         }
         $pedido = Pedidos::buscar($db, (int) $linea['id'], (int) $pedido['id']) ?? $pedido;
         $total = '$' . number_format((float) $pedido['total'], 2, ',', '.');

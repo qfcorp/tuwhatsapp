@@ -37,6 +37,9 @@ php -d display_errors=1 -d error_reporting=-1 tests/prueba_idiomas.php || exit 1
 echo "######## Lógica"
 php -d display_errors=1 -d error_reporting=-1 tests/prueba_logica.php || exit 1
 
+echo "######## Factura electrónica con TuFactura (simulado)"
+php -d display_errors=1 -d error_reporting=-1 tests/prueba_tufactura.php || exit 1
+
 echo "######## Panel Tukán Central v2"
 dropdb "$DB" && createdb "$DB" && psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null || exit 1
 php -d display_errors=1 -d error_reporting=-1 tests/prueba_central_v2.php || exit 1

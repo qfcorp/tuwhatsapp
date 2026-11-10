@@ -16,7 +16,7 @@ $rutas = ['login', 'salir', 'inicio', 'bandeja', 'chat', 'nuevo_chat', 'pendient
           'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan', 'campanias', 'respuestas', 'aceptar', 'mas', 'archivo',
           'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones',
           'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda', 'app', 'push',
-          'llamada', 'llamar', 'llamadas', 'asistente'];
+          'llamada', 'llamar', 'llamadas', 'asistente', 'tufactura'];
 $ruta = (string) ($_GET['r'] ?? 'inicio');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
@@ -57,7 +57,7 @@ if (usuario()) {
     // Cuenta de muestra del revisor de Google (deploy/demo_google.php): se puede mirar todo, pero no conectar números, cambiar la
     // contraseña o el equipo, ni poner claves de cobro o avisos a otros sistemas. Los envíos a Meta los frena src/Meta.php.
     if ($post && !es_super() && cuenta_muestra($empresaHoy)
-        && in_array($ruta, ['conectar_qr', 'linea', 'lineas', 'cuenta', 'integraciones', 'tienda', 'cobros'], true)) {
+        && in_array($ruta, ['conectar_qr', 'linea', 'lineas', 'cuenta', 'integraciones', 'tienda', 'cobros', 'tufactura'], true)) {
         if ($ruta === 'conectar_qr') {
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['ok' => false, 'error' => 'Cuenta de demostración: aquí no se conectan números.'], JSON_UNESCAPED_UNICODE);
@@ -123,7 +123,7 @@ $linea = usuario() ? linea_actual() : null;
 if ($linea === null && in_array($ruta, ['inicio', 'bandeja', 'chat', 'nuevo_chat', 'pendientes', 'contactos', 'reglas', 'gasto', 'plantilla', 'nuevos', 'plantillas', 'campanias', 'respuestas',
                                     'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones',
                                     'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda',
-                                    'llamada', 'llamar', 'llamadas', 'asistente'], true)) {
+                                    'llamada', 'llamar', 'llamadas', 'asistente', 'tufactura'], true)) {
     if (!es_admin()) {
         aviso('El administrador de tu cuenta todavía no conecta el número de WhatsApp.', 'info');
         redirigir('cuenta');
@@ -980,6 +980,42 @@ try {
         }
         vista('pedido', 'Pedido #' . $p['numero'], ['linea' => $linea, 'p' => $p, 'items' => \TuWhatsApp\Pedidos::items(db(), $pid),
             'productos' => \TuWhatsApp\Catalogo::lista(db(), $lid, true, '', 300), 'ventana' => $cont ? Gasto::ventanaAbierta($cont, new DateTimeImmutable()) : false]);
+
+    case 'tufactura':   // Factura electrónica con TuFactura (extra «facturacion», apagado de fábrica)
+        $tfActivo = \TuWhatsApp\FacturaTukan::activo(db(), $lid);
+        $tf = \TuWhatsApp\FacturaTukan::enlace(db());
+        if ($tfActivo && isset($_GET['pdf'])) {
+            try {
+                $pdf = $tf->pdf($lid, (int) $_GET['pdf']);
+                $d = $tf->documento($lid, (int) $_GET['pdf']);
+                header('Content-Type: application/pdf');
+                header('Content-Disposition: inline; filename="factura-' . preg_replace('/[^0-9-]/', '', (string) $d['numero']) . '.pdf"');
+                header('Cache-Control: no-store');
+                echo $pdf;
+                exit;
+            } catch (RuntimeException $ex) {
+                aviso($ex->getMessage(), 'error');
+                redirigir('tufactura');
+            }
+        }
+        if ($post && $tfActivo) {
+            $acc = (string) ($_POST['tf_accion'] ?? '');
+            if (!es_admin() && in_array($acc, ['conectar', 'opciones', 'desconectar'], true)) {
+                aviso('Solo el administrador de la cuenta conecta TuFactura.', 'error');
+            } elseif ($r = $tf->atender($lid, $_POST, fn(string $id) => \TuWhatsApp\FacturaTukan::datos(db(), $lid, $id), \TuWhatsApp\FacturaTukan::ORIGEN)) {
+                aviso($r[1], $r[0]);
+            }
+            if (ctype_digit((string) ($_GET['volver'] ?? ''))) {
+                redirigir('pedido', ['id' => (int) $_GET['volver']]);
+            }
+            redirigir('tufactura');
+        }
+        vista('tufactura', 'Factura electrónica', ['linea' => $linea, 'html' => $tfActivo
+            ? $tf->pantalla($lid, ['modulo' => true, 'csrf' => csrf_campo(), 'accion' => url('tufactura'), 'es_admin' => es_admin(), 'sin_compras' => en_app_android(),
+                'pdf' => fn(int $id) => url('tufactura', ['pdf' => $id]), 'cobros' => \TuWhatsApp\FacturaTukan::cobros(db(), $lid), 'origen' => \TuWhatsApp\FacturaTukan::ORIGEN,
+                'programa' => \TuWhatsApp\FacturaTukan::PROGRAMA])
+            : $tf->pantalla($lid, ['modulo' => false, 'programa' => \TuWhatsApp\FacturaTukan::PROGRAMA, 'sin_compras' => en_app_android(),
+                'pedir' => en_app_android() ? null : 'https://wa.me/593983662181?text=' . rawurlencode('Hola, quiero facturar con TuFactura desde WhatsApp Tukán.')])]);
 
     case 'flujos':
         if ($post) {

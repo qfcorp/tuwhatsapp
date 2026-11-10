@@ -79,6 +79,10 @@ $siguientes = ['carrito' => ['pendiente' => 'Confirmar (pendiente de pago)', 'pa
         <?php foreach ($siguientes as $k => $n): ?><button class="boton <?= $k === 'carrito' ? 'boton-claro' : '' ?>" name="estado" value="<?= e($k) ?>"><?= e($n) ?></button><?php endforeach; ?>
         <?php if (!in_array($p['estado'], ['entregado', 'cancelado'], true)): ?><button class="boton boton-peligro" name="estado" value="cancelado" onclick="return confirm('¿Cancelar el pedido? Si ya se descontó el stock, se devuelve.')">Cancelar pedido</button><?php endif; ?>
     </form>
+    <?php if (in_array($p['estado'], \TuWhatsApp\FacturaTukan::PAGADOS, true)): /* Factura electrónica con TuFactura (extra facturacion) */ ?>
+    <?= \TuWhatsApp\FacturaTukan::enlace(db())->cajita((int) $p['linea_id'], \TuWhatsApp\FacturaTukan::activo(db(), (int) $p['linea_id']), \TuWhatsApp\FacturaTukan::ORIGEN, (string) $p['id'],
+        ['csrf' => csrf_campo(), 'accion' => url('tufactura', ['volver' => $p['id']]), 'pantalla' => url('tufactura'), 'pdf' => fn(int $id) => url('tufactura', ['pdf' => $id])]) ?>
+    <?php endif; ?>
     <p class="suave pequeno">Al confirmar se descuenta el stock; al cancelar se devuelve.<?= $p['pagado_en'] ? ' Pagado el ' . e((new DateTimeImmutable($p['pagado_en']))->format('d/m/Y H:i')) . '.' : '' ?></p>
 </section>
 <?php endif; ?>
