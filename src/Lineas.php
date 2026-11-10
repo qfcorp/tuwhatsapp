@@ -23,6 +23,20 @@ final class Lineas
         return $st->fetchAll();
     }
 
+    /**
+     * Quita un número de WhatsApp Tukán con todo lo suyo (chats, contactos, reglas, catálogo…).
+     * No toca nada en Meta: el número sigue existiendo allá. Devuelve el nombre que tenía.
+     */
+    public static function borrar(PDO $db, int $id, int $empresaId): string
+    {
+        $l = self::buscar($db, $id, $empresaId);
+        if (!$l) {
+            throw new \RuntimeException('Ese número no existe en tu cuenta.');
+        }
+        $db->prepare('DELETE FROM lineas WHERE id = ? AND empresa_id = ?')->execute([$id, $empresaId]);
+        return (string) $l['nombre'];
+    }
+
     /** Un número; con $empresaId solo si es de esa empresa (lo que usa el panel). */
     public static function buscar(PDO $db, int $id, ?int $empresaId = null): ?array
     {

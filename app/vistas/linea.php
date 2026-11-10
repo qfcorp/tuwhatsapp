@@ -88,6 +88,17 @@ Cópialo y guárdalo fuera de este programa (por ejemplo, en tus notas). Solo se
     <form method="post"><?= csrf_campo() ?><button class="boton" name="accion" value="registrar_api">Registrar en la API</button></form>
 </details>
 <?php endif; ?>
+<?php if ($editar && es_admin()): ?>
+<details class="tarjeta plegable">
+    <summary><b>Quitar este número de WhatsApp Tukán</b></summary>
+    <p class="suave">Se borran aquí sus chats, contactos, reglas, catálogo y reportes. <b>No se puede deshacer.</b>
+    En Meta el número sigue existiendo: si también quieres borrarlo allá, hazlo en WhatsApp Manager.</p>
+    <form method="post" class="formulario"><?= csrf_campo() ?>
+        <label class="check"><input type="checkbox" name="confirmo" value="1" required> Sí, quiero quitar "<?= e($editar['nombre']) ?>"</label>
+        <button class="boton boton-peligro" name="accion" value="borrar_linea">Quitar este número</button>
+    </form>
+</details>
+<?php endif; ?>
 
 <section class="tarjeta">
     <h2>Datos para pegar en Meta (Webhook)</h2>

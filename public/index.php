@@ -1300,6 +1300,16 @@ try {
         if ($post) {
             if (($_POST['accion'] ?? '') === 'probar' && $editar) {
                 $prueba = Meta::deLinea($editar)->probar();
+            } elseif (($_POST['accion'] ?? '') === 'borrar_linea' && $editar && es_admin()) {
+                if (empty($_POST['confirmo'])) {
+                    throw new RuntimeException('Marca la casilla para confirmar que quieres quitar este número.');
+                }
+                $nombre = Lineas::borrar(db(), (int) $editar['id'], (int) empresa_actual()['id']);
+                if ((int) ($_SESSION['linea_id'] ?? 0) === (int) $editar['id']) {
+                    unset($_SESSION['linea_id']);
+                }
+                aviso('Número "' . $nombre . '" quitado de WhatsApp Tukán. En Meta sigue existiendo.');
+                redirigir('lineas');
             } elseif (($_POST['accion'] ?? '') === 'registrar_api' && $editar && es_admin()) {
                 $r = Registro::registrarManual(db(), $editar);
                 if ($r['ok']) {

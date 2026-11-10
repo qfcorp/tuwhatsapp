@@ -40,6 +40,13 @@ post "/?r=linea&id=$LID100" --data-urlencode "accion=registrar_api"
 ok 'tiene "Número registrado en la API" && grep -qE "^[0-9]{6}$" <(grep -o "letter-spacing:2px\">[0-9]*" "$P" | grep -o "[0-9]*$")' "registra el número con un PIN de 6 dígitos y lo muestra una vez"
 ok 'grep -q "100.\{1,2\}register" "$SIM_LOG"' "Meta recibió el registro del número"
 get "/?r=lineas";   ok 'tiene "Tukán ventas" && tiene "098 366 2181"' "lista de números"
+LIDX=$(psql -tA -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}" -c "INSERT INTO lineas (empresa_id, nombre, phone_number_id) SELECT empresa_id, 'Número de prueba viejo', '999' FROM lineas WHERE id = $LID100 RETURNING id" | head -1)
+get "/?r=linea&id=$LIDX"; ok 'tiene "Quitar este número de WhatsApp Tukán"' "opción para quitar un número"
+post "/?r=linea&id=$LIDX" --data-urlencode "accion=borrar_linea"
+ok 'tiene "Marca la casilla"' "no quita el número sin confirmar"
+post "/?r=linea&id=$LIDX" --data-urlencode "accion=borrar_linea" --data-urlencode "confirmo=1"
+ok 'tiene "quitado de WhatsApp Tukán" && ! tiene "Número de prueba viejo</b>" && tiene "Tukán ventas"' "quita el número y deja los demás"
+ok '[ "$(psql -tA -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}" -c "SELECT count(*) FROM lineas WHERE id = $LIDX")" = 0 ]' "el número ya no está en la base"
 
 echo "== Webhook"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/webhook.php?hub.mode=subscribe&hub.verify_token=verifica123&hub.challenge=987654")
