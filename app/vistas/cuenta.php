@@ -35,7 +35,7 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
         <ul class="incluye">
             <?php foreach (\TuWhatsApp\Modulos::BASE as $b): ?><li><?= e($b) ?></li><?php endforeach; ?>
             <?php foreach (\TuWhatsApp\Modulos::LISTA as $k => $m): ?>
-            <li class="<?= in_array($k, $plan['activos'], true) ? '' : 'no-incluye' ?>"><?= e($m[0]) ?> <?= in_array($k, $plan['activos'], true) ? '' : '<small class="suave">(extra' . (en_app_android() ? '' : ' de ' . e(dinero(\TuWhatsApp\Modulos::PRECIOS[$k] ?? 0))) . ' al mes)</small>' ?></li>
+            <li class="<?= in_array($k, $plan['activos'], true) ? '' : 'no-incluye' ?>"><?= e($m[0]) ?> <?= in_array($k, $plan['activos'], true) ? '' : ($k === 'facturacion' ? '<small class="suave">(' . (en_app_android() ? 'no está activa' : 'se contrata aparte con TuFactura') . ')</small>' : '<small class="suave">(extra' . (en_app_android() ? '' : ' de ' . e(dinero(\TuWhatsApp\Modulos::PRECIOS[$k] ?? 0))) . ' al mes)</small>') ?></li>
             <?php endforeach; ?>
         </ul>
     </details>

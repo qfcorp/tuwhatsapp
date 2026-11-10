@@ -241,6 +241,9 @@ final class Pedidos
             $db->rollBack();
             throw $e;
         }
+        if ($nuevo === 'pagado' && !in_array($p['estado'], FacturaTukan::PAGADOS, true)) {
+            FacturaTukan::alCobrar($db, (int) $linea['id'], $pedidoId);   // TuFactura (extra facturacion): factura sola si se eligió «automático»
+        }
         return self::buscar($db, (int) $linea['id'], $pedidoId);
     }
 

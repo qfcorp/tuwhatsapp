@@ -22,7 +22,13 @@ final class Modulos
         'ia' => ['Asistente con IA y agente que contesta solo',
                  'Agente con IA que contesta solo las 24 horas con lo que sabe tu negocio y tu catálogo, y pasa a una persona cuando hace falta. Además sugiere respuestas, resume conversaciones, contesta preguntas sobre tu negocio ("¿quién está listo para comprar?"), arma campañas y te manda un resumen cada mañana.',
                  ['ia', 'asistente']],
+        'facturacion' => ['Factura electrónica con TuFactura',
+                 'Cada pedido pagado sale como factura electrónica autorizada por el SRI (a la cédula o RUC del cliente si está en sus datos; si no, a consumidor final), con un toque o sola al pagarse, y le llega por correo. Se conecta con la cuenta de TuFactura del negocio (TuFactura se contrata aparte con Tukán Software).',
+                 []],   // la pantalla «tufactura» se abre igual: apagado explica TuFactura y cómo pedirla
     ];
+
+    /** Vienen APAGADOS, ni la demo ni ningún plan los traen (9 nov 2026): la factura electrónica se enciende como extra. */
+    public const SOLO_A_PEDIDO = ['facturacion'];
 
     /**
      * Planes de venta (precio mensual en dólares, sin IVA, sin contrato; Meta cobra aparte directo a la tarjeta del cliente, sin recargo).
@@ -34,9 +40,9 @@ final class Modulos
     ];
 
     /** Precio mensual de cada extra (dólares, sin IVA): se suma si se enciende fuera del plan y se descuenta si se apaga. */
-    public const PRECIOS = ['ia' => 5];
+    public const PRECIOS = ['ia' => 5, 'facturacion' => 0];
     /** Ícono y grupo de cada extra (solo para mostrar en el Panel Tukán Central). */
-    public const GRUPOS = ['ia' => ['✨', 'Extras']];
+    public const GRUPOS = ['ia' => ['✨', 'Extras'], 'facturacion' => ['🧾', 'Extras']];
     /** Lo que todo cliente tiene siempre (no se apaga). */
     public const BASE = [
         'Bandeja y chat con fotos, audios, notas de voz y documentos', 'Contactos (traer del celular) con campos personalizados',
@@ -96,7 +102,7 @@ final class Modulos
     /** Lo que se enciende al crear una demo: todo, para que el cliente vea el programa completo (incluida la IA). */
     public static function todos(): array
     {
-        return array_keys(self::LISTA);
+        return array_values(array_diff(array_keys(self::LISTA), self::SOLO_A_PEDIDO));   // la factura electrónica va a pedido
     }
 
     /** @return list<string> extras encendidos */
@@ -105,8 +111,8 @@ final class Modulos
         if (!$e) {
             return [];
         }
-        if ((int) $e['id'] === Empresas::TUKAN) {
-            return self::todos();
+        if ((int) $e['id'] === Empresas::TUKAN) {   // la cuenta de Tukán: todo, y la factura electrónica si se encendió
+            return array_values(array_unique(array_merge(self::todos(), self::limpiar((string) ($e['modulos'] ?? '')))));
         }
         return self::limpiar((string) ($e['modulos'] ?? ''));
     }

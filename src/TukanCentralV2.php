@@ -590,7 +590,7 @@ final class TukanCentralV2
         $planes = [];
         foreach (Modulos::PLANES as $k => $p) {
             $planes[] = ['codigo' => $k, 'nombre' => $p[0], 'precio_mensual' => (float) $p[1], 'modulos' => $p[4],
-                         'todos' => !array_diff(array_keys(Modulos::LISTA), $p[4])];
+                         'todos' => !array_diff(Modulos::todos(), $p[4])];
         }
         return ['base' => Modulos::BASE, 'modulos' => $mods, 'planes' => $planes, 'editable' => false,
                 'reglas' => 'Activos = (módulos del plan − apagados) + encendidos aparte. Demo: todos (o los elegidos al crearla). '

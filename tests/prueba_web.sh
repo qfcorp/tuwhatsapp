@@ -587,6 +587,27 @@ ok 'tiene "Pendiente de pago" && tiene "Marcar pagado"' "confirmar el pedido"
 post "/?r=pedido&id=$PED" --data-urlencode "accion=estado" --data-urlencode "estado=pagado"
 ok 'tiene "Pedido: Pagado" && tiene "Pagado el"' "marcar pagado"
 get "/?r=chat&c=$C"; ok 'tiene "value=\"ganado\" selected"' "pagado: el embudo pasa a Ganado"
+
+echo "== Factura electrónica con TuFactura (extra facturacion, con TuFactura SIMULADO)"
+TFDIR="$(mktemp -d)"
+TF_SIM_DIR="$TFDIR" php -S 127.0.0.1:8291 tests/tufactura_simulado.php > /dev/null 2>&1 & TFSIM=$!
+sleep 0.4
+get "/?r=pedido&id=$PED"; ok 'tiene "Conoce TuFactura" && ! tiene "facturar_origen"' "pedido pagado con el extra apagado: solo el enlace para conocer TuFactura"
+get "/?r=tufactura"; ok '[ "$CODIGO" = 200 ] && tiene "TuFactura" && ! tiene "value=\"conectar\""' "pantalla apagada: explica TuFactura, sin conectar"
+get "/?r=mas"; ok 'tiene "r=tufactura" && tiene "Factura electrónica"' "Más: enlace a la factura electrónica"
+psql -qtAc "UPDATE empresas SET modulos = 'facturacion' WHERE id = 1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}" > /dev/null
+get "/?r=tufactura"; ok 'tiene "value=\"conectar\""' "encendido: el administrador puede conectar la clave"
+post "/?r=tufactura" --data-urlencode "tf_accion=conectar" --data-urlencode "clave=tf_$(printf 'd4%.0s' $(seq 20))" --data-urlencode "url=http://127.0.0.1:8291"
+ok 'tiene "Conectado con TuFactura" && tiene "EMPRESA DE PRUEBA" && ! tiene "d4d4d4d4d4d4d4d4"' "conecta con TuFactura y la clave no se muestra"
+get "/?r=pedido&id=$PED"; ok 'tiene "facturar_origen"' "pedido pagado: botón Facturar"
+post "/?r=tufactura&volver=$PED" --data-urlencode "tf_accion=facturar_origen" --data-urlencode "origen=pedido" --data-urlencode "origen_id=$PED"
+ok 'tiene "Pedido #" && tiene "autorizada" && tiene "001-002-"' "facturar desde el pedido: vuelve al pedido con la factura autorizada"
+FID=$(grep -o 'r=tufactura&amp;pdf=[0-9]*' "$P" | head -1 | grep -o '[0-9]*$')
+TIPO=$(curl -s -o "$P" -w '%{content_type}' -b "$J" "$W/?r=tufactura&pdf=$FID")
+ok '[ "$TIPO" = "application/pdf" ] && head -c 5 "$P" | grep -q "%PDF"' "baja el PDF de la factura"
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -b "$BELLA_J" "$W/?r=tufactura&pdf=$FID"); ok '[ "$CODIGO" != 200 ]' "otro cliente no baja esa factura"
+psql -qtAc "UPDATE empresas SET modulos = '' WHERE id = 1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}" > /dev/null
+kill $TFSIM 2>/dev/null; rm -rf "$TFDIR"
 TIPO=$(curl -s -o "$P" -w '%{content_type}' -b "$J" "$W/?r=cotizacion&id=$PED")
 ok '[ "$TIPO" = "application/pdf" ] && head -c 8 "$P" | grep -q "%PDF-1.4"' "descargar la cotización en PDF"
 CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -b "$BELLA_J" "$W/?r=cotizacion&id=$PED"); ok '[ "$CODIGO" = 302 ]' "otro cliente no descarga la cotización"
