@@ -12,7 +12,8 @@ $anotar = function (array $d) use ($E): void { file_put_contents($E('FALSO_LOG')
 
 // La página "del banco" (3DS): vuelve a urlRetorno3ds agregando SUS parámetros con "?" (como hace Plux)
 if ($ruta === '/banco') {
-    header('Location: ' . $_GET['ret'] . '?pti=PTI-1&pcc=PCC-1&ptk=TK-' . preg_replace('/\W/', '', (string) $_GET['ref']), true, 302);
+    $refB = preg_replace('/\W/', '', (string) $_GET['ref']);
+    header('Location: ' . $_GET['ret'] . '?pti=PTI-1&pcc=PCC-1&ptk=TK-' . $refB . '&prc=PRC-' . $refB, true, 302);   // Plux también manda prc
     return true;
 }
 $auth = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
@@ -21,6 +22,8 @@ $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
 
 if ($ruta === '/intv1/integrations/dataTransactionThreeDsResource') {
     $ok = $authOk && str_starts_with((string) ($in['ptk'] ?? ''), 'TK-') && ($in['pti'] ?? '') === 'PTI-1' && ($in['pcc'] ?? '') === 'PCC-1';
+    // 10 nov 2026: Plux pide los 4 (pti, pcc, ptk, prc). El de verdad aprueba sin prc pero no crea la suscripción; aquí se rechaza para que la prueba lo note.
+    $ok = $ok && ($in['prc'] ?? '') === 'PRC-' . substr((string) ($in['ptk'] ?? ''), 3);
     $anotar(['ruta' => '3ds', 'auth_ok' => $authOk, 'code' => $ok ? 0 : 2]);
     $json(200, $ok ? ['code' => 0, 'description' => 'Aprobada con 3DS', 'detail' => ['id_transaccion' => 'FALSO3DS-' . substr((string) $in['ptk'], 3)]]
                    : ['code' => 2, 'description' => 'Validación 3DS fallida']);
