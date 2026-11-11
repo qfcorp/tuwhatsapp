@@ -8,14 +8,14 @@ $sinSecreto = (string) getenv('META_APP_SECRET') === '';
 $qrListo = Registro::listo();
 $esQr = $editar && $editar['conectado_por'] === 'qr';
 ?>
-<div class="cabeza"><h1><?= $editar ? 'Editar número' : 'Conectar número' ?></h1></div>
+<div class="cabeza tk-titulo-pagina"><h1><?= $editar ? 'Editar número' : 'Conectar número' ?></h1></div>
 
 <?php if ($prueba): ?>
 <div class="aviso <?= $prueba['ok'] ? 'aviso-ok' : 'aviso-error' ?>"><?= $prueba['ok'] ? 'Conexión correcta: ' . e($prueba['numero']) . ' · ' . e($prueba['nombre']) . ($prueba['calidad'] ? ' · calidad ' . e($prueba['calidad']) : '') : e($prueba['error']) ?></div>
 <?php endif; ?>
 
 <?php if ($esQr): ?>
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Conectado con código QR</h2>
     <p><?= $editar['coexistencia'] ? 'Este número <b>sigue funcionando en la app WhatsApp Business del celular</b> y también aquí. Lo que mandas desde el celular aparece en el chat (gratis).' : 'Número nuevo conectado solo a este programa.' ?></p>
     <?php if ($editar['coexistencia']): ?><p class="suave pequeno">📞 Así Meta no permite llamadas de WhatsApp. Para tenerlas, mira cómo pasarlo a "solo API" en <a href="<?= e(url('llamadas')) ?>">Más → Llamadas</a>.</p><?php endif; ?>
@@ -24,21 +24,21 @@ $esQr = $editar && $editar['conectado_por'] === 'qr';
     <ul class="lista-simple">
         <li><span><b>Contactos del celular</b><br><span class="suave"><?= e(Registro::estadoSync((string) $editar['sync_contactos'])) ?></span></span>
             <?php if (!str_starts_with((string) $editar['sync_contactos'], 'ok:')): ?>
-            <form method="post"><?= csrf_campo() ?><button class="boton boton-claro" name="accion" value="sync_contactos">Traer contactos</button></form>
+            <form method="post"><?= csrf_campo() ?><button class="boton boton-claro tk-boton secundario" name="accion" value="sync_contactos">Traer contactos</button></form>
             <?php endif; ?></li>
         <li><span><b>Historial de chats (hasta 6 meses)</b><br><span class="suave"><?= e(Registro::estadoSync((string) $editar['sync_historial'])) ?>
             <?php if ($editar['historial_estado'] === 'recibiendo'): ?> · llegando <?= (int) $editar['historial_progreso'] ?> %<?php endif; ?>
             <?php if ($editar['historial_estado'] === 'completo'): ?> · completo<?php endif; ?>
             <?php if ($editar['historial_estado'] === 'rechazado'): ?> · en el celular se eligió no compartir el historial<?php endif; ?></span></span>
             <?php if (!str_starts_with((string) $editar['sync_historial'], 'ok:')): ?>
-            <form method="post"><?= csrf_campo() ?><button class="boton boton-claro" name="accion" value="sync_historial">Traer historial</button></form>
+            <form method="post"><?= csrf_campo() ?><button class="boton boton-claro tk-boton secundario" name="accion" value="sync_historial">Traer historial</button></form>
             <?php endif; ?></li>
     </ul>
     <p class="suave pequeno">Meta deja traer contactos e historial <b>una sola vez</b> y solo en las <b>24 horas</b> después de conectar. Deja abierta la app en el celular mientras llegan.</p>
     <?php endif; ?>
 </section>
 <?php elseif (!$editar): ?>
-<section class="tarjeta tarjeta-qr">
+<section class="tarjeta tk-tarjeta tarjeta-qr">
     <h2>Conectar con WhatsApp Business (código QR) <span class="insignia">recomendado</span></h2>
     <p>Si tu número ya está en la app <b>WhatsApp Business</b> del celular, <b>lo sigues usando ahí</b> y además aparece aquí, con tus contactos y el historial de chats.</p>
     <ol class="pasos-cortos">
@@ -50,16 +50,16 @@ $esQr = $editar && $editar['conectado_por'] === 'qr';
     <p class="suave pequeno">📞 ¿Número nuevo, <b>solo para este programa</b> (con llamadas)? En la ventana de Meta elige <b>"Agregar un número nuevo"</b> y escribe el código que te llega por SMS o llamada. No instales WhatsApp con ese número en ningún celular.</p>
     <?php if ($qrListo): ?>
     <label>Nombre para reconocerlo<input id="qr-nombre" maxlength="60" placeholder="Ejemplo: Ventas"></label>
-    <button type="button" class="boton boton-grande" id="btn-qr" data-app="<?= e(Registro::appId()) ?>" data-config="<?= e(Registro::configId()) ?>"
+    <button type="button" class="boton boton-grande tk-boton grande" id="btn-qr" data-app="<?= e(Registro::appId()) ?>" data-config="<?= e(Registro::configId()) ?>"
             data-version="<?= e(Registro::version()) ?>" data-csrf="<?= e(csrf()) ?>">Conectar con WhatsApp Business</button>
     <p id="qr-estado" class="suave" role="status" aria-live="polite"></p>
     <?php else: ?>
-    <div class="aviso aviso-info">Falta configurar el botón en el servidor (identificador de la app y de la configuración de Meta). En el servidor pega: <code>bash /var/www/tuwhatsapp/deploy/clave_meta.sh</code></div>
+    <div class="aviso aviso-info tk-aviso info">Falta configurar el botón en el servidor (identificador de la app y de la configuración de Meta). En el servidor pega: <code>bash /var/www/tuwhatsapp/deploy/clave_meta.sh</code></div>
     <?php endif; ?>
 </section>
 <?php endif; ?>
 
-<details class="tarjeta plegable" <?= $editar && !$esQr ? 'open' : '' ?>>
+<details class="tarjeta tk-tarjeta plegable" <?= $editar && !$esQr ? 'open' : '' ?>>
     <summary><b><?= $editar ? 'Datos de conexión' : 'Conectar a mano (con token de Meta)' ?></b></summary>
     <form method="post" class="formulario">
         <?= csrf_campo() ?>
@@ -70,39 +70,39 @@ $esQr = $editar && $editar['conectado_por'] === 'qr';
         <label>Token de acceso permanente<?= $editar ? ' (déjalo vacío para no cambiarlo)' : '' ?>
             <input name="token" autocomplete="off" spellcheck="false" <?= $editar ? '' : 'required' ?> placeholder="<?= $editar && $editar['token_cifrado'] !== '' ? 'guardado ●●●●●●' : 'EAAG…' ?>">
         </label>
-        <button class="boton boton-grande">Guardar y probar</button>
+        <button class="boton boton-grande tk-boton grande">Guardar y probar</button>
     </form>
 </details>
 <?php if ($editar): ?>
-<form method="post"><?= csrf_campo() ?><button class="boton boton-claro" name="accion" value="probar">Probar conexión otra vez</button></form>
+<form method="post"><?= csrf_campo() ?><button class="boton boton-claro tk-boton secundario" name="accion" value="probar">Probar conexión otra vez</button></form>
 <?php endif; ?>
 <?php if (!empty($pinNuevo)): ?>
-<div class="aviso aviso-ok">PIN de verificación en dos pasos del número: <b style="font-size:1.3em;letter-spacing:2px"><?= e($pinNuevo) ?></b><br>
+<div class="aviso aviso-ok tk-aviso ok">PIN de verificación en dos pasos del número: <b style="font-size:1.3em;letter-spacing:2px"><?= e($pinNuevo) ?></b><br>
 Cópialo y guárdalo fuera de este programa (por ejemplo, en tus notas). Solo se muestra esta vez.</div>
 <?php endif; ?>
 <?php if ($editar && !$esQr && es_admin() && (empty($editar['coexistencia']) || $editar['coexistencia'] === 'f')): ?>
-<details class="tarjeta plegable">
+<details class="tarjeta tk-tarjeta plegable">
     <summary><b>Número nuevo agregado en WhatsApp Manager: registrarlo en la API</b></summary>
     <p class="suave">Úsalo solo si agregaste el número en WhatsApp Manager (business.facebook.com → WhatsApp Manager → Números de teléfono → Agregar) y Meta lo marca como <i>pendiente</i> o "sin conectar".
     El programa lo registra con un PIN nuevo de 6 dígitos (te lo muestra una vez). <b>No lo uses</b> con un número que está en la app WhatsApp Business de un celular.</p>
-    <form method="post"><?= csrf_campo() ?><button class="boton" name="accion" value="registrar_api">Registrar en la API</button></form>
+    <form method="post"><?= csrf_campo() ?><button class="boton tk-boton" name="accion" value="registrar_api">Registrar en la API</button></form>
 </details>
 <?php endif; ?>
 <?php if ($editar && es_admin()): ?>
-<details class="tarjeta plegable">
+<details class="tarjeta tk-tarjeta plegable">
     <summary><b>Quitar este número de WhatsApp Tukán</b></summary>
     <p class="suave">Se borran aquí sus chats, contactos, reglas, catálogo y reportes. <b>No se puede deshacer.</b>
     En Meta el número sigue existiendo: si también quieres borrarlo allá, hazlo en WhatsApp Manager.</p>
     <form method="post" class="formulario"><?= csrf_campo() ?>
         <label class="check"><input type="checkbox" name="confirmo" value="1" required> Sí, quiero quitar "<?= e($editar['nombre']) ?>"</label>
-        <button class="boton boton-peligro" name="accion" value="borrar_linea">Quitar este número</button>
+        <button class="boton boton-peligro tk-boton peligro" name="accion" value="borrar_linea">Quitar este número</button>
     </form>
 </details>
 <?php endif; ?>
 
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Datos para pegar en Meta (Webhook)</h2>
-    <?php if ($sinSecreto): ?><div class="aviso aviso-error">Falta META_APP_SECRET en el servidor: sin eso no se aceptan los mensajes que llegan. Revisa la guía de instalación.</div><?php endif; ?>
+    <?php if ($sinSecreto): ?><div class="aviso aviso-error tk-aviso mal">Falta META_APP_SECRET en el servidor: sin eso no se aceptan los mensajes que llegan. Revisa la guía de instalación.</div><?php endif; ?>
     <label>URL de devolución de llamada (Callback URL)
         <span class="copiar"><input readonly value="<?= e($base . '/webhook.php') ?>"><button type="button" class="boton boton-claro btn-copiar">Copiar</button></span>
     </label>

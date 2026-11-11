@@ -13,15 +13,15 @@
     </div>
     <div>
         <?php if (!$hayUsuarios): ?>
-        <div class="aviso aviso-info">Todavía no hay usuarios. En el servidor pega: <code>php /var/www/tuwhatsapp/bin/crear_usuario.php</code></div>
+        <div class="aviso aviso-info tk-aviso info">Todavía no hay usuarios. En el servidor pega: <code>php /var/www/tuwhatsapp/bin/crear_usuario.php</code></div>
         <?php endif; ?>
-        <?php if ($error): ?><div class="aviso aviso-error" role="alert"><?= e($error) ?></div><?php endif; ?>
-        <form method="post" class="tarjeta entrada-form">
+        <?php if ($error): ?><div class="aviso aviso-error tk-aviso mal" role="alert"><?= e($error) ?></div><?php endif; ?>
+        <form method="post" class="tarjeta tk-tarjeta entrada-form">
             <h2>Entrar</h2>
             <?= csrf_campo() ?>
             <label>Correo<input type="email" name="correo" required autocomplete="username" value="<?= e($_POST['correo'] ?? '') ?>"></label>
             <label>Contraseña<input type="password" name="clave" required autocomplete="current-password"></label>
-            <button class="boton boton-grande">Entrar</button>
+            <button class="boton boton-grande tk-boton grande">Entrar</button>
             <?php if (!en_app_android()): ?>
             <p class="suave pequeno" style="margin-top:12px">¿Todavía no tienes cuenta? <a href="https://wa.me/593983662181?text=<?= rawurlencode('Hola, quiero probar WhatsApp Tukán') ?>" target="_blank" rel="noopener">Pide tu prueba por WhatsApp</a>.</p>
             <?php endif; ?>

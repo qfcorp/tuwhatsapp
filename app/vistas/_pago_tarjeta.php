@@ -18,11 +18,11 @@ $conIva = fn (float $v): float => round($v * (1 + $pago['iva'] / 100), 2);
         <?php if ($esSus && !empty($c['pagado_hasta'])): ?> · pagada hasta el <?= e($fechaPago((string) $c['pagado_hasta'])) ?><?php endif; ?>
         <?php if (!empty($c['cancelacion_programada'])): ?><br><small>Cancelación pendiente: se cancela sola en unos minutos.</small><?php endif; ?>
         <?php if (!empty($c['url_pago']) && preg_match('#^https?://#', (string) $c['url_pago'])): ?>
-        <br><a class="boton" href="<?= e((string) $c['url_pago']) ?>"><?= $est === 'rechazado' ? 'Intentar con otra tarjeta' : 'Terminar el pago' ?></a>
+        <br><a class="boton tk-boton" href="<?= e((string) $c['url_pago']) ?>"><?= $est === 'rechazado' ? 'Intentar con otra tarjeta' : 'Terminar el pago' ?></a>
         <?php endif; ?>
         <?php if ($esSus && in_array($est, ['pendiente', 'rechazado'], true) && empty($c['cancelacion_programada'])): ?>
         <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="cancelar_tarjeta"><input type="hidden" name="id" value="<?= (int) ($c['id'] ?? 0) ?>">
-            <button class="boton boton-claro">Quitar este cobro</button></form>
+            <button class="boton boton-claro tk-boton secundario">Quitar este cobro</button></form>
         <?php elseif ($esSus && in_array($est, ['activa', 'en_gracia'], true) && empty($c['cancelacion_programada'])): ?>
         <br><small>Para que no se cobre más, usa «Cancelar mi plan» aquí abajo: se cancela al momento y sigues usando lo que ya pagaste.</small>
         <?php endif; ?>
@@ -39,7 +39,7 @@ $conIva = fn (float $v): float => round($v * (1 + $pago['iva'] / 100), 2);
         <?php endforeach; ?>
         <p class="suave pequeno">Es una <b>suscripción mensual</b>: se cobra sola a tu tarjeta cada mes (el valor del plan + IVA) hasta que la canceles aquí mismo, cuando quieras. Sin contrato.
             Los datos de la tarjeta se ponen en la página segura de pagos; aquí no se guardan. La factura te llega al correo.</p>
-        <button class="boton boton-grande">Pagar con tarjeta</button>
+        <button class="boton boton-grande tk-boton grande">Pagar con tarjeta</button>
     </form>
     <?php endif; ?>
 </div>

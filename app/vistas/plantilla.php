@@ -9,9 +9,9 @@ use TuWhatsApp\Gasto;
 </div>
 <p class="suave">Aquí salen solo las plantillas que Meta ya aprobó. <a href="<?= e(url('plantillas', ['c' => $c['id']])) ?>">Crear o ver todas las plantillas</a>.</p>
 <?php if ($errorMeta): ?>
-<div class="aviso aviso-error"><?= e($errorMeta) ?></div>
+<div class="aviso aviso-error tk-aviso mal"><?= e($errorMeta) ?></div>
 <?php elseif (!$plantillas): ?>
-<div class="vacio"><p><b>No tienes plantillas aprobadas todavía.</b></p><p><a class="boton" href="<?= e(url('plantillas', ['c' => $c['id']])) ?>">Crear una plantilla</a></p></div>
+<div class="vacio"><p><b>No tienes plantillas aprobadas todavía.</b></p><p><a class="boton tk-boton" href="<?= e(url('plantillas', ['c' => $c['id']])) ?>">Crear una plantilla</a></p></div>
 <?php else: ?>
 <form method="post" class="formulario" id="form-plantilla">
     <?= csrf_campo() ?>

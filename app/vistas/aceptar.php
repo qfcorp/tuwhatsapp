@@ -1,5 +1,5 @@
 <?php /** @var array $empresa */ ?>
-<section class="tarjeta" style="max-width:560px;margin:4vh auto 0">
+<section class="tarjeta tk-tarjeta" style="max-width:560px;margin:4vh auto 0">
     <h1>Antes de empezar</h1>
     <p>Hola, <b><?= u(usuario()['nombre']) ?></b>. Para usar <?= e(nombre_programa()) ?> en <b><?= u($empresa['nombre']) ?></b> necesitamos que el administrador acepte:</p>
     <ul>
@@ -11,7 +11,7 @@
     <form method="post" class="formulario">
         <?= csrf_campo() ?>
         <label class="check"><input type="checkbox" name="acepto" value="1" required> Leí y acepto los términos y condiciones y el acuerdo de tratamiento de datos en nombre de <?= u($empresa['nombre']) ?>.</label>
-        <button class="boton boton-grande">Aceptar y entrar</button>
+        <button class="boton boton-grande tk-boton grande">Aceptar y entrar</button>
     </form>
     <?php else: ?>
     <p class="nota">El administrador de tu cuenta tiene que aceptarlos primero. Pídeselo y vuelve a entrar.</p>

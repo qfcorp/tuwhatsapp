@@ -27,16 +27,16 @@ $puede = $cl !== null && Llamadas::puedeLlamar($cl);
     <p class="llamada-tiempo" id="ll-tiempo" hidden>0:00</p>
     <div class="llamada-botones">
         <?php if ($entrante): ?>
-        <button type="button" class="boton boton-verde" id="ll-contestar">Contestar</button>
-        <button type="button" class="boton boton-rojo" id="ll-rechazar">Rechazar</button>
+        <button type="button" class="boton boton-verde tk-boton ok" id="ll-contestar">Contestar</button>
+        <button type="button" class="boton boton-rojo tk-boton peligro" id="ll-rechazar">Rechazar</button>
         <?php elseif ($puede): ?>
-        <button type="button" class="boton boton-verde" id="ll-llamar">📞 Llamar</button>
+        <button type="button" class="boton boton-verde tk-boton ok" id="ll-llamar">📞 Llamar</button>
         <?php else: ?>
-        <p class="aviso aviso-info">Este cliente todavía no te dio permiso para llamarlo. En su chat toca <b>Pedir permiso para llamar</b>.</p>
+        <p class="aviso aviso-info tk-aviso info">Este cliente todavía no te dio permiso para llamarlo. En su chat toca <b>Pedir permiso para llamar</b>.</p>
         <?php endif; ?>
-        <button type="button" class="boton" id="ll-sonido" hidden>🔊 Activar sonido</button>
-        <button type="button" class="boton boton-claro" id="ll-silencio" hidden>Silenciar micrófono</button>
-        <button type="button" class="boton boton-rojo" id="ll-colgar" hidden>Colgar</button>
+        <button type="button" class="boton tk-boton" id="ll-sonido" hidden>🔊 Activar sonido</button>
+        <button type="button" class="boton boton-claro tk-boton secundario" id="ll-silencio" hidden>Silenciar micrófono</button>
+        <button type="button" class="boton boton-rojo tk-boton peligro" id="ll-colgar" hidden>Colgar</button>
     </div>
     <p class="suave pequeno">Deja esta ventana abierta mientras hablas. Puedes seguir usando el panel en la otra.</p>
     <audio id="ll-audio" autoplay></audio>

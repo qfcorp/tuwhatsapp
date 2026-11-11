@@ -728,3 +728,7 @@ CREATE TABLE IF NOT EXISTS pagos_plan (
     creado       timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS pagos_plan_empresa ON pagos_plan (empresa_id, fecha DESC);
+
+-- (10 nov 2026) Identidad gráfica común de Tukán: «Primeros pasos» en el Inicio. Se muestran hasta completarlos; el administrador los
+-- puede «Ocultar» para toda la cuenta.
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS pasos_ocultos boolean NOT NULL DEFAULT false;

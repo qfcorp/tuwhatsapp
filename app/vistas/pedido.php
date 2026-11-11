@@ -15,7 +15,7 @@ $siguientes = ['carrito' => ['pendiente' => 'Confirmar (pendiente de pago)', 'pa
 <p class="nota">Pedido de <?= $p['origen'] === 'shopify' ? 'Shopify' : 'WooCommerce' ?>: los productos y el estado los manda la tienda.<?= $p['externo_url'] ? ' <a href="' . e($p['externo_url']) . '" target="_blank" rel="noopener">Ver en la tienda</a>' : '' ?></p>
 <?php endif; ?>
 
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Productos</h2>
     <?php if (!$items): ?><p class="suave">Todavía no tiene productos.</p><?php endif; ?>
     <ul class="lista-simple items-pedido">
@@ -24,7 +24,7 @@ $siguientes = ['carrito' => ['pendiente' => 'Confirmar (pendiente de pago)', 'pa
             <?php if ($editable): ?>
             <form method="post" class="cantidad"><?= csrf_campo() ?><input type="hidden" name="accion" value="cantidad"><input type="hidden" name="item" value="<?= (int) $i['id'] ?>">
                 <label class="oculto" for="cant<?= (int) $i['id'] ?>">Cantidad</label>
-                <input id="cant<?= (int) $i['id'] ?>" name="cantidad" type="number" min="0" max="999" value="<?= (int) $i['cantidad'] ?>"><button class="boton boton-claro">✓</button></form>
+                <input id="cant<?= (int) $i['id'] ?>" name="cantidad" type="number" min="0" max="999" value="<?= (int) $i['cantidad'] ?>"><button class="boton boton-claro tk-boton secundario">✓</button></form>
             <?php else: ?><span>x <?= (int) $i['cantidad'] ?></span><?php endif; ?>
             <b class="derecha"><?= e(dinero((float) $i['precio'] * (int) $i['cantidad'])) ?></b></li>
         <?php endforeach; ?>
@@ -38,27 +38,27 @@ $siguientes = ['carrito' => ['pendiente' => 'Confirmar (pendiente de pago)', 'pa
             </select></label>
             <label>Cantidad<input name="cantidad" type="number" min="1" max="999" value="1"></label>
         </div>
-        <button class="boton boton-claro">Agregar</button>
+        <button class="boton boton-claro tk-boton secundario">Agregar</button>
     </form>
     <details class="plegable-simple"><summary>Agregar algo que no está en el catálogo (envío, servicio)</summary>
         <form method="post" class="formulario"><?= csrf_campo() ?><input type="hidden" name="accion" value="libre">
             <div class="fila-doble"><label>Qué es<input name="nombre" maxlength="120" required placeholder="Envío a Quito"></label>
             <label>Precio ($)<input name="precio" inputmode="decimal" required placeholder="3,50"></label></div>
-            <button class="boton boton-claro">Agregar</button></form>
+            <button class="boton boton-claro tk-boton secundario">Agregar</button></form>
     </details>
     <?php endif; ?>
 </section>
 
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Enviar al cliente</h2>
     <?php if (!$p['contacto_id']): ?><p class="suave">Este pedido no tiene un número de WhatsApp.</p>
     <?php else: ?>
     <div class="fila-botones">
         <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="enviar_resumen">
-            <button class="boton" <?= $ventana && $items ? '' : 'disabled' ?>>Mandar resumen con cómo pagar</button></form>
+            <button class="boton tk-boton" <?= $ventana && $items ? '' : 'disabled' ?>>Mandar resumen con cómo pagar</button></form>
         <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="enviar_cotizacion">
-            <button class="boton boton-claro" <?= $ventana && $items ? '' : 'disabled' ?>>Mandar cotización PDF</button></form>
-        <a class="boton boton-claro" href="<?= e(url('cotizacion', ['id' => $p['id']])) ?>">Descargar PDF</a>
+            <button class="boton boton-claro tk-boton secundario" <?= $ventana && $items ? '' : 'disabled' ?>>Mandar cotización PDF</button></form>
+        <a class="boton boton-claro tk-boton secundario" href="<?= e(url('cotizacion', ['id' => $p['id']])) ?>">Descargar PDF</a>
     </div>
     <?php if (!$ventana): ?><p class="suave pequeno">Pasaron más de 24 horas desde su último mensaje: descarga el PDF y mándalo desde el celular, o envíale una plantilla primero.</p><?php endif; ?>
     <?php if ($p['enlace_pago']): ?><p class="pequeno">Enlace de pago: <a href="<?= e($p['enlace_pago']) ?>" target="_blank" rel="noopener"><?= e($p['enlace_pago']) ?></a></p><?php endif; ?>
@@ -73,11 +73,11 @@ $siguientes = ['carrito' => ['pendiente' => 'Confirmar (pendiente de pago)', 'pa
 </section>
 
 <?php if ($siguientes || $p['estado'] !== 'cancelado'): ?>
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Estado</h2>
     <form method="post" class="fila-botones"><?= csrf_campo() ?><input type="hidden" name="accion" value="estado">
         <?php foreach ($siguientes as $k => $n): ?><button class="boton <?= $k === 'carrito' ? 'boton-claro' : '' ?>" name="estado" value="<?= e($k) ?>"><?= e($n) ?></button><?php endforeach; ?>
-        <?php if (!in_array($p['estado'], ['entregado', 'cancelado'], true)): ?><button class="boton boton-peligro" name="estado" value="cancelado" onclick="return confirm('¿Cancelar el pedido? Si ya se descontó el stock, se devuelve.')">Cancelar pedido</button><?php endif; ?>
+        <?php if (!in_array($p['estado'], ['entregado', 'cancelado'], true)): ?><button class="boton boton-peligro tk-boton peligro" name="estado" value="cancelado" onclick="return confirm('¿Cancelar el pedido? Si ya se descontó el stock, se devuelve.')">Cancelar pedido</button><?php endif; ?>
     </form>
     <?php if (in_array($p['estado'], \TuWhatsApp\FacturaTukan::PAGADOS, true)): /* Factura electrónica con TuFactura (extra facturacion) */ ?>
     <?= \TuWhatsApp\FacturaTukan::enlace(db())->cajita((int) $p['linea_id'], \TuWhatsApp\FacturaTukan::activo(db(), (int) $p['linea_id']), \TuWhatsApp\FacturaTukan::ORIGEN, (string) $p['id'],
@@ -87,6 +87,6 @@ $siguientes = ['carrito' => ['pendiente' => 'Confirmar (pendiente de pago)', 'pa
 </section>
 <?php endif; ?>
 
-<form method="post" class="tarjeta formulario"><?= csrf_campo() ?><input type="hidden" name="accion" value="notas">
+<form method="post" class="tarjeta tk-tarjeta formulario"><?= csrf_campo() ?><input type="hidden" name="accion" value="notas">
     <label>Notas (salen en la cotización)<textarea name="notas" rows="2" maxlength="1000"><?= e($p['notas']) ?></textarea></label>
-    <button class="boton boton-claro">Guardar notas</button></form>
+    <button class="boton boton-claro tk-boton secundario">Guardar notas</button></form>

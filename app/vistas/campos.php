@@ -2,7 +2,7 @@
 /** @var array $linea @var list<array> $campos */
 use TuWhatsApp\Campos;
 ?>
-<div class="cabeza"><h1>Campos personalizados</h1></div>
+<div class="cabeza tk-titulo-pagina"><h1>Campos personalizados</h1></div>
 <p class="suave">Datos propios de cada cliente que quieres guardar: ciudad, cédula, fecha de cumpleaños, talla, placa del carro…
 Se llenan en cada chat (sección "Datos y notas") o los pregunta un chatbot. Salen en la descarga a Excel.</p>
 <?php if ($campos): ?>
@@ -14,7 +14,7 @@ Se llenan en cada chat (sección "Datos y notas") o los pregunta un chatbot. Sal
     <?php endforeach; ?>
 </ul>
 <?php endif; ?>
-<form method="post" class="tarjeta formulario">
+<form method="post" class="tarjeta tk-tarjeta formulario">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="crear">
     <h2>Campo nuevo</h2>
     <div class="fila-doble">
@@ -22,5 +22,5 @@ Se llenan en cada chat (sección "Datos y notas") o los pregunta un chatbot. Sal
         <label>Tipo<select name="tipo"><?php foreach (Campos::TIPOS as $k => $n): ?><option value="<?= e($k) ?>"><?= e($n) ?></option><?php endforeach; ?></select></label>
     </div>
     <label>Opciones (solo para "Lista", separadas por coma)<input name="opciones" maxlength="500" placeholder="Quito, Guayaquil, Cuenca"></label>
-    <button class="boton">Agregar campo</button>
+    <button class="boton tk-boton">Agregar campo</button>
 </form>

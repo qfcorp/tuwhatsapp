@@ -3,10 +3,10 @@
 use TuWhatsApp\Catalogo;
 $v = $editar ?? ['id' => null, 'codigo' => '', 'nombre' => '', 'descripcion' => '', 'precio' => '', 'stock' => null, 'activo' => true, 'foto_ruta' => null];
 ?>
-<div class="cabeza"><div class="titulo"><h1>Catálogo</h1><?= ayuda_inicio() ?>Tus productos o servicios. Desde cada chat puedes mandarlos (con foto y precio), armar el carrito del cliente y mandarle la cotización.
+<div class="cabeza tk-titulo-pagina"><div class="titulo"><h1>Catálogo</h1><?= ayuda_inicio() ?>Tus productos o servicios. Desde cada chat puedes mandarlos (con foto y precio), armar el carrito del cliente y mandarle la cotización.
 Si el cliente escribe <b>catálogo</b>, le llega la lista para elegir tocando; con <b>comprar</b> confirma su carrito.<?= ayuda_fin() ?></div></div>
 
-<form method="post" class="tarjeta formulario" enctype="multipart/form-data" id="producto">
+<form method="post" class="tarjeta tk-tarjeta formulario" enctype="multipart/form-data" id="producto">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="guardar">
     <?php if ($v['id']): ?><input type="hidden" name="id" value="<?= (int) $v['id'] ?>"><?php endif; ?>
     <h2><?= $v['id'] ? 'Cambiar producto' : 'Producto nuevo' ?></h2>
@@ -21,7 +21,7 @@ Si el cliente escribe <b>catálogo</b>, le llega la lista para elegir tocando; c
     </div>
     <label>Descripción<textarea name="descripcion" rows="3" maxlength="1000"><?= e($v['descripcion']) ?></textarea></label>
     <label class="check"><input type="checkbox" name="activo" value="1" <?= $v['activo'] ? 'checked' : '' ?>> Disponible para vender</label>
-    <div class="fila-botones"><button class="boton">Guardar</button><?php if ($v['id']): ?> <a class="boton boton-claro" href="<?= e(url('catalogo')) ?>">Cancelar</a><?php endif; ?></div>
+    <div class="fila-botones"><button class="boton tk-boton">Guardar</button><?php if ($v['id']): ?> <a class="boton boton-claro tk-boton secundario" href="<?= e(url('catalogo')) ?>">Cancelar</a><?php endif; ?></div>
 </form>
 
 <form class="buscar" method="get"><input type="hidden" name="r" value="catalogo">
@@ -46,13 +46,13 @@ Si el cliente escribe <b>catálogo</b>, le llega la lista para elegir tocando; c
 </ul>
 <?php endif; ?>
 
-<details class="tarjeta plegable">
+<details class="tarjeta tk-tarjeta plegable">
     <summary>Subir muchos productos con Excel</summary>
     <form method="post" class="formulario" enctype="multipart/form-data">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="importar">
         <p class="suave pequeno">En Excel pon estas columnas en este orden: <b>nombre, precio, stock, código, descripción</b> (stock, código y descripción pueden ir vacíos).
         Luego <b>Archivo → Guardar como → CSV</b>. Si un código ya existe, se actualiza ese producto.</p>
         <label>Archivo CSV<input type="file" name="archivo" accept=".csv,text/csv" required></label>
-        <button class="boton boton-claro">Subir productos</button>
+        <button class="boton boton-claro tk-boton secundario">Subir productos</button>
     </form>
 </details>

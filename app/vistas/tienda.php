@@ -12,13 +12,13 @@ $opcionesPlantilla = function (string $sel) use ($plantillas): string {
 };
 $estadosCarrito = ['esperando' => 'Esperando', 'avisado' => 'Avisado', 'compro' => 'Compró', 'sin_telefono' => 'Sin teléfono', 'omitido' => 'No se avisó', 'fallido' => 'Falló'];
 ?>
-<div class="cabeza"><h1>Tienda en línea</h1></div>
+<div class="cabeza tk-titulo-pagina"><h1>Tienda en línea</h1></div>
 <p class="suave">Conecta tu tienda de <b>Shopify</b> o <b>WooCommerce</b>: cada pedido aparece en Pedidos y al cliente le llega un WhatsApp
 ("recibimos tu pedido", "tu pedido va en camino"). Con Shopify, además, se recupera el <b>carrito abandonado</b>: si no termina de comprar, le llega un recordatorio con el enlace.</p>
-<?php if ($linea['tienda_error'] !== ''): ?><p class="aviso aviso-error">Último problema: <?= e($linea['tienda_error']) ?></p><?php endif; ?>
-<?php if ($errorMeta): ?><p class="aviso aviso-error">No se pudieron traer las plantillas de Meta: <?= e($errorMeta) ?></p><?php endif; ?>
+<?php if ($linea['tienda_error'] !== ''): ?><p class="aviso aviso-error tk-aviso mal">Último problema: <?= e($linea['tienda_error']) ?></p><?php endif; ?>
+<?php if ($errorMeta): ?><p class="aviso aviso-error tk-aviso mal">No se pudieron traer las plantillas de Meta: <?= e($errorMeta) ?></p><?php endif; ?>
 
-<form method="post" class="tarjeta formulario">
+<form method="post" class="tarjeta tk-tarjeta formulario">
     <?= csrf_campo() ?>
     <label>Tu tienda<select name="tienda_tipo">
         <option value="">Sin tienda conectada</option>
@@ -34,11 +34,11 @@ $estadosCarrito = ['esperando' => 'Esperando', 'avisado' => 'Avisado', 'compro' 
         <label>Carrito abandonado (solo Shopify)<select name="tienda_plantilla_carrito"><?= $opcionesPlantilla((string) $linea['tienda_plantilla_carrito']) ?></select></label>
         <label>Avisar después de (horas)<input name="tienda_carrito_horas" type="number" min="1" max="72" value="<?= (int) $linea['tienda_carrito_horas'] ?>"></label>
     </div>
-    <button class="boton">Guardar</button>
+    <button class="boton tk-boton">Guardar</button>
 </form>
 
 <?php if ($tipo !== '' && $linea['tienda_clave'] !== ''): ?>
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Pega esta dirección en tu tienda</h2>
     <p><code class="copiar"><?= e(Tiendas::url($linea)) ?></code></p>
     <?php if ($tipo === 'shopify'): ?>

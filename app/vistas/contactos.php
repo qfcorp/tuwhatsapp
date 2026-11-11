@@ -3,7 +3,7 @@
 use TuWhatsApp\Contactos;
 use TuWhatsApp\Telefono;
 ?>
-<div class="cabeza"><div class="titulo"><h1>Contactos</h1><?= ayuda_inicio() ?><b>Cliente</b>: puede recibir respuestas automáticas. <b>Personal</b> (familia, amigos): nunca se le contesta solo. <b>Desconocido</b>: alguien nuevo que todavía no clasificas.<?= ayuda_fin() ?></div></div>
+<div class="cabeza tk-titulo-pagina"><div class="titulo"><h1>Contactos</h1><?= ayuda_inicio() ?><b>Cliente</b>: puede recibir respuestas automáticas. <b>Personal</b> (familia, amigos): nunca se le contesta solo. <b>Desconocido</b>: alguien nuevo que todavía no clasificas.<?= ayuda_fin() ?></div></div>
 <nav class="pestanas" aria-label="Tipo">
     <a href="<?= e(url('contactos', ['b' => $buscar ?: null])) ?>" class="<?= $tipo === '' ? 'activo' : '' ?>">Todos</a>
     <a href="<?= e(url('contactos', ['t' => 'cliente', 'b' => $buscar ?: null])) ?>" class="<?= $tipo === 'cliente' ? 'activo' : '' ?>">Clientes (<?= (int) $cuenta['cliente'] ?>)</a>
@@ -15,17 +15,17 @@ use TuWhatsApp\Telefono;
     <input type="search" name="b" value="<?= e($buscar) ?>" placeholder="Buscar nombre o número" aria-label="Buscar">
 </form>
 
-<details class="tarjeta plegable">
+<details class="tarjeta tk-tarjeta plegable">
     <summary>Agregar un contacto</summary>
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="agregar">
         <label>Número<input name="telefono" inputmode="tel" required placeholder="0991234567"></label>
         <label>Nombre<input name="nombre" maxlength="100"></label>
         <label>Es<select name="tipo"><option value="cliente">Cliente</option><option value="personal">Personal</option><option value="desconocido">Desconocido</option></select></label>
-        <button class="boton">Guardar</button>
+        <button class="boton tk-boton">Guardar</button>
     </form>
 </details>
-<section class="tarjeta importar" id="importar">
+<section class="tarjeta tk-tarjeta importar" id="importar">
     <h2>Traer contactos del celular</h2>
     <p class="suave">Así no tienes que escribir uno por uno. Lo normal es traer a la familia y amigos como <b>Personales</b>, para que el sistema nunca les conteste solo.</p>
     <form method="post" enctype="multipart/form-data" class="formulario" id="form-importar">
@@ -46,10 +46,10 @@ use TuWhatsApp\Telefono;
         <p class="suave pequeno" id="txt-agenda" hidden>Se abre tu agenda: marca los contactos que quieras (o "Seleccionar todo") y toca Listo.</p>
 
         <label class="subir">
-            <span class="boton boton-grande">Subir archivo de contactos (.vcf o .csv)</span>
+            <span class="boton boton-grande tk-boton grande">Subir archivo de contactos (.vcf o .csv)</span>
             <input type="file" name="archivo" id="imp-archivo" accept=".vcf,.csv,.txt,text/vcard,text/x-vcard,text/csv,text/plain">
         </label>
-        <noscript><button class="boton">Guardar</button></noscript>
+        <noscript><button class="boton tk-boton">Guardar</button></noscript>
         <p class="suave pequeno" id="imp-estado" role="status"></p>
     </form>
 
@@ -82,7 +82,7 @@ use TuWhatsApp\Telefono;
     </details>
 </section>
 
-<details class="tarjeta plegable">
+<details class="tarjeta tk-tarjeta plegable">
     <summary>Pegar una lista de números</summary>
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="importar">
@@ -91,7 +91,7 @@ use TuWhatsApp\Telefono;
         </label>
         <label>Todos son<select name="tipo"><option value="personal">Personales (familia y amigos)</option><option value="cliente">Clientes</option></select></label>
         <label class="check"><input type="checkbox" name="solo_nuevos" value="1" checked> No cambiar los que ya están</label>
-        <button class="boton">Guardar la lista</button>
+        <button class="boton tk-boton">Guardar la lista</button>
     </form>
 </details>
 

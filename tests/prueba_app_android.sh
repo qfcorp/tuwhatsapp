@@ -67,7 +67,7 @@ ok '[ "$(sql "$OTRAS")" = "$ANTES" ]' "crear no tocó ninguna otra cuenta"
 
 echo "== Cuenta de muestra: el revisor entra desde la app"
 entrar "$CORREO" "&app=play" "$CLAVE"
-ok 'tiene "Te escribieron hoy" && tiene "Tukán <b>Mensajes</b>" && ! tiene "Términos y condiciones de" && ! tiene "Primeros pasos"' "entra directo al Inicio (términos ya aceptados; sin primeros pasos en la cuenta de muestra)"
+ok 'tiene "Te escribieron hoy" && tiene "Tukán Mensajes · " && ! tiene "Términos y condiciones de" && ! tiene "Primeros pasos"' "entra directo al Inicio (términos ya aceptados; sin primeros pasos en la cuenta de muestra)"
 get "/?r=bandeja"
 ok 'tiene "Camila Ortega"' "la bandeja tiene los chats de ejemplo"
 get "/?r=mas"
@@ -95,7 +95,7 @@ ok 'tiene "\"ok\":false" && tiene "demostración"' "no se conectan números con 
 ok '[ "$(meta)" = "$M0" ] && [ "$(sql "$OTRAS")" = "$ANTES" ]' "usarla no llamó a Meta ni tocó otra cuenta"
 entrar "$CORREO" "" "$CLAVE"
 get "/?r=mas"
-ok 'tiene "Pedir a Tukán" && tiene "WhatsApp <b>Tukán</b>"' "en la web (sin la app) sigue el enlace para pedir la IA"
+ok 'tiene "Pedir a Tukán" && tiene "WhatsApp Tukán · "' "en la web (sin la app) sigue el enlace para pedir la IA"
 
 echo "== Cuenta de muestra: volver a crear y borrar"
 demo crear > "$S" 2>&1

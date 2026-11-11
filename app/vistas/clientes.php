@@ -4,10 +4,10 @@ use TuWhatsApp\Empresas;
 $hoy = new DateTimeImmutable('today');
 $en30 = $hoy->modify('+30 days')->format('Y-m-d');
 ?>
-<div class="cabeza"><h1>Clientes de Tukán</h1><span class="suave"><?= count($empresas) ?> cuentas</span></div>
+<div class="cabeza tk-titulo-pagina"><h1>Clientes de Tukán</h1><span class="suave"><?= count($empresas) ?> cuentas</span></div>
 <?php if (!empty($_SESSION['desde_central'])): ?><p><a href="<?= e(\TuWhatsApp\TukanCentral::urlCentral()) ?>">← Panel Tukán</a></p><?php endif; ?>
 
-<details class="tarjeta plegable" <?= count($empresas) <= 1 ? 'open' : '' ?>>
+<details class="tarjeta tk-tarjeta plegable" <?= count($empresas) <= 1 ? 'open' : '' ?>>
     <summary>Crear cliente nuevo</summary>
     <form method="post" class="formulario">
         <?= csrf_campo() ?>
@@ -29,7 +29,7 @@ $en30 = $hoy->modify('+30 days')->format('Y-m-d');
         <label>Su nombre<input name="admin_nombre" maxlength="100"></label>
         <label>Correo con el que va a entrar<input type="email" name="admin_correo" required></label>
         <label>Notas internas (solo Tukán)<textarea name="notas" rows="2"></textarea></label>
-        <button class="boton boton-grande">Crear cliente</button>
+        <button class="boton boton-grande tk-boton grande">Crear cliente</button>
         <p class="suave pequeno">Al crearlo te muestro la contraseña una sola vez para que se la pases.</p>
     </form>
 </details>
@@ -42,7 +42,7 @@ $en30 = $hoy->modify('+30 days')->format('Y-m-d');
     $porVencer = $alDia && $x['vence'] && $x['vence'] <= $en30;
 ?>
     <li style="padding:0;border:0;display:block">
-        <a class="tarjeta tarjeta-cliente" href="<?= e(url('cliente', ['id' => $x['id']])) ?>">
+        <a class="tarjeta tk-tarjeta tarjeta-cliente" href="<?= e(url('cliente', ['id' => $x['id']])) ?>">
             <div class="pl-cabeza"><b><?= e($x['nombre']) ?><?= (int) $x['id'] === Empresas::TUKAN ? ' (nosotros)' : '' ?></b><span class="chip chip-estado-<?= e($claseEt) ?>"><?= e($etiqueta) ?></span></div>
             <div class="cifras">
                 <span><?= (int) $x['numeros'] ?>/<?= (int) $x['max_numeros'] ?> números</span>

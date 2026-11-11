@@ -4,7 +4,7 @@ use TuWhatsApp\Contactos;
 use TuWhatsApp\Embudo;
 $abiertos = $totales['nuevo']['valor'] + $totales['interesado']['valor'] + $totales['cotizado']['valor'];
 ?>
-<div class="cabeza"><div class="titulo"><h1>Embudo de ventas</h1><?= ayuda('Cada persona que te escribe entra sola a <b>Nuevo</b>. <b>Arrastra la tarjeta</b> a otra columna cuando avance (o usa la lista de la tarjeta) y anota cuánto vale la venta desde el chat.') ?></div><span class="suave">En juego: <b><?= e(dinero($abiertos)) ?></b> · Ganado: <b><?= e(dinero($totales['ganado']['valor'])) ?></b></span></div>
+<div class="cabeza tk-titulo-pagina"><div class="titulo"><h1>Embudo de ventas</h1><?= ayuda('Cada persona que te escribe entra sola a <b>Nuevo</b>. <b>Arrastra la tarjeta</b> a otra columna cuando avance (o usa la lista de la tarjeta) y anota cuánto vale la venta desde el chat.') ?></div><span class="suave">En juego: <b><?= e(dinero($abiertos)) ?></b> · Ganado: <b><?= e(dinero($totales['ganado']['valor'])) ?></b></span></div>
 <form class="buscar" method="get">
     <input type="hidden" name="r" value="embudo">
     <input type="search" name="b" value="<?= e($buscar) ?>" placeholder="Buscar nombre, número o etiqueta" aria-label="Buscar en el embudo">

@@ -2,7 +2,7 @@
 /** @var array $linea @var list<array> $flujos */
 use TuWhatsApp\Flujos;
 ?>
-<div class="cabeza"><div class="titulo"><h1>Chatbots</h1><?= ayuda_inicio() ?>Conversaciones por pasos con botones y preguntas, sin programar. Ejemplo: "¿Qué necesitas? [Precios] [Horarios] [Hablar con alguien]".
+<div class="cabeza tk-titulo-pagina"><div class="titulo"><h1>Chatbots</h1><?= ayuda_inicio() ?>Conversaciones por pasos con botones y preguntas, sin programar. Ejemplo: "¿Qué necesitas? [Precios] [Horarios] [Hablar con alguien]".
 Arrancan cuando el cliente escribe una palabra clave o en su primer mensaje. Tienen prioridad sobre el agente con IA y el menú automático,
 y nunca contestan a contactos personales ni a quien ya está atendiendo una persona.<?= ayuda_fin() ?></div></div>
 
@@ -19,7 +19,7 @@ y nunca contestan a contactos personales ni a quien ya está atendiendo una pers
 </ul>
 <?php endif; ?>
 
-<form method="post" class="tarjeta formulario">
+<form method="post" class="tarjeta tk-tarjeta formulario">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="crear">
     <h2>Chatbot nuevo</h2>
     <label>Nombre<input name="nombre" maxlength="80" required placeholder="Bienvenida"></label>
@@ -28,5 +28,5 @@ y nunca contestan a contactos personales ni a quien ya está atendiendo una pers
         <option value="nuevo">El primer mensaje del cliente</option>
     </select></label>
     <label>Palabras clave (separadas por coma)<input name="palabras" maxlength="500" placeholder="hola, info, precios"></label>
-    <button class="boton">Crear y editar</button>
+    <button class="boton tk-boton">Crear y editar</button>
 </form>

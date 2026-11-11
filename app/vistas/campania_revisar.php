@@ -8,7 +8,7 @@ $noAlcanza = $prep['precio'] > 0 && $prep['alcanza'] < $prep['total'];
     <a href="<?= e(url('campanias')) ?>" class="volver" aria-label="Volver">‹</a>
     <div><h1>Revisar campaña</h1><p class="suave"><?= u($prep['nombre']) ?></p></div>
 </div>
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <p class="cifra-grande"><b><?= (int) $prep['total'] ?></b> contactos</p>
     <p class="suave"><?= e(\TuWhatsApp\Campanias::FILTROS[$prep['filtro_tipo']]) ?><?= $prep['filtro_etiqueta'] !== '' ? ' con la etiqueta "' . e($prep['filtro_etiqueta']) . '"' : '' ?><?= $prep['solo_acepta'] ? ', solo los que aceptaron promociones' : ' (incluye a quien no ha aceptado promociones)' ?>. Sin personales ni quien pidió la baja.</p>
     <p>Costo aproximado: <b><?= e(dinero($prep['costo'])) ?></b> (<?= e(Gasto::CATEGORIAS[$p['categoria']] ?? $p['categoria']) ?>, <?= e(dinero($prep['precio'], true)) ?> cada uno) · tardará unos <?= (int) $prep['minutos'] ?> minutos.</p>

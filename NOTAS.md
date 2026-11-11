@@ -1,6 +1,18 @@
 # WhatsApp Tukán — Estado y pasos para continuar
 *Actualizado: 7 nov 2026*
 
+## 🎨 Identidad gráfica común de Tukán (10 nov 2026, noche)
+Pedido de Dimitry: «todos los programas iguales al ERP, cada uno con sus colores».
+- Kit común `public/assets/tukan-ui.css` + `tukan-ui.js` (idénticos en todos los programas). Naranja `#F28C28` con texto oscuro (AA).
+- Barra de arriba naranja con el negocio, plan, cargo y Salir; menú a la izquierda con todo agrupado (Principal, Vender, Automático,
+  Equipo, Ajustes) y emojis; ☰ en el celular; ya no hay barra de abajo (la pantalla «Más» sigue). Plantillas, Números y Mi cuenta,
+  que eran íconos de la barra, están en Ajustes; Modo claro u oscuro y el idioma, al final del menú.
+- Inicio con el orden común: saludo, Primeros pasos (con «Ocultar»: `empresas.pasos_ocultos` en schema.sql), 5 cifras, Últimas
+  conversaciones, Ventas y llamadas, Resumen de la IA, accesos rápidos. Modo oscuro conservado sobre el kit.
+- Manual (cap. 2 y 3, «Más →» pasa a «Menú →», capturas nuevas de Inicio, menú, chat y modo oscuro) y PDF regenerado. `docs/LINEA_GRAFICA.md`.
+- Pruebas: idiomas, lógica 778, Panel Central 230, app Android 44 bien; pantallas: todo bien salvo 3 de `registrar_pago` que fallan
+  solo de noche (la prueba calcula la fecha con psql en UTC y el programa con la hora de Ecuador; no es de este cambio).
+
 ## 🎨 Nueva cara para competir + app lista para Google Play (7 nov 2026, noche)
 Pedido de Dimitry: "haz todos los cambios de una vez para dejarla lista para publicarla en Google ya completa" (después del informe de la competencia).
 - **Inicio** (pantalla nueva al entrar): sin leer, esperan respuesta, te escribieron hoy, clientes nuevos, cobrado hoy, pedidos por cobrar, en juego en el embudo, llamadas perdidas. **Primeros pasos** para el administrador (se tachan solos; no salen en la cuenta de muestra). `src/Inicio.php`, `app/vistas/inicio.php`.

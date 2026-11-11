@@ -18,9 +18,9 @@ if (isset($_GET['p_texto'])) {
     $prueba = Reglas::decidir($linea, ['tipo' => $tipo], (string) $_GET['p_texto'], $cuando, (int) ($_GET['p_ya'] ?? 0));
 }
 ?>
-<div class="cabeza"><div class="titulo"><h1>Respuestas automáticas</h1><?= ayuda_inicio() ?>Recibir mensajes es gratis. Solo pagas lo que el sistema contesta solo (unos <?= e(dinero(\TuWhatsApp\Gasto::precios(db())['servicio'], true)) ?> por respuesta). Estas reglas deciden a quién se le contesta.<?= ayuda_fin() ?></div></div>
+<div class="cabeza tk-titulo-pagina"><div class="titulo"><h1>Respuestas automáticas</h1><?= ayuda_inicio() ?>Recibir mensajes es gratis. Solo pagas lo que el sistema contesta solo (unos <?= e(dinero(\TuWhatsApp\Gasto::precios(db())['servicio'], true)) ?> por respuesta). Estas reglas deciden a quién se le contesta.<?= ayuda_fin() ?></div></div>
 
-<section class="tarjeta orden-auto">
+<section class="tarjeta tk-tarjeta orden-auto">
     <h2>Qué contesta primero</h2>
     <ol class="pasos-cortos">
         <li><b>Catálogo</b>: si el cliente escribe <i>catálogo</i> le llega la lista de productos; con <i>comprar</i> confirma su carrito. <a href="<?= e(url('catalogo')) ?>">Catálogo</a></li>
@@ -33,13 +33,13 @@ if (isset($_GET['p_texto'])) {
 
 <form method="post" class="formulario reglas-form">
     <?= csrf_campo() ?>
-    <div class="tarjeta">
+    <div class="tarjeta tk-tarjeta">
         <?= $interruptor('auto_activo', 'Contestar automáticamente', 'Interruptor general del menú. Apagado, el menú nunca se manda solo.') ?>
         <?= $interruptor('callar_al_atender', 'Callarse cuando contesta alguien del equipo', 'Si alguien del equipo escribe (desde aquí o desde el celular), lo automático no interrumpe durante las horas de abajo.') ?>
     </div>
 
     <h2 class="separador">Reglas (la primera que dice "no" gana)</h2>
-    <div class="tarjeta">
+    <div class="tarjeta tk-tarjeta">
         <label class="regla fija"><input type="checkbox" checked disabled><span><b>Contactos personales: nunca</b><small>Familia y amigos marcados como Personal jamás reciben respuesta automática. Siempre activa.</small></span></label>
         <?= $interruptor('regla_solo_clientes', 'Solo clientes registrados', 'Solo se contesta a números marcados como Cliente en Contactos. A desconocidos no.') ?>
         <?= $interruptor('regla_horario', 'Solo fuera de mi horario', 'En tu horario de atención contestas tú; fuera de horario contesta el sistema.') ?>
@@ -52,7 +52,7 @@ if (isset($_GET['p_texto'])) {
     </div>
 
     <h2 class="separador">Mi horario de atención</h2>
-    <div class="tarjeta horario">
+    <div class="tarjeta tk-tarjeta horario">
         <?php foreach (Reglas::DIAS as $d => $nombre): $h = $horario[$d]; ?>
         <div class="dia">
             <label class="dia-nombre"><input type="checkbox" name="trabaja[<?= $d ?>]" value="1" <?= $h ? 'checked' : '' ?>> <?= e($nombre) ?></label>
@@ -65,14 +65,14 @@ if (isset($_GET['p_texto'])) {
     </div>
 
     <h2 class="separador">Palabras de negocio</h2>
-    <div class="tarjeta">
+    <div class="tarjeta tk-tarjeta">
         <label>Separadas por comas (no importan mayúsculas ni tildes)
             <textarea name="palabras" rows="4"><?= e($linea['palabras']) ?></textarea>
         </label>
     </div>
 
     <h2 class="separador">Menú que se envía</h2>
-    <div class="tarjeta">
+    <div class="tarjeta tk-tarjeta">
         <label>Saludo<textarea name="mensaje_menu" rows="3" maxlength="1000" required><?= e($linea['mensaje_menu']) ?></textarea></label>
         <label class="check"><input type="checkbox" name="menu_botones" value="1" <?= ($linea['menu_botones'] ?? true) ? 'checked' : '' ?>>
             Mostrar las opciones como <b>botones de WhatsApp</b> (el cliente toca en vez de escribir el número; con más de 3 opciones sale una lista)</label>
@@ -94,7 +94,7 @@ if (isset($_GET['p_texto'])) {
 <p class="suave"><a href="<?= e(url('respuestas')) ?>">Respuestas rápidas del equipo</a> (textos para pegar en el chat).</p>
 
 <h2 class="separador" id="probar">Probar las reglas</h2>
-<form method="get" action="/#probar" class="tarjeta formulario">
+<form method="get" action="/#probar" class="tarjeta tk-tarjeta formulario">
     <input type="hidden" name="r" value="reglas">
     <label>Si me escribe<input name="p_texto" value="<?= e($_GET['p_texto'] ?? 'Hola, ¿cuál es el precio?') ?>"></label>
     <div class="fila-doble">
@@ -105,7 +105,7 @@ if (isset($_GET['p_texto'])) {
         <label>Día<select name="p_dia"><?php foreach (Reglas::DIAS as $d => $n): ?><option value="<?= $d ?>" <?= (int) ($_GET['p_dia'] ?? 1) === $d ? 'selected' : '' ?>><?= $n ?></option><?php endforeach; ?></select></label>
         <label>Hora<input type="time" name="p_hora" value="<?= e($_GET['p_hora'] ?? '20:00') ?>"></label>
     </div>
-    <button class="boton boton-claro">Probar (no envía nada)</button>
+    <button class="boton boton-claro tk-boton secundario">Probar (no envía nada)</button>
     <?php if ($prueba): ?>
     <div class="resultado-prueba <?= $prueba['responder'] ? 'si' : 'no' ?>" role="status">
         <b><?= $prueba['responder'] ? 'Sí se contesta solo' : 'No se contesta' ?></b> — <?= e($prueba['motivo']) ?>

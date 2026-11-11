@@ -21,7 +21,7 @@ $destinos = function (string $actual, string $sel, bool $conSiguiente = true) us
 
 <form method="post" class="formulario editor-flujo">
     <?= csrf_campo() ?>
-    <section class="tarjeta">
+    <section class="tarjeta tk-tarjeta">
         <label>Nombre<input name="nombre" maxlength="80" required value="<?= e($f['nombre']) ?>"></label>
         <div class="fila-doble">
             <label>Se activa con<select name="disparador">
@@ -35,7 +35,7 @@ $destinos = function (string $actual, string $sel, bool $conSiguiente = true) us
     </section>
 
     <?php foreach ($pasos as $i => $p): $base = 'paso[' . $i . ']'; ?>
-    <fieldset class="tarjeta paso paso-<?= e($p['tipo']) ?>">
+    <fieldset class="tarjeta tk-tarjeta paso paso-<?= e($p['tipo']) ?>">
         <legend><b>Paso <?= $i + 1 ?></b></legend>
         <input type="hidden" name="<?= $base ?>[id]" value="<?= e($p['id']) ?>">
         <div class="fila-doble">
@@ -74,17 +74,17 @@ $destinos = function (string $actual, string $sel, bool $conSiguiente = true) us
     <?php endforeach; ?>
 
     <div class="fila-botones">
-        <button class="boton" name="accion" value="guardar">Guardar</button>
-        <button class="boton boton-claro" name="accion" value="agregar_paso">+ Agregar paso</button>
+        <button class="boton tk-boton" name="accion" value="guardar">Guardar</button>
+        <button class="boton boton-claro tk-boton secundario" name="accion" value="agregar_paso">+ Agregar paso</button>
     </div>
     <p class="suave pequeno">Al cambiar "Qué hace" de un paso, guarda para ver sus opciones.</p>
 </form>
 
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Probar (no manda nada)</h2>
     <form method="post" class="formulario"><?= csrf_campo() ?><input type="hidden" name="accion" value="probar">
         <label>Lo que escribiría el cliente, una línea por mensaje<textarea name="entradas" rows="3" maxlength="2000" placeholder="hola&#10;1&#10;María"><?= e($entradas) ?></textarea></label>
-        <button class="boton boton-claro">Probar</button></form>
+        <button class="boton boton-claro tk-boton secundario">Probar</button></form>
     <?php if ($prueba !== null): ?>
     <ol class="mensajes prueba-flujo">
         <?php foreach ($prueba as $x): ?>
@@ -94,5 +94,5 @@ $destinos = function (string $actual, string $sel, bool $conSiguiente = true) us
     <?php endif; ?>
 </section>
 
-<form method="post" class="tarjeta" onsubmit="return confirm('¿Borrar este chatbot?')"><?= csrf_campo() ?><input type="hidden" name="accion" value="borrar">
+<form method="post" class="tarjeta tk-tarjeta" onsubmit="return confirm('¿Borrar este chatbot?')"><?= csrf_campo() ?><input type="hidden" name="accion" value="borrar">
     <button class="enlace enlace-rojo">Borrar este chatbot</button></form>

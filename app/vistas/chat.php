@@ -105,16 +105,16 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <textarea id="texto" name="texto" rows="3" maxlength="4096" placeholder="Escribe tu respuesta…" required><?= e($borrador) ?></textarea>
     <?php if (modulo('ia')): ?>
     <div class="fila-botones ia-botones">
-        <button class="boton boton-claro" name="accion" value="ia_sugerir" formnovalidate>✨ Sugerir respuesta</button>
-        <button class="boton boton-claro" name="accion" value="ia_resumir" formnovalidate>Resumir</button>
+        <button class="boton boton-claro tk-boton secundario" name="accion" value="ia_sugerir" formnovalidate>✨ Sugerir respuesta</button>
+        <button class="boton boton-claro tk-boton secundario" name="accion" value="ia_resumir" formnovalidate>Resumir</button>
     </div>
     <?php endif; ?>
     <?php if ($ventana): ?>
     <div class="adjuntar">
-        <label class="boton boton-claro" for="archivo" title="Foto, audio, video o documento">📎 Adjuntar</label>
+        <label class="boton boton-claro tk-boton secundario" for="archivo" title="Foto, audio, video o documento">📎 Adjuntar</label>
         <input type="file" id="archivo" name="archivo" class="oculto"
                accept="image/jpeg,image/png,audio/*,video/mp4,video/3gpp,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip">
-        <button type="button" class="boton boton-claro" id="grabar" hidden>🎤 Nota de voz</button>
+        <button type="button" class="boton boton-claro tk-boton secundario" id="grabar" hidden>🎤 Nota de voz</button>
         <span id="adjunto-nombre" class="suave pequeno" aria-live="polite"></span>
     </div>
     <?php endif; ?>
@@ -157,8 +157,8 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         <option value="<?= (int) $x['id'] ?>" <?= (int) ($c['asignado_a'] ?? 0) === (int) $x['id'] ? 'selected' : '' ?>><?= e($x['nombre']) ?><?= (int) $x['id'] === $yoId ? ' (yo)' : '' ?></option>
         <?php endforeach; ?>
     </select>
-    <?php if ((int) ($c['asignado_a'] ?? 0) !== $yoId): ?><button class="boton boton-claro" name="usuario_id" value="yo">Atender yo</button><?php endif; ?>
-    <noscript><button class="boton boton-claro">Cambiar</button></noscript>
+    <?php if ((int) ($c['asignado_a'] ?? 0) !== $yoId): ?><button class="boton boton-claro tk-boton secundario" name="usuario_id" value="yo">Atender yo</button><?php endif; ?>
+    <noscript><button class="boton boton-claro tk-boton secundario">Cambiar</button></noscript>
 </form>
 <?php endif; ?>
 <?php endif; ?>
@@ -168,11 +168,11 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 <?php if (!empty($linea['llamadas_activo']) && $c['tipo'] !== 'personal'): $puedeLlamar = \TuWhatsApp\Llamadas::puedeLlamar($c); ?>
 <div class="nota llamar-chat">
     <?php if ($puedeLlamar): ?>
-    <button type="button" class="boton boton-verde" onclick="window.open('<?= e(url('llamar', ['c' => $c['id']])) ?>', 'llamada_c<?= (int) $c['id'] ?>', 'width=380,height=620')">📞 Llamar</button>
+    <button type="button" class="boton boton-verde tk-boton ok" onclick="window.open('<?= e(url('llamar', ['c' => $c['id']])) ?>', 'llamada_c<?= (int) $c['id'] ?>', 'width=380,height=620')">📞 Llamar</button>
     <span class="suave pequeno">Te dio permiso<?= $c['llamar_permiso'] === 'temporal' && $c['llamar_hasta'] ? ' hasta ' . e(hora_corta((string) $c['llamar_hasta'])) : ' (siempre)' ?>.</span>
     <?php else: ?>
     <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="pedir_llamada">
-        <button class="boton boton-claro" <?= $ventana ? '' : 'disabled' ?>>📞 Pedir permiso para llamar</button></form>
+        <button class="boton boton-claro tk-boton secundario" <?= $ventana ? '' : 'disabled' ?>>📞 Pedir permiso para llamar</button></form>
     <span class="suave pequeno"><?= $c['llamar_permiso'] === 'rechazado' ? 'No aceptó la última vez.' : ($ventana ? 'Le llega un botón de WhatsApp para aceptar.' : 'Se puede pedir cuando te escriba (24 horas).') ?></span>
     <?php endif; ?>
     <?php foreach ($llamadas as $l): ?>
@@ -181,7 +181,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 </div>
 <?php endif; ?>
 <?php if ($c['tipo'] !== 'personal'): ?>
-<details class="tarjeta plegable carrito-chat" <?= $itemsCarrito ? 'open' : '' ?>>
+<details class="tarjeta tk-tarjeta plegable carrito-chat" <?= $itemsCarrito ? 'open' : '' ?>>
     <summary>🛒 Carrito y cotización<?= $carrito && $itemsCarrito ? ' · ' . e(dinero($carrito['total'])) : '' ?></summary>
     <?php if (!$productos): ?>
     <p class="suave pequeno">Primero agrega tus productos en el <a href="<?= e(url('catalogo')) ?>">Catálogo</a><?= es_admin() ? '' : ' (lo hace el administrador)' ?>.</p>
@@ -194,10 +194,10 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         · <a href="<?= e(url('pedido', ['id' => $carrito['id']])) ?>">Cambiar cantidades</a></p>
     <div class="fila-botones">
         <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="carrito_resumen">
-            <button class="boton" <?= $ventana ? '' : 'disabled' ?>>Mandar resumen y cómo pagar</button></form>
+            <button class="boton tk-boton" <?= $ventana ? '' : 'disabled' ?>>Mandar resumen y cómo pagar</button></form>
         <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="carrito_cotizacion">
-            <button class="boton boton-claro" <?= $ventana ? '' : 'disabled' ?>>Mandar cotización PDF</button></form>
-        <a class="boton boton-claro" href="<?= e(url('cotizacion', ['id' => $carrito['id']])) ?>">Descargar PDF</a>
+            <button class="boton boton-claro tk-boton secundario" <?= $ventana ? '' : 'disabled' ?>>Mandar cotización PDF</button></form>
+        <a class="boton boton-claro tk-boton secundario" href="<?= e(url('cotizacion', ['id' => $carrito['id']])) ?>">Descargar PDF</a>
     </div>
     <?php endif; ?>
     <form method="post" class="formulario"><?= csrf_campo() ?><input type="hidden" name="accion" value="carrito_agregar">
@@ -207,15 +207,15 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
             </select></label>
             <label>Cantidad<input name="cantidad" type="number" min="1" max="999" value="1"></label>
         </div>
-        <button class="boton boton-claro">Agregar al carrito</button>
+        <button class="boton boton-claro tk-boton secundario">Agregar al carrito</button>
     </form>
     <?php if ($ventana): ?>
     <form method="post" class="formulario"><?= csrf_campo() ?><input type="hidden" name="accion" value="enviar_producto">
         <label>Mandarle un producto (con foto y precio)<select name="producto_id" required><option value="">Elegir…</option>
             <?php foreach ($productos as $x): ?><option value="<?= (int) $x['id'] ?>"><?= e($x['nombre']) ?></option><?php endforeach; ?>
         </select></label>
-        <div class="fila-botones"><button class="boton boton-claro">Mandar producto</button>
-            <button class="boton boton-claro" name="accion" value="enviar_catalogo" formnovalidate>Mandar catálogo para elegir</button></div>
+        <div class="fila-botones"><button class="boton boton-claro tk-boton secundario">Mandar producto</button>
+            <button class="boton boton-claro tk-boton secundario" name="accion" value="enviar_catalogo" formnovalidate>Mandar catálogo para elegir</button></div>
     </form>
     <?php endif; ?>
     <?php endif; ?>
@@ -225,7 +225,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
 </details>
 <?php endif; ?>
 <?php if (modulo('embudo') && $c['tipo'] !== 'personal'): ?>
-<form method="post" class="tarjeta formulario embudo-chat">
+<form method="post" class="tarjeta tk-tarjeta formulario embudo-chat">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="etapa">
     <div class="fila-doble">
         <label>Etapa de la venta<select name="etapa">
@@ -234,11 +234,11 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         </select></label>
         <label>Valor ($)<input name="valor" inputmode="decimal" maxlength="15" value="<?= (float) $c['valor'] > 0 ? e(number_format((float) $c['valor'], 2, ',', '.')) : '' ?>" placeholder="0"></label>
     </div>
-    <button class="boton boton-claro">Guardar etapa</button> <a class="pequeno" href="<?= e(url('embudo')) ?>">Ver embudo</a>
+    <button class="boton boton-claro tk-boton secundario">Guardar etapa</button> <a class="pequeno" href="<?= e(url('embudo')) ?>">Ver embudo</a>
 </form>
 <?php endif; ?>
 <?php if (modulo('seguimientos') && $c['tipo'] !== 'personal'): ?>
-<details class="tarjeta plegable" <?= $seguimientos ? 'open' : '' ?>>
+<details class="tarjeta tk-tarjeta plegable" <?= $seguimientos ? 'open' : '' ?>>
     <summary>Programar seguimiento<?= $seguimientos ? ' (' . count(array_filter($seguimientos, fn ($s) => $s['estado'] === 'programado')) . ' programados)' : '' ?></summary>
     <?php foreach ($seguimientos as $s): ?>
     <form method="post" class="seguimiento-item">
@@ -257,11 +257,11 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         </select></label>
         <label class="seg-fecha">Fecha y hora (si elegiste "Elegir fecha")<input type="datetime-local" name="fecha"></label>
         <label class="check"><input type="checkbox" name="solo_sin_respuesta" value="1" checked> Mandarlo solo si no responde antes</label>
-        <button class="boton boton-claro">Programar</button>
+        <button class="boton boton-claro tk-boton secundario">Programar</button>
     </form>
 </details>
 <?php endif; ?>
-<details class="tarjeta plegable">
+<details class="tarjeta tk-tarjeta plegable">
     <summary>Datos y notas de este contacto</summary>
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="datos">
@@ -276,7 +276,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         </label>
         <?php endforeach; ?>
         <?php if (es_admin()): ?><p class="suave pequeno"><a href="<?= e(url('campos')) ?>">Agregar campos propios</a> (ciudad, cédula, cumpleaños…)</p><?php endif; ?>
-        <button class="boton">Guardar</button>
+        <button class="boton tk-boton">Guardar</button>
     </form>
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="marketing">
@@ -292,9 +292,9 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         <?= csrf_campo() ?><input type="hidden" name="accion" value="silencio">
         <p class="suave">¿Lo estás atendiendo tú? Pausa las respuestas automáticas para esta persona:</p>
         <div class="fila-botones">
-            <button class="boton boton-claro" name="horas" value="4">4 horas</button>
-            <button class="boton boton-claro" name="horas" value="24">1 día</button>
-            <button class="boton boton-claro" name="horas" value="168">1 semana</button>
+            <button class="boton boton-claro tk-boton secundario" name="horas" value="4">4 horas</button>
+            <button class="boton boton-claro tk-boton secundario" name="horas" value="24">1 día</button>
+            <button class="boton boton-claro tk-boton secundario" name="horas" value="168">1 semana</button>
         </div>
     </form>
     <?php endif; ?>

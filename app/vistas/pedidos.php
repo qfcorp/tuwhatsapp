@@ -3,7 +3,7 @@
 use TuWhatsApp\Pedidos;
 $origenes = ['chat' => 'Chat', 'bot' => 'Agente IA', 'shopify' => 'Shopify', 'woocommerce' => 'WooCommerce'];
 ?>
-<div class="cabeza"><h1>Pedidos</h1></div>
+<div class="cabeza tk-titulo-pagina"><h1>Pedidos</h1></div>
 <ul class="cifras">
     <?php foreach (['carrito', 'pendiente', 'pagado', 'enviado'] as $k): $c = $cuentas[$k] ?? ['n' => 0, 'total' => 0]; ?>
     <li><b><?= (int) $c['n'] ?></b><span><?= e(Pedidos::ESTADOS[$k]) ?> · <?= e(dinero($c['total'])) ?></span></li>

@@ -6,7 +6,7 @@ $pl = fn (int $n, string $uno, string $varios) => $n . ' ' . ($n === 1 ? $uno : 
 $max = max(1, ...array_values(array_map(fn ($d) => max($d["entran"], $d["salen"]), $r["por_dia"])));
 $pct = $r['respuesta']['total'] > 0 ? (int) round($r['respuesta']['contestados'] * 100 / $r['respuesta']['total']) : null;
 ?>
-<div class="cabeza"><h1>Reportes</h1>
+<div class="cabeza tk-titulo-pagina"><h1>Reportes</h1>
     <nav class="pestanas" aria-label="Período">
         <?php foreach (Reportes::PERIODOS as $d => $n): ?><a href="<?= e(url('reportes', ['d' => $d])) ?>" class="<?= $r['dias'] === $d ? 'activo' : '' ?>"><?= e($n) ?></a><?php endforeach; ?>
     </nav>
@@ -24,7 +24,7 @@ $pct = $r['respuesta']['total'] > 0 ? (int) round($r['respuesta']['contestados']
     <li><b><?= e(dinero($t['gasto'], true)) ?></b><span>gastado en Meta</span></li>
 </ul>
 
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Mensajes por día</h2>
     <p class="suave pequeno"><span class="punto punto-entra"></span> recibidos · <span class="punto punto-sale"></span> enviados</p>
     <div class="barras">
@@ -38,25 +38,25 @@ $pct = $r['respuesta']['total'] > 0 ? (int) round($r['respuesta']['contestados']
 </section>
 
 <?php if (modulo('embudo')): ?>
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Ventas del embudo en el período</h2>
     <p><b><?= (int) $r['ventas']['ganados'] ?></b> <?= $r['ventas']['ganados'] === 1 ? 'ganada' : 'ganadas' ?> por <b><?= e(dinero($r['ventas']['vendido'])) ?></b> · <b><?= (int) $r['ventas']['perdidos'] ?></b> <?= $r['ventas']['perdidos'] === 1 ? 'perdida' : 'perdidas' ?>
     <?php $cerr = $r['ventas']['ganados'] + $r['ventas']['perdidos']; if ($cerr > 0): ?> · cierre <?= (int) round($r['ventas']['ganados'] * 100 / $cerr) ?>%<?php endif; ?></p>
 </section>
 <?php endif; ?>
 
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Pedidos pagados en el período</h2>
     <p><b><?= (int) $pedidosRep['n'] ?></b> <?= $pedidosRep['n'] === 1 ? 'pedido' : 'pedidos' ?> por <b><?= e(dinero($pedidosRep['total'])) ?></b>
     <?php if ($pedidosRep['n'] > 0): ?> · ticket promedio <?= e(dinero($pedidosRep['total'] / $pedidosRep['n'])) ?><?php endif; ?> · <a href="<?= e(url('pedidos')) ?>">Ver pedidos</a></p>
 </section>
 
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>De qué anuncio llegaron</h2>
     <?php if (!$anuncios): ?>
     <p class="suave">Nadie llegó desde un anuncio de Facebook o Instagram en este período. Cuando alguien escriba desde un anuncio "Enviar mensaje de WhatsApp", aquí verás cuántos escribieron, cuántos compraron y cuánto vendiste por cada anuncio.</p>
     <?php else: ?>
-    <div class="tabla-desliza"><table class="tabla">
+    <div class="tabla-desliza"><table class="tabla tk-tabla">
         <thead><tr><th>Anuncio</th><th>Personas</th><th>Clientes</th><th>Ventas ganadas</th><th>Pedidos pagados</th></tr></thead>
         <tbody>
         <?php foreach ($anuncios as $a): ?>

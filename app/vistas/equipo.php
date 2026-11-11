@@ -5,9 +5,9 @@ $reglas = Reparto::reglas($linea);
 $reglas[] = ['palabras' => '', 'usuario_id' => 0];
 $reglas[] = ['palabras' => '', 'usuario_id' => 0];
 ?>
-<div class="cabeza"><h1>Equipo y reparto</h1></div>
+<div class="cabeza tk-titulo-pagina"><h1>Equipo y reparto</h1></div>
 
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Ahora mismo</h2>
     <p><b><?= (int) $t['sin_asignar'] ?></b> <?= $t['sin_asignar'] === 1 ? 'conversación esperando' : 'conversaciones esperando' ?> sin nadie asignado.
     <?php if ($t['sin_asignar'] > 0): ?><a href="<?= e(url('bandeja', ['f' => 'sin_asignar'])) ?>">Ver</a><?php endif; ?></p>
@@ -35,7 +35,7 @@ $reglas[] = ['palabras' => '', 'usuario_id' => 0];
     <?php endif; ?>
 </section>
 
-<form method="post" class="tarjeta formulario">
+<form method="post" class="tarjeta tk-tarjeta formulario">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="reparto">
     <h2>Reparto automático</h2>
     <p class="suave pequeno">Cuando escribe alguien que no tiene a nadie asignado (o el chatbot o el agente con IA lo pasan a una persona), se le asigna solo a una persona <b>disponible</b> que recibe chats.</p>
@@ -52,20 +52,20 @@ $reglas[] = ['palabras' => '', 'usuario_id' => 0];
         </select></label>
     </div>
     <?php endforeach; ?>
-    <button class="boton">Guardar reparto</button>
+    <button class="boton tk-boton">Guardar reparto</button>
 </form>
 
-<form method="post" class="tarjeta formulario">
+<form method="post" class="tarjeta tk-tarjeta formulario">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="recibe">
     <h2>Quién recibe conversaciones</h2>
     <?php foreach ($equipo as $u): ?>
     <label class="check"><input type="checkbox" name="recibe[]" value="<?= (int) $u['id'] ?>" <?= $u['recibe_chats'] ? 'checked' : '' ?>> <?= e($u['nombre']) ?></label>
     <?php endforeach; ?>
-    <button class="boton boton-claro">Guardar</button>
+    <button class="boton boton-claro tk-boton secundario">Guardar</button>
 </form>
 
 <?php if (count($equipo) > 1): ?>
-<form method="post" class="tarjeta formulario">
+<form method="post" class="tarjeta tk-tarjeta formulario">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="pasar">
     <h2>Pasar conversaciones</h2>
     <p class="suave pequeno">Por ejemplo, si alguien se va de vacaciones: todas sus conversaciones pasan a otra persona.</p>
@@ -73,6 +73,6 @@ $reglas[] = ['palabras' => '', 'usuario_id' => 0];
         <label>De<select name="de" required><?php foreach ($equipo as $u): ?><option value="<?= (int) $u['id'] ?>"><?= e($u['nombre']) ?></option><?php endforeach; ?></select></label>
         <label>A<select name="a"><option value="">Nadie (sin asignar)</option><?php foreach ($equipo as $u): ?><option value="<?= (int) $u['id'] ?>"><?= e($u['nombre']) ?></option><?php endforeach; ?></select></label>
     </div>
-    <button class="boton boton-claro">Pasar todas</button>
+    <button class="boton boton-claro tk-boton secundario">Pasar todas</button>
 </form>
 <?php endif; ?>

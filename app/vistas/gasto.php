@@ -5,8 +5,8 @@ $r = $resumen;
 $origenes = ['auto' => 'Respuestas automáticas', 'bot' => 'Agente con IA', 'flujo' => 'Chatbots', 'campania' => 'Campañas', 'tienda' => 'Avisos de la tienda en línea', 'panel' => 'Enviados desde aquí', 'pendiente' => 'Pendientes por el sistema', 'celular' => 'Desde el celular'];
 $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', '05' => 'mayo', '06' => 'junio', '07' => 'julio', '08' => 'agosto', '09' => 'septiembre', '10' => 'octubre', '11' => 'noviembre', '12' => 'diciembre'];
 ?>
-<div class="cabeza"><h1>Gasto en Meta</h1></div>
-<section class="tarjeta gasto-grande <?= $r['pct'] >= 100 ? 'lleno' : ($r['pct'] >= (int) $linea['aviso_pct'] ? 'alerta' : '') ?>">
+<div class="cabeza tk-titulo-pagina"><h1>Gasto en Meta</h1></div>
+<section class="tarjeta tk-tarjeta gasto-grande <?= $r['pct'] >= 100 ? 'lleno' : ($r['pct'] >= (int) $linea['aviso_pct'] ? 'alerta' : '') ?>">
     <p class="suave">Este mes (<?= e($meses[date('m')]) ?>)</p>
     <p class="cifra"><?= e(dinero($r['gastado'])) ?> <small>de <?= e(dinero($r['tope'])) ?> · aproximado</small></p>
     <div class="tope-barra grande"><span style="width: <?= (int) $r['pct'] ?>%"></span></div>
@@ -21,7 +21,7 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
 </section>
 
 <?php if (es_admin()): ?>
-<form method="post" class="tarjeta formulario">
+<form method="post" class="tarjeta tk-tarjeta formulario">
     <?= csrf_campo() ?><input type="hidden" name="accion" value="tope">
     <h2>Tope del mes</h2>
     <p class="suave">Al llegar al tope el sistema deja de enviar mensajes pagados solo. Nunca te pasas.</p>
@@ -30,14 +30,14 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
         <label>Avisarme al llegar al (%)<input type="number" name="aviso_pct" min="10" max="100" value="<?= (int) $linea['aviso_pct'] ?>" required></label>
     </div>
     <p class="suave pequeno">El aviso sale arriba en el panel<?= getenv('TELEGRAM_BOT_TOKEN') ? ' y por Telegram' : '' ?>.</p>
-    <button class="boton">Guardar tope</button>
+    <button class="boton tk-boton">Guardar tope</button>
 </form>
 <?php endif; ?>
 
 <?php if ($r['por_origen']): ?>
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>En qué se gastó</h2>
-    <table class="tabla">
+    <table class="tabla tk-tabla">
         <thead><tr><th>De dónde</th><th>Mensajes</th><th>Costo</th></tr></thead>
         <tbody>
         <?php foreach ($r['por_origen'] as $o => $x): ?>
@@ -45,7 +45,7 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
         <?php endforeach; ?>
         </tbody>
     </table>
-    <table class="tabla">
+    <table class="tabla tk-tabla">
         <thead><tr><th>Tipo (Meta)</th><th>Mensajes</th><th>Costo</th></tr></thead>
         <tbody>
         <?php foreach ($r['por_categoria'] as $c => $x): ?>
@@ -57,9 +57,9 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
 <?php endif; ?>
 
 <?php if (count($r['meses']) > 1): ?>
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Meses anteriores</h2>
-    <table class="tabla">
+    <table class="tabla tk-tabla">
         <tbody>
         <?php foreach ($r['meses'] as $m): ?>
         <tr><td><?= e(ucfirst($meses[substr($m['mes'], 5, 2)]) . ' ' . substr($m['mes'], 0, 4)) ?></td><td><?= (int) $m['n'] ?> mensajes</td><td><?= e(dinero($m['costo'])) ?></td></tr>
@@ -70,7 +70,7 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
 <?php endif; ?>
 
 <?php if (es_super()): ?>
-<details class="tarjeta plegable">
+<details class="tarjeta tk-tarjeta plegable">
     <summary>Precios de Meta por mensaje</summary>
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="precios">
@@ -80,7 +80,7 @@ $meses = ['01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril', 
         <?php foreach (Gasto::CATEGORIAS as $k => $n): if ($k === 'servicio') continue; ?>
         <label><?= e($n) ?><input name="precio[<?= $k ?>]" inputmode="decimal" value="<?= e(rtrim(rtrim(number_format($precios[$k], 5, '.', ''), '0'), '.')) ?>" required></label>
         <?php endforeach; ?>
-        <button class="boton">Guardar precios</button>
+        <button class="boton tk-boton">Guardar precios</button>
     </form>
 </details>
 <?php endif; ?>

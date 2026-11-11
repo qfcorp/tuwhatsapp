@@ -282,11 +282,19 @@ try {
         exit;
 
     case 'inicio':
+        // (10 nov 2026) «Ocultar» los primeros pasos: se guarda por cuenta (empresas.pasos_ocultos)
+        if ($post && ($_POST['accion'] ?? '') === 'ocultar_pasos') {
+            if (es_admin()) {
+                db()->prepare('UPDATE empresas SET pasos_ocultos = true WHERE id = ?')->execute([(int) empresa_actual()['id']]);
+            }
+            redirigir('inicio');
+        }
         vista('inicio', 'Inicio', [
             'linea' => $linea, 'usuarioNombre' => (string) usuario()['nombre'],
             'cifras' => \TuWhatsApp\Inicio::cifras(db(), $linea),
             'pasos' => \TuWhatsApp\Inicio::pasos(db(), $linea, empresa_actual(), 'modulo'),
             'resumen' => modulo('ia') ? \TuWhatsApp\Copiloto::resumenDeHoy(db(), $lid) : null,
+            'recientes' => Contactos::bandeja(db(), $lid, 'todos', '', 5, (int) usuario()['id']),
         ]);
 
     case 'bandeja':

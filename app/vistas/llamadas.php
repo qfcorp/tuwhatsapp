@@ -7,8 +7,8 @@ $textoHorario = \TuWhatsApp\Lineas::textoHorario($linea);
 $fueraAhora = Llamadas::fueraDeHorario($linea, new DateTimeImmutable());
 $modoFuera = Llamadas::modoFuera($linea);
 ?>
-<div class="cabeza"><h1>Llamadas</h1></div>
-<section class="tarjeta">
+<div class="cabeza tk-titulo-pagina"><h1>Llamadas</h1></div>
+<section class="tarjeta tk-tarjeta">
     <h2>Llamadas de WhatsApp <?= $activo ? '<small class="chip chip-cliente">Encendidas</small>' : '<small class="chip">Apagadas</small>' ?></h2>
     <p class="suave pequeno">Tus clientes te llaman por WhatsApp (el botón 📞 de tu chat) y contestas desde el panel o desde la app en el celular.
     También puedes llamarlos tú, si te dan permiso. Las llamadas que te hacen son <b>gratis</b>; las que haces tú las cobra Meta por minuto.</p>
@@ -44,9 +44,9 @@ $modoFuera = Llamadas::modoFuera($linea);
     <form method="post" class="fila-botones">
         <?= csrf_campo() ?>
         <?php if ($activo): ?>
-        <button class="boton boton-claro" name="accion" value="apagar">Apagar llamadas</button>
+        <button class="boton boton-claro tk-boton secundario" name="accion" value="apagar">Apagar llamadas</button>
         <?php else: ?>
-        <button class="boton" name="accion" value="encender">Encender llamadas en mi número</button>
+        <button class="boton tk-boton" name="accion" value="encender">Encender llamadas en mi número</button>
         <?php endif; ?>
     </form>
     <details <?= $activo ? '' : 'open' ?>>
@@ -71,12 +71,12 @@ $modoFuera = Llamadas::modoFuera($linea);
         <p class="suave pequeno">Escribe <code>{horario}</code> donde quieras que salga tu horario. Así le llega hoy: «<?= e(Llamadas::textoFuera($linea)) ?>»</p>
         <label>Mensaje si no alcanzas a contestar (opcional)<textarea name="llamadas_perdida" rows="2" maxlength="1000" placeholder="Hola, vimos tu llamada. Ahora no pudimos contestar, ¿te ayudamos por aquí?"><?= e($linea['llamadas_perdida']) ?></textarea></label>
         <p class="suave pequeno">Se manda solo si el cliente te escribió en las últimas 24 horas (así no cuesta plantilla).</p>
-        <button class="boton boton-claro">Guardar</button>
+        <button class="boton boton-claro tk-boton secundario">Guardar</button>
     </form>
     <?php endif; ?>
 </section>
 
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2>Últimas llamadas</h2>
     <?php if (!$llamadas): ?>
     <p class="suave">Todavía no hay llamadas.</p>

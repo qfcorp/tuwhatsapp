@@ -5,10 +5,10 @@ use TuWhatsApp\Empresas;
 $yo = usuario();
 $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
 ?>
-<div class="cabeza"><h1>Mi cuenta</h1></div>
+<div class="cabeza tk-titulo-pagina"><h1>Mi cuenta</h1></div>
 <?php require __DIR__ . '/_clave_nueva.php'; ?>
 
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <h2><?= u($empresa['nombre']) ?></h2>
     <p class="suave">
         Estado: <b><?= e(Empresas::ESTADOS[$empresa['estado']]) ?></b><?= $empresa['vence'] ? ' hasta el ' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) : '' ?> ·
@@ -18,7 +18,7 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
 </section>
 
 <?php if ((int) $empresa['id'] !== 1 && !es_super()): $planNombre = \TuWhatsApp\Modulos::PLANES[$plan['plan']][0] ?? 'Todo incluido'; $cancela = !empty($empresa['cancelar_en']); ?>
-<section class="tarjeta plan-cuenta" id="plan">
+<section class="tarjeta tk-tarjeta plan-cuenta" id="plan">
     <div class="pp-cabeza">
         <h2>Tu plan: <?= e($planNombre) ?></h2>
         <?php if (!en_app_android()): ?><span class="plan-precio"><b><?= e(dinero($plan['mensual'])) ?></b> al mes</span><?php endif; ?>
@@ -43,7 +43,7 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
     <?php if (!empty($pago)) { require __DIR__ . '/_pago_tarjeta.php'; } ?>
     <?php if (es_admin()): ?>
     <?php if ($cancela): ?>
-    <form method="post"><?= csrf_campo() ?><input type="hidden" name="accion" value="seguir_plan"><button class="boton">Seguir con mi plan</button></form>
+    <form method="post"><?= csrf_campo() ?><input type="hidden" name="accion" value="seguir_plan"><button class="boton tk-boton">Seguir con mi plan</button></form>
     <?php elseif ($empresa['estado'] !== 'demo'): ?>
     <details class="plegable-simple cancelar-plan">
         <summary>Cancelar mi plan</summary>
@@ -52,7 +52,7 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
             <p class="suave pequeno">Sigues usando todo hasta el fin del período que ya pagaste y después la cuenta se pausa. Tus chats y contactos se guardan 90 días por si vuelves.</p>
             <label>¿Por qué te vas? (opcional, nos ayuda a mejorar)<textarea name="motivo" rows="2" maxlength="500"></textarea></label>
             <label class="check"><input type="checkbox" name="confirmo" value="1" required> Sí, quiero cancelar mi plan</label>
-            <button class="boton boton-peligro">Cancelar mi plan</button>
+            <button class="boton boton-peligro tk-boton peligro">Cancelar mi plan</button>
         </form>
     </details>
     <?php endif; ?>
@@ -60,14 +60,14 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
 </section>
 <?php endif; ?>
 
-<details class="tarjeta plegable">
+<details class="tarjeta tk-tarjeta plegable">
     <summary>Cambiar mi contraseña</summary>
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="mi_clave">
         <label>Contraseña actual<input type="password" name="actual" required autocomplete="current-password"></label>
         <label>Contraseña nueva (mínimo 8)<input type="password" name="nueva" required minlength="8" autocomplete="new-password"></label>
         <label>Repite la nueva<input type="password" name="repetir" required minlength="8" autocomplete="new-password"></label>
-        <button class="boton">Cambiar contraseña</button>
+        <button class="boton tk-boton">Cambiar contraseña</button>
     </form>
 </details>
 
@@ -83,11 +83,11 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
         <form method="post">
             <?= csrf_campo() ?><input type="hidden" name="accion" value="usuario"><input type="hidden" name="id" value="<?= (int) $x['id'] ?>">
             <?php if ($x['activo']): ?>
-            <button class="boton boton-claro" name="que" value="<?= $x['rol'] === 'admin' ? 'agente' : 'admin' ?>">Hacer <?= $x['rol'] === 'admin' ? 'agente' : 'administrador' ?></button>
-            <button class="boton boton-claro" name="que" value="clave">Contraseña nueva</button>
-            <button class="boton boton-claro" name="que" value="desactivar">Desactivar</button>
+            <button class="boton boton-claro tk-boton secundario" name="que" value="<?= $x['rol'] === 'admin' ? 'agente' : 'admin' ?>">Hacer <?= $x['rol'] === 'admin' ? 'agente' : 'administrador' ?></button>
+            <button class="boton boton-claro tk-boton secundario" name="que" value="clave">Contraseña nueva</button>
+            <button class="boton boton-claro tk-boton secundario" name="que" value="desactivar">Desactivar</button>
             <?php else: ?>
-            <button class="boton boton-claro" name="que" value="activar">Activar</button>
+            <button class="boton boton-claro tk-boton secundario" name="que" value="activar">Activar</button>
             <?php endif; ?>
         </form>
         <?php endif; ?>
@@ -95,14 +95,14 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
     <?php endforeach; ?>
 </ul>
 <?php if ($activos < (int) $empresa['max_usuarios']): ?>
-<details class="tarjeta plegable">
+<details class="tarjeta tk-tarjeta plegable">
     <summary>Agregar una persona</summary>
     <form method="post" class="formulario">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="agregar_usuario">
         <label>Nombre<input name="nombre" required maxlength="100"></label>
         <label>Correo<input type="email" name="correo" required></label>
         <label>Rol<select name="rol"><option value="agente">Agente (solo atiende)</option><option value="admin">Administrador</option></select></label>
-        <button class="boton">Crear usuario</button>
+        <button class="boton tk-boton">Crear usuario</button>
     </form>
 </details>
 <?php else: ?>
@@ -110,13 +110,13 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
 <?php endif; ?>
 
 <h2 class="separador">Conectar otros programas (API)</h2>
-<section class="tarjeta">
+<section class="tarjeta tk-tarjeta">
     <p class="suave">Para que tu otro sistema (por ejemplo TuSalón) agregue mensajes a Pendientes o registre clientes. <?= $empresa['api_token_hash'] !== '' ? 'Ya tienes un token creado.' : 'Todavía no tienes token.' ?></p>
     <?php if ($tokenNuevo): ?>
     <div class="clave-nueva">Tu token (cópialo ahora, no se vuelve a mostrar):<br><code><?= e($tokenNuevo) ?></code></div>
     <?php endif; ?>
     <form method="post"><?= csrf_campo() ?><input type="hidden" name="accion" value="token_api">
-        <button class="boton boton-claro"><?= $empresa['api_token_hash'] !== '' ? 'Crear token nuevo (el anterior deja de servir)' : 'Crear token' ?></button>
+        <button class="boton boton-claro tk-boton secundario"><?= $empresa['api_token_hash'] !== '' ? 'Crear token nuevo (el anterior deja de servir)' : 'Crear token' ?></button>
     </form>
 </section>
 <?php endif; ?>

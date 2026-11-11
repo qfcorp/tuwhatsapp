@@ -315,3 +315,70 @@ function ayuda_fin(): string
     return '</div></details>';
 }
 
+
+// ---------------------------------------------------------------------
+// Identidad gráfica común de Tukán (10 nov 2026): kit public/assets/tukan-ui.css + tukan-ui.js (idénticos en todos los programas)
+// ---------------------------------------------------------------------
+
+/** Color de WhatsApp Tukán para el kit común (la única línea que cambia por programa): su naranja tucán, con texto oscuro (contraste AA). */
+const TK_COLOR_LINEA = '<style>:root{ --tk-color:#F28C28; --tk-color-claro:#F7A95B; --tk-color-texto:#14213D; }</style>';
+
+/**
+ * Todo lo que no está en «Principal», por grupos: [ruta, nombre, para qué sirve, solo administrador]. Lo usan la pantalla «Más» y
+ * el menú de la izquierda. Todo el programa viene incluido; solo la IA se cobra aparte.
+ */
+function menu_mas_grupos(): array
+{
+    return [
+        'Vender' => [
+            ['pedidos', 'Pedidos', 'Carritos y pedidos de tus clientes: pendientes de pago, pagados, enviados.', false],
+            ['catalogo', 'Catálogo', 'Tus productos o servicios con precio y stock, para mandarlos por el chat.', true],
+            ['cobros', 'Cobros y cotizaciones', 'Tarjeta con Plux o Payphone, transferencia, IVA y cotización en PDF.', true],
+            ['tufactura', '🧾 Factura electrónica', 'Factura del SRI de cada pedido pagado, con TuFactura.', false],
+            ['campanias', 'Campañas', 'Mandar una plantilla a muchos clientes a la vez.', true],
+            ['seguimientos', 'Seguimientos', 'Mensajes programados: escribir solo a quien no respondió.', false],
+            ['enlaces', 'Enlaces y QR', 'Enlace corto, código QR y botón de WhatsApp para tu página web.', true],
+            ['tienda', 'Tienda en línea', 'Shopify o WooCommerce: avisos de pedido y carritos abandonados.', true],
+        ],
+        'Automático' => [
+            ['reglas', 'Respuestas automáticas', 'Menú con botones, horario y palabras clave.', true],
+            ['flujos', 'Chatbots', 'Conversaciones por pasos con botones y preguntas, sin programar.', true],
+            ['ia', 'Agente con IA', 'Contesta solo las 24 horas con lo que sabe tu negocio y tu catálogo.', true],
+            ['asistente', 'Pregúntale a la IA', 'Pide en palabras: quién está listo para comprar, arma una campaña, cómo te fue. Resumen cada mañana.', false],
+        ],
+        'Equipo' => [
+            ['equipo', 'Equipo y reparto', 'Quién atiende qué, reparto automático y vista del supervisor.', true],
+            ['reportes', 'Reportes', 'Mensajes, tiempos de respuesta, ventas y de qué anuncio llegó cada cliente.', true],
+            ['llamadas', 'Llamadas', 'Contesta y haz llamadas de WhatsApp desde el panel.', false],
+            ['app', 'App en el celular', 'Instálalo como app y recibe avisos aunque el navegador esté cerrado.', false],
+        ],
+        'Ajustes' => [
+            ['campos', 'Campos personalizados', 'Datos propios de cada cliente: ciudad, cédula, cumpleaños, talla…', true],
+            ['plantillas', 'Plantillas', 'Mensajes aprobados por Meta para escribir pasadas 24 horas.', false],
+            ['respuestas', 'Respuestas rápidas', 'Textos guardados para pegar en el chat con un toque.', true],
+            ['integraciones', 'Integraciones', 'Excel y avisos a otros programas (Make, Zapier, n8n).', true],
+            ['gasto', 'Gasto en Meta', 'Cuánto llevas gastado este mes y el tope.', false],
+            ['lineas', 'Números conectados', 'Tus números de WhatsApp y cómo conectarlos.', true],
+            ['cuenta', 'Mi cuenta', 'Contraseña, equipo y token de la API.', false],
+        ],
+    ];
+}
+
+/** Emoji de cada opción del menú (el menú de todos los programas Tukán lleva un emoji por opción). */
+function icono_menu(string $ruta): string
+{
+    return [
+        'inicio' => '📊', 'bandeja' => '💬', 'pendientes' => '📲', 'pedidos' => '🛒', 'contactos' => '👥', 'embudo' => '🎯', 'mas' => '☰',
+        'catalogo' => '📦', 'cobros' => '💳', 'tufactura' => '🧾', 'campanias' => '📣', 'seguimientos' => '⏰', 'enlaces' => '🔗', 'tienda' => '🛍️',
+        'reglas' => '🤖', 'flujos' => '🧩', 'ia' => '✨', 'asistente' => '💡', 'equipo' => '🧑‍🤝‍🧑', 'reportes' => '📈', 'llamadas' => '📞', 'app' => '📱',
+        'campos' => '🗂️', 'plantillas' => '📄', 'respuestas' => '⚡', 'integraciones' => '🔌', 'gasto' => '💲', 'lineas' => '☎️', 'cuenta' => '⭐',
+        'clientes' => '🏢',
+    ][$ruta] ?? '•';
+}
+
+/** Saludo según la hora de Ecuador: [emoji, texto]. */
+function saludo_hora(?DateTimeImmutable $ahora = null): array
+{
+    $h = (int) ($ahora ?? new DateTimeImmutable('now'))->setTimezone(new DateTimeZone('America/Guayaquil'))->format('G');
+    return $h < 12 ? ['☀️', 'Buenos días'] : ($h < 19 ? ['🌤️', 'Buenas tardes'] : ['🌙', 'Buenas noches']);
+}

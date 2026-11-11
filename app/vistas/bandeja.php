@@ -8,12 +8,12 @@ if (!modulo('agentes')) {
 ?>
 <div class="bandeja-escritorio">
 <div class="col-lista-bandeja">
-<div class="cabeza">
+<div class="cabeza tk-titulo-pagina">
     <h1>Bandeja</h1>
     <span class="estado-auto <?= $linea['auto_activo'] ? 'si' : 'no' ?>"><?php if (es_admin()): ?><a href="<?= e(url('reglas')) ?>">Automático: <?= $linea['auto_activo'] ? 'encendido' : 'apagado' ?></a><?php else: ?><a>Automático: <?= $linea['auto_activo'] ? 'encendido' : 'apagado' ?></a><?php endif; ?></span>
 </div>
 <div class="avisos-navegador" id="avisos-navegador" hidden>
-    <button type="button" class="boton boton-claro" id="activar-avisos">🔔 Avisarme cuando llegue un mensaje</button>
+    <button type="button" class="boton boton-claro tk-boton secundario" id="activar-avisos">🔔 Avisarme cuando llegue un mensaje</button>
     <span class="suave pequeno" id="avisos-estado"></span>
 </div>
 <form class="buscar" method="get">
@@ -30,7 +30,7 @@ if (!modulo('agentes')) {
     <div class="vacio-dibujo" aria-hidden="true">💬</div>
     <p><b><?= $buscar !== '' || $filtro !== 'todos' ? 'Nada con ese filtro.' : 'Todavía no hay mensajes.' ?></b></p>
     <p class="suave"><?= $buscar !== '' || $filtro !== 'todos' ? 'Prueba con otro filtro o búsqueda.' : 'Cuando alguien escriba a tu WhatsApp aparecerá aquí. Comparte tu enlace o QR para que te escriban.' ?></p>
-    <?php if ($buscar === '' && $filtro === 'todos' && es_admin()): ?><a class="boton boton-claro" href="<?= e(url('enlaces')) ?>">Ver mi enlace y QR</a><?php endif; ?>
+    <?php if ($buscar === '' && $filtro === 'todos' && es_admin()): ?><a class="boton boton-claro tk-boton secundario" href="<?= e(url('enlaces')) ?>">Ver mi enlace y QR</a><?php endif; ?>
 </div>
 <?php else: ?>
 <ul class="conversaciones" id="conversaciones" data-linea="<?= (int) $linea['id'] ?>">
@@ -51,14 +51,14 @@ if (!modulo('agentes')) {
     <?php endforeach; ?>
 </ul>
 <?php endif; ?>
-<details class="tarjeta plegable">
+<details class="tarjeta tk-tarjeta plegable">
     <summary>Escribir a un número nuevo</summary>
     <form method="post" action="<?= e(url('nuevo_chat')) ?>" class="formulario">
         <?= csrf_campo() ?>
         <label>Número<input name="telefono" inputmode="tel" required placeholder="0991234567"></label>
         <label>Nombre (opcional)<input name="nombre" maxlength="100"></label>
         <label>Es<select name="tipo"><option value="cliente">Cliente</option><option value="desconocido">Desconocido</option><option value="personal">Personal</option></select></label>
-        <button class="boton">Abrir conversación</button>
+        <button class="boton tk-boton">Abrir conversación</button>
     </form>
 </details>
 </div>

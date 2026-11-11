@@ -14,11 +14,11 @@ $claseEstado = ['APPROVED' => 'ok', 'PENDING' => 'espera', 'IN_APPEAL' => 'esper
     <div><h1>Plantillas</h1><p class="suave">Volver a enviar a <?= u(Contactos::nombre($volverChat)) ?></p></div>
 </div>
 <?php else: ?>
-<div class="cabeza"><h1>Plantillas</h1></div>
+<div class="cabeza tk-titulo-pagina"><h1>Plantillas</h1></div>
 <?php endif; ?>
 <p class="suave">Las plantillas son mensajes que Meta aprueba antes. Sirven para escribir a alguien que no te ha escrito en 24 horas (recordatorios, cobros, promociones). Meta revisa cada una: normalmente tarda de minutos a 24 horas.</p>
 
-<details class="tarjeta plegable" id="nueva" <?= $form || !$plantillas ? 'open' : '' ?>>
+<details class="tarjeta tk-tarjeta plegable" id="nueva" <?= $form || !$plantillas ? 'open' : '' ?>>
     <summary>Crear plantilla nueva</summary>
     <form method="post" class="formulario" id="form-nueva-plantilla">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="crear">
@@ -70,19 +70,19 @@ $claseEstado = ['APPROVED' => 'ok', 'PENDING' => 'espera', 'IN_APPEAL' => 'esper
         <div class="burbuja-vista" id="vista-plantilla" aria-live="polite">
             <b class="vp-encabezado"></b><span class="vp-cuerpo"></span><small class="vp-pie"></small><span class="vp-botones"></span>
         </div>
-        <button class="boton boton-grande">Enviar a Meta para aprobar</button>
+        <button class="boton boton-grande tk-boton grande">Enviar a Meta para aprobar</button>
     </form>
 </details>
 
 <?php if ($errorMeta): ?>
-<div class="aviso aviso-error"><?= e($errorMeta) ?></div>
+<div class="aviso aviso-error tk-aviso mal"><?= e($errorMeta) ?></div>
 <?php elseif (!$plantillas): ?>
 <div class="vacio"><p><b>Todavía no tienes plantillas.</b></p><p class="suave">Crea la primera arriba.</p></div>
 <?php else: ?>
 <h2 class="separador">Mis plantillas (<?= count($plantillas) ?>)</h2>
 <ul class="lista-plantillas-admin">
     <?php foreach ($plantillas as $p): ?>
-    <li class="tarjeta">
+    <li class="tarjeta tk-tarjeta">
         <div class="pl-cabeza">
             <b><?= u($p['nombre']) ?></b>
             <span class="chip estado-<?= e($claseEstado[$p['estado']] ?? 'espera') ?>"><?= e(Meta::ESTADOS_PLANTILLA[$p['estado']] ?? $p['estado']) ?></span>
@@ -102,7 +102,7 @@ $claseEstado = ['APPROVED' => 'ok', 'PENDING' => 'espera', 'IN_APPEAL' => 'esper
             <form method="post">
                 <?= csrf_campo() ?><input type="hidden" name="accion" value="borrar"><input type="hidden" name="nombre" value="<?= e($p['nombre']) ?>">
                 <p class="suave pequeno">Se borra en Meta (en todos los idiomas) y el nombre no se puede volver a usar por unas semanas.</p>
-                <button class="boton boton-peligro">Sí, borrar "<?= u($p['nombre']) ?>"</button>
+                <button class="boton boton-peligro tk-boton peligro">Sí, borrar "<?= u($p['nombre']) ?>"</button>
             </form>
         </details>
     </li>

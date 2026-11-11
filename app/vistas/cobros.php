@@ -4,10 +4,10 @@ $tienePayphone = (string) $linea['payphone_token'] !== '';
 $tienePlux = \TuWhatsApp\Plux::configurado($linea);
 $cobro = (string) $linea['cobro_tarjeta'];
 ?>
-<div class="cabeza"><h1>Cobros y cotizaciones</h1></div>
+<div class="cabeza tk-titulo-pagina"><h1>Cobros y cotizaciones</h1></div>
 <form method="post" class="formulario">
     <?= csrf_campo() ?>
-    <section class="tarjeta">
+    <section class="tarjeta tk-tarjeta">
         <h2>Datos del negocio (salen en la cotización)</h2>
         <div class="fila-doble">
             <label>RUC<input name="negocio_ruc" maxlength="20" value="<?= e($linea['negocio_ruc']) ?>"></label>
@@ -21,7 +21,7 @@ $cobro = (string) $linea['cobro_tarjeta'];
         <label>Condiciones al pie de la cotización<textarea name="cotizacion_pie" rows="2" maxlength="1000" placeholder="Precios en dólares. El pedido se confirma con el pago."><?= e($linea['cotizacion_pie']) ?></textarea></label>
     </section>
 
-    <section class="tarjeta">
+    <section class="tarjeta tk-tarjeta">
         <h2>Formas de pago</h2>
         <label>Datos para transferencia<textarea name="pago_transferencia" rows="3" maxlength="1000" placeholder="Banco Pichincha · Cuenta de ahorros 2201234567&#10;A nombre de: Mi Negocio · RUC 1790000000001"><?= e($linea['pago_transferencia']) ?></textarea></label>
         <label>Enlace de pago fijo (DeUna, PayPal, Kushki…)<input name="pago_enlace" maxlength="500" value="<?= e($linea['pago_enlace']) ?>" placeholder="https://paypal.me/minegocio/{total}"></label>
@@ -33,7 +33,7 @@ $cobro = (string) $linea['cobro_tarjeta'];
         </select></label>
     </section>
 
-    <section class="tarjeta" id="plux">
+    <section class="tarjeta tk-tarjeta" id="plux">
         <h2>Pago Plux (tarjeta de crédito o débito)</h2>
         <p class="suave pequeno">Cada pedido tiene su <b>página de pago</b> con el valor exacto. El cliente paga con su tarjeta y el pedido pasa solo a <b>Pagado</b>;
         le llega un WhatsApp de confirmación y a tu equipo un aviso en el celular. El dinero cae en <b>tu</b> cuenta de Plux.</p>
@@ -82,7 +82,7 @@ $cobro = (string) $linea['cobro_tarjeta'];
         <p class="suave pequeno">La clave secreta se guarda cifrada.</p>
     </section>
 
-    <section class="tarjeta">
+    <section class="tarjeta tk-tarjeta">
         <h2>Payphone (enlace de cobro por cada pedido)</h2>
         <div class="fila-doble">
             <label>Token de Payphone Developer<input name="payphone_token" type="password" autocomplete="off" maxlength="2000" placeholder="<?= $tienePayphone ? 'Guardado (escribe otro para cambiarlo)' : 'Pega el token' ?>"></label>
@@ -91,5 +91,5 @@ $cobro = (string) $linea['cobro_tarjeta'];
         <?php if ($tienePayphone): ?><label class="check"><input type="checkbox" name="quitar_payphone" value="1"> Quitar Payphone</label><?php endif; ?>
         <p class="suave pequeno">En <b>Payphone Developer</b> → tu aplicación (tipo API) → copia el <b>token</b> y el <b>Store ID</b>. El token se guarda cifrado.</p>
     </section>
-    <button class="boton boton-grande">Guardar</button>
+    <button class="boton boton-grande tk-boton grande">Guardar</button>
 </form>

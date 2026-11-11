@@ -4,7 +4,7 @@ use TuWhatsApp\Contactos;
 use TuWhatsApp\Seguimientos;
 $fecha = fn (?string $t) => $t ? (new DateTimeImmutable($t))->format('d/m H:i') : '';
 ?>
-<div class="cabeza"><h1>Seguimientos</h1><span class="suave"><?= count($programados) ?> programados</span></div>
+<div class="cabeza tk-titulo-pagina"><h1>Seguimientos</h1><span class="suave"><?= count($programados) ?> programados</span></div>
 <p class="suave pequeno">Se programan desde cada chat (botón <b>Programar seguimiento</b>). Si la persona responde antes, no se le manda nada.
 Si ya pasaron 24 horas desde su último mensaje, queda en <a href="<?= e(url('pendientes')) ?>">Pendientes</a> para mandarlo <b>gratis</b> desde tu celular.</p>
 
