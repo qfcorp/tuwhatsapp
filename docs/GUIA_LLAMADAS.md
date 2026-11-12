@@ -61,4 +61,5 @@ Si Meta dice que el número **todavía está en uso**, espera unos minutos más 
 Listo: tus clientes ven el botón 📞 en tu chat de WhatsApp y te llaman. Las llamadas que te hacen son **gratis**; las que haces tú las cobra Meta por minuto.
 
 ## Ayuda
-WhatsApp de Tukán: **098 366 2181** · info@tukanec.com
+WhatsApp de Tukán: **098 366 2181** · info@tukansoftware.com
+Grupo de ayuda en Telegram: https://t.me/+dQfU0W9yvo85MzRh
