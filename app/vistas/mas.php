@@ -13,7 +13,7 @@ $conIa = modulo('ia');
 <ul class="mosaico">
     <?php foreach ($items as [$ruta, $nombre, $texto, $soloAdmin]): if ($soloAdmin && !es_admin()) continue; ?>
     <?php if ($ruta === 'tufactura' && !modulo('facturacion')): ?>
-    <li><a href="<?= e(url($ruta)) ?>"><b><?= e($nombre) ?> <small class="chip">Extra</small></b><span><?= e($texto) ?></span></a></li>
+    <li><a href="<?= e(url($ruta)) ?>"><b><?= e($nombre) ?> <small class="chip">Próximamente</small></b><span><?= e($texto) ?></span></a></li>
     <?php elseif (in_array($ruta, ['ia', 'asistente'], true) && !$conIa): ?>
     <li class="bloqueado"><div><b><?= e($nombre) ?> <small class="chip">Extra</small></b><span><?= e($texto) ?></span>
         <?php if (en_app_android()): /* app de Google Play: sin enlaces para pedir o pagar el programa afuera */ ?><span class="pequeno suave">No está activo en tu cuenta.</span>

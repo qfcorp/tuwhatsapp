@@ -271,29 +271,8 @@ Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/m
 - `db/schema.sql` base (se puede correr muchas veces) · `deploy/instalar.sh` instalador · `deploy/clave_meta.sh` clave de Meta · `src/tukan_ia.php` IA compartida (no editar: se copia del Panel Tukán Central)
 
 ## Factura electrónica con TuFactura (módulo aparte, viene apagado)
-*9 nov 2026*
+*Próximamente*
 
-Con este módulo, cada pedido pagado sale como **factura electrónica autorizada por el SRI** y le llega al cliente por correo.
+TuFactura (facturación electrónica del SRI): **Próximamente**. El módulo existe en el programa pero está apagado, no tiene precio y no viene en ningún plan ni en la demo. La pantalla **🧾 Factura electrónica** solo dice «Próximamente».
 
-**Cómo se consigue**
-- **TuFactura cuesta $30 + IVA al año** y este enlace va incluido. En WhatsApp Tukán el módulo cuesta $0.
-- Pídelo a Tukán Software. Tukán crea tu cuenta de TuFactura y enciende el módulo desde el Panel Tukán Central.
-- No viene en ningún plan ni en la demo.
-
-**Conectar tu cuenta** (una sola vez, el administrador)
-1. En TuFactura, abre **Configuración → Conexiones** y crea una clave para el punto de emisión que vas a usar. La clave empieza con `tf_`.
-2. En WhatsApp Tukán, abre **🧾 Factura electrónica**, pega la clave y toca **Conectar**. La clave se guarda cifrada y no se vuelve a mostrar.
-3. Si quieres, marca **Facturar automático al cobrar**. Revisa también si tus precios ya traen IVA y la tarifa (15 %, 5 % o 0 %).
-
-**Facturar**
-- **A mano:** toca **Facturar**, en el pedido y en **Más → Factura electrónica**.
-- **Sola:** con «automático» encendido, cada cobro sale facturado al momento.
-- La factura va a nombre de la cédula o el RUC del cliente. Si no los tiene, va a consumidor final.
-- El total es exactamente lo que cobraste. Cuando la cuenta del SRI no lo permite, queda 1 centavo menos.
-- El mismo cobro nunca se factura dos veces.
-- El PDF autorizado se baja con un toque.
-- Cada número de WhatsApp se conecta con su propia clave. Para facturar a nombre del cliente, guarda su cédula o RUC en sus **campos personalizados** (por ejemplo, un campo «Cédula»); si no la tiene, la factura va a consumidor final.
-
-**Si algo falla**
-- Si TuFactura o el SRI no responden, el cobro igual se guarda. La factura queda pendiente: toca **Reintentar las pendientes** o **Revisar**.
-- Si apagas el módulo, las facturas hechas se quedan en TuFactura.
+Cuando se active, cada pedido pagado saldrá como factura electrónica autorizada por el SRI y le llegará al cliente por correo. Los detalles técnicos (clave `tf_`, facturar a mano o sola, reintentos) están en `src/TukanFactura.php` y `tests/prueba_tufactura.php`.

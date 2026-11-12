@@ -24,8 +24,8 @@ final class Modulos
                  'Agente con IA que contesta solo las 24 horas con lo que sabe tu negocio y tu catálogo, y pasa a una persona cuando hace falta. Además sugiere respuestas, resume conversaciones, contesta preguntas sobre tu negocio ("¿quién está listo para comprar?"), arma campañas y te manda un resumen cada mañana.',
                  ['ia', 'asistente']],
         'facturacion' => ['Factura electrónica con TuFactura',
-                 'Cada pedido pagado sale como factura electrónica autorizada por el SRI (a la cédula o RUC del cliente si está en sus datos; si no, a consumidor final), con un toque o sola al pagarse, y le llega por correo. Se conecta con la cuenta de TuFactura del negocio (TuFactura se contrata aparte con Tukán Software).',
-                 []],   // la pantalla «tufactura» se abre igual: apagado explica TuFactura y cómo pedirla
+                 'Cada pedido pagado sale como factura electrónica autorizada por el SRI (a la cédula o RUC del cliente si está en sus datos; si no, a consumidor final), con un toque o sola al pagarse, y le llega por correo. Se conecta con la cuenta de TuFactura del negocio (TuFactura: Próximamente).',
+                 []],   // la pantalla «tufactura» se abre igual: apagado dice «Próximamente»
     ];
 
     /** Vienen APAGADOS, ni la demo ni ningún plan los traen (9 nov 2026): la factura electrónica se enciende como extra. */

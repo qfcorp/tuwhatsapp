@@ -289,7 +289,7 @@ post "/?r=linea" --data-urlencode "nombre=Robado" --data-urlencode "phone_number
 ok 'tiene "otra cuenta"' "no puede conectar el número de otro"
 get "/?r=cuenta"
 ok 'tiene "Salón Bella" && tiene "Demo" && tiene "Números: 0 de 1"' "Mi cuenta con su plan"
-ok 'tiene "Tu plan: Todo incluido" && tiene "prueba gratis" && tiene "Qué incluye" && tiene "Campañas masivas" && ! tiene "Cancelar mi plan"' "en la prueba: plan, lo que incluye y sin botón de cancelar"
+ok 'tiene "Tu plan: Todo incluido" && tiene "Estás en la <b>demo</b>" && tiene "Qué incluye" && tiene "Campañas masivas" && ! tiene "Cancelar mi plan"' "en la prueba: plan, lo que incluye y sin botón de cancelar"
 post "/?r=cuenta" --data-urlencode "accion=agregar_usuario" --data-urlencode "nombre=Agente Uno" --data-urlencode "correo=agente@salon.com" --data-urlencode "rol=agente"
 ok 'tiene "Usuario creado" && tiene "agente@salon.com"' "el cliente agrega a su agente"
 CLAVE_AG="$(claveMostrada)"
@@ -968,14 +968,14 @@ ok '! tiene "PAGINA DE PAGO" && tiene "no está disponible dentro de la app" && 
 panel limpiar
 sqlp "UPDATE empresas SET estado = 'demo', vence = current_date + 3, plan = 'todo_ia', modulos = 'ia' WHERE id = $EMP"
 get "/?r=cuenta"
-ok 'tiene "prueba gratis" && tiene "Sigue con tu cuenta: elige tu plan y paga con tarjeta" && tiene "Pagar con tarjeta" && tiene "value=\"todo_ia\" checked" && ! tiene "Cancelar mi plan"' "demo: puede elegir plan y pagar"
+ok 'tiene "Estás en la <b>demo</b>" && tiene "Sigue con tu cuenta: elige tu plan y paga con tarjeta" && tiene "Pagar con tarjeta" && tiene "value=\"todo_ia\" checked" && ! tiene "Cancelar mi plan"' "demo: puede elegir plan y pagar"
 post "/?r=cuenta" --data-urlencode "accion=pagar_tarjeta" --data-urlencode "plan=todo"; ok 'tiene "PAGINA DE PAGO SIMULADA" && grep -q "\"plan\":\"todo\",\"plan_nombre\":\"Todo incluido\",\"periodo\":\"mensual\",\"meses\":1,\"subtotal\":15" "$PANEL_LOG"' "demo: paga el plan Todo incluido"
 panel aprobar
 registrarPago 22222222222222222222222222222222 todo 15.0
 MES=$(sqlp "SELECT (current_date + interval '1 month')::date")
 ok '[ "$CODIGO" = 200 ] && grep -q "\"activo_hasta\":\"$MES\"" "$P" && grep -q "\"estado\":\"activo\"" "$P"' "registrar_pago en una demo: activa un mes desde el pago"
 ok '[ "$(sqlp "SELECT estado||plan||modulos||vence FROM empresas WHERE id = $EMP")" = "activatodo$MES" ]' "la demo pasa a cliente activo con el plan que pagó (sin IA)"
-seguir "/?r=cuenta&plux=aprobado"; ok 'tiene "Pago recibido" && tiene "Tu plan: Todo incluido" && tiene "Próxima renovación" && ! tiene "prueba gratis" && tiene "Cancelar mi plan"' "la demo que pagó ve su cuenta activa"
+seguir "/?r=cuenta&plux=aprobado"; ok 'tiene "Pago recibido" && tiene "Tu plan: Todo incluido" && tiene "Próxima renovación" && ! tiene "Estás en la <b>demo</b>" && tiene "Cancelar mi plan"' "la demo que pagó ve su cuenta activa"
 # 8. Cuenta vencida (no entra): también puede pagar desde la pantalla de cuenta no disponible
 panel limpiar
 sqlp "UPDATE empresas SET vence = current_date - 2 WHERE id = $EMP"

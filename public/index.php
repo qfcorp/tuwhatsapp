@@ -1089,8 +1089,8 @@ try {
             ? $tf->pantalla($lid, ['modulo' => true, 'csrf' => csrf_campo(), 'accion' => url('tufactura'), 'es_admin' => es_admin(), 'sin_compras' => en_app_android(),
                 'pdf' => fn(int $id) => url('tufactura', ['pdf' => $id]), 'cobros' => \TuWhatsApp\FacturaTukan::cobros(db(), $lid), 'origen' => \TuWhatsApp\FacturaTukan::ORIGEN,
                 'programa' => \TuWhatsApp\FacturaTukan::PROGRAMA])
-            : $tf->pantalla($lid, ['modulo' => false, 'programa' => \TuWhatsApp\FacturaTukan::PROGRAMA, 'sin_compras' => en_app_android(),
-                'pedir' => en_app_android() ? null : 'https://wa.me/593983662181?text=' . rawurlencode('Hola, quiero facturar con TuFactura desde WhatsApp Tukán.')])]);
+            : '<section class="bloque tarjeta"><h2>🧾 Factura electrónica con TuFactura</h2><p><span class="chip">Próximamente</span></p>'
+              . '<p>Pronto cada pedido pagado podrá salir como factura electrónica del SRI. TuFactura (facturación electrónica del SRI): Próximamente.</p></section>']);
 
     case 'flujos':
         if ($post) {
