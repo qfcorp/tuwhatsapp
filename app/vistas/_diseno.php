@@ -64,12 +64,12 @@ if ($u && $linea) {
 <script>try { var t = localStorage.getItem('tuwa_tema'); if (t) { document.documentElement.dataset.tema = t; } } catch (e) {}</script>
 <?= tukan_idioma_js(require RAIZ . '/app/frases_js.php') ?>
 </head>
-<body class="tk <?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?><?= en_app_android() ? ' en-app' : '' ?>"<?= $u && $linea && !empty($linea['llamadas_activo']) ? ' data-llamadas="1" data-csrf="' . e(csrf()) . '"' : '' ?>>
+<body class="tk <?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?><?= en_app_tienda() ? ' en-app' : '' ?><?= en_app_ios() ? ' tukan-ios' : '' ?>"<?= $u && $linea && !empty($linea['llamadas_activo']) ? ' data-llamadas="1" data-csrf="' . e(csrf()) . '"' : '' ?>>
 <?php if ($u): ?>
 <header class="tk-arriba">
     <div class="tk-arriba-izq">
         <?php if ($linea || es_super()): ?><button class="tk-boton-menu" type="button" aria-label="Abrir el menú" aria-expanded="false">☰</button><?php endif; ?>
-        <a class="tk-marca" href="<?= e(url('inicio')) ?>"><span class="tk-logo" aria-hidden="true"><!--notr--><?= en_app_android() ? 'Tm' : 'Wt' ?><!--/notr--></span><span><b><?= u($empresaVista['nombre'] ?? nombre_programa()) ?></b><small><!--notr--><?= e(nombre_programa()) ?> · <!--/notr--><span>Plan <?= e(\TuWhatsApp\Modulos::PLANES[\TuWhatsApp\Modulos::planDe($empresaVista ?? [])][0]) ?></span><?php if (($empresaVista['estado'] ?? '') === 'demo'): ?> <span>(demo)</span><?php endif; ?></small></span></a>
+        <a class="tk-marca" href="<?= e(url('inicio')) ?>"><span class="tk-logo" aria-hidden="true"><!--notr--><?= en_app_tienda() ? 'Tm' : 'Wt' ?><!--/notr--></span><span><b><?= u($empresaVista['nombre'] ?? nombre_programa()) ?></b><small><!--notr--><?= e(nombre_programa()) ?> · <!--/notr--><span>Plan <?= e(\TuWhatsApp\Modulos::PLANES[\TuWhatsApp\Modulos::planDe($empresaVista ?? [])][0]) ?></span><?php if (($empresaVista['estado'] ?? '') === 'demo'): ?> <span>(demo)</span><?php endif; ?></small></span></a>
     </div>
     <div class="tk-usuario"><span class="tk-nombre">👤 <?= u(usuario()['nombre']) ?></span><span class="tk-rol"><?= es_super() ? 'Tukán' : (es_admin() ? 'Administrador' : 'Agente') ?></span><a class="tk-salir" href="<?= e(url('salir')) ?>">Salir</a></div>
 </header>

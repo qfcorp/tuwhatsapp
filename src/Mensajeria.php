@@ -128,7 +128,7 @@ final class Mensajeria
     private function enviar(array $linea, array $contacto, string $categoria, array $msg, string $origen, ?int $usuarioId, callable $llamar): array
     {
         if (!Empresas::alDiaPorLinea($this->db, $linea)) {
-            return ['ok' => false, 'error' => 'La cuenta no está al día: no se puede enviar por el sistema. Escribe a Tukán para renovarla.'];
+            return ['ok' => false, 'error' => 'La cuenta no está al día: no se puede enviar por el sistema.' . (function_exists('en_app_ios') && en_app_ios() ? '' : ' Escribe a Tukán para renovarla.')];
         }
         $ahora = $this->ahora();
         $costo = Lineas::esPrueba($linea) ? 0.0 : Gasto::estimar($this->db, $categoria, $contacto, $ahora);   // números de prueba de Meta: gratis

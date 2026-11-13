@@ -82,6 +82,8 @@ R=$?
 if psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null 2>"$ENVF.schema"; then echo "schema.sql sobre una base con datos: bien"; else echo "FALLA: schema.sql sobre una base con datos"; cat "$ENVF.schema"; R=1; fi
 echo "######## App de Android (Google Play)"
 TUWA_ENV="$ENVF" bash tests/prueba_app_android.sh || R=1
+echo "######## App de iPhone (sin precios ni pagos, regla de Apple)"
+TUWA_ENV="$ENVF" bash tests/prueba_app_iphone.sh || R=1
 cp "$ENVF.log" /tmp/tuwa_err.log 2>/dev/null
 if [ -s "$ENVF.log" ]; then echo "Avisos de PHP:"; cat "$ENVF.log"; R=1; fi
 exit $R

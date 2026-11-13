@@ -48,7 +48,7 @@ if (usuario()) {
     }
     // Módulo apagado para esta cuenta: se ofrece pedirlo a Tukán
     if ($nombreMod = \TuWhatsApp\Modulos::rutaBloqueada($empresaHoy, $ruta)) {
-        aviso('"' . $nombreMod . '" ' . (en_app_android() ? 'no está activo en tu cuenta.' : 'no está incluido en tu plan. Escribe a Tukán para activarlo.'), 'info');
+        aviso('"' . $nombreMod . '" ' . (en_app_tienda() ? 'no está activo en tu cuenta.' : 'no está incluido en tu plan. Escribe a Tukán para activarlo.'), 'info');
         redirigir('mas');
     }
     // El administrador del cliente acepta los términos una vez por versión (la cuenta de Tukán no)
@@ -112,7 +112,7 @@ if ($post && !csrf_ok()) {
  */
 function pago_tarjeta(?array $e): ?array
 {
-    if (!$e || es_super() || !es_admin() || en_app_android()) {
+    if (!$e || es_super() || !es_admin() || en_app_tienda()) {   // ni en Google Play ni en iPhone
         return null;
     }
     $p = \TuWhatsApp\PagosCentral::pantalla($e);
@@ -130,6 +130,9 @@ function accion_pago_tarjeta(array $e, string $accion, string $ruta): bool
     }
     if (!es_admin() || es_super()) {
         throw new RuntimeException('Solo el administrador de la cuenta puede pagar el plan.');
+    }
+    if (en_app_ios()) {   // app de iPhone (regla de Apple): sin cobro ni decir dónde se paga
+        throw new RuntimeException(NO_EN_APP_IOS);
     }
     if (en_app_android()) {   // app de Google Play: sin cobro dentro de la app
         throw new RuntimeException('Esto no está disponible dentro de la app.');
@@ -578,6 +581,8 @@ try {
             } elseif ($accion === 'token_api') {
                 $_SESSION['token_mostrar'] = Empresas::nuevoTokenApi(db(), (int) $e['id']);
                 aviso('Token de API nuevo creado. El anterior ya no sirve.');
+            } elseif (in_array($accion, ['cancelar_plan', 'seguir_plan'], true) && en_app_ios()) {
+                throw new RuntimeException(NO_EN_APP_IOS);   // app de iPhone (regla de Apple): el plan no se cancela ni se cambia desde la app
             } elseif ($accion === 'cancelar_plan') {
                 if (empty($_POST['confirmo'])) {
                     throw new RuntimeException('Marca la casilla para confirmar que quieres cancelar.');
@@ -1086,7 +1091,7 @@ try {
             redirigir('tufactura');
         }
         vista('tufactura', 'Factura electrónica', ['linea' => $linea, 'html' => $tfActivo
-            ? $tf->pantalla($lid, ['modulo' => true, 'csrf' => csrf_campo(), 'accion' => url('tufactura'), 'es_admin' => es_admin(), 'sin_compras' => en_app_android(),
+            ? $tf->pantalla($lid, ['modulo' => true, 'csrf' => csrf_campo(), 'accion' => url('tufactura'), 'es_admin' => es_admin(), 'sin_compras' => en_app_tienda(),
                 'pdf' => fn(int $id) => url('tufactura', ['pdf' => $id]), 'cobros' => \TuWhatsApp\FacturaTukan::cobros(db(), $lid), 'origen' => \TuWhatsApp\FacturaTukan::ORIGEN,
                 'programa' => \TuWhatsApp\FacturaTukan::PROGRAMA])
             : '<section class="bloque tarjeta"><h2>🧾 Factura electrónica con TuFactura</h2><p><span class="chip">Próximamente</span></p>'
