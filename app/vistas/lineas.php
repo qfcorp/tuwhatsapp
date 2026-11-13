@@ -15,6 +15,6 @@
 <?php if (\TuWhatsApp\Empresas::puedeAgregarNumero(db(), (int) $empresa['id'])): ?>
 <a class="boton boton-grande tk-boton grande" href="<?= e(url('linea')) ?>">Conectar otro número</a>
 <?php else: ?>
-<p class="nota">Tu plan permite <?= (int) $empresa['max_numeros'] ?> número<?= (int) $empresa['max_numeros'] === 1 ? '' : 's' ?>. Para conectar otro, escribe a Tukán.</p>
+<p class="nota">Tu plan permite <?= (int) $empresa['max_numeros'] ?> número<?= (int) $empresa['max_numeros'] === 1 ? '' : 's' ?>.<?= en_app_ios() ? '' : ' Para conectar otro, escribe a Tukán.' ?></p>
 <?php endif; ?>
 <p class="suave pequeno">Cada número tiene sus propias reglas, contactos, pendientes y tope. Por ejemplo: Tukán ventas y QF Producciones.</p>

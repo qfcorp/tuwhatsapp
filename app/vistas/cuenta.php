@@ -21,7 +21,7 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
 <section class="tarjeta tk-tarjeta plan-cuenta" id="plan">
     <div class="pp-cabeza">
         <h2>Tu plan: <?= e($planNombre) ?></h2>
-        <?php if (!en_app_android()): ?><span class="plan-precio"><b><?= e(dinero($plan['mensual'])) ?></b> al mes</span><?php endif; ?>
+        <?php if (!en_app_tienda()): ?><span class="plan-precio"><b><?= e(dinero($plan['mensual'])) ?></b> al mes</span><?php endif; ?>
     </div>
     <?php if ($cancela): ?>
     <div class="nota">Pediste cancelar: sigues usando todo hasta el <b><?= e((new DateTimeImmutable($empresa['cancelar_en']))->format('d/m/Y')) ?></b> y ya no se renueva.</div>
@@ -29,19 +29,19 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
     <p class="suave">Estás en la <b>demo</b><?= $empresa['vence'] ? ' hasta el <b>' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) . '</b>' : '' ?>. No se cobra nada hasta que decidas seguir.</p>
     <?php else: ?>
     <p class="suave"><?= $empresa['vence'] ? 'Próxima renovación: <b>' . e((new DateTimeImmutable($empresa['vence']))->format('d/m/Y')) . '</b>.' : 'Se paga mes a mes.' ?>
-    <?= en_app_android() ? '' : 'Sin contrato y sin recargo sobre lo que cobra Meta (Meta te cobra directo a tu tarjeta).' ?></p>
+    <?= en_app_tienda() ? '' : 'Sin contrato y sin recargo sobre lo que cobra Meta (Meta te cobra directo a tu tarjeta).' ?></p>
     <?php endif; ?>
     <details class="plegable-simple">
         <summary>Qué incluye</summary>
         <ul class="incluye">
             <?php foreach (\TuWhatsApp\Modulos::BASE as $b): ?><li><?= e($b) ?></li><?php endforeach; ?>
             <?php foreach (\TuWhatsApp\Modulos::LISTA as $k => $m): ?>
-            <li class="<?= in_array($k, $plan['activos'], true) ? '' : 'no-incluye' ?>"><?= e($m[0]) ?> <?= in_array($k, $plan['activos'], true) ? '' : ($k === 'facturacion' ? '<small class="suave">(' . (en_app_android() ? 'no está activa' : 'Próximamente') . ')</small>' : '<small class="suave">(extra' . (en_app_android() ? '' : ' de ' . e(dinero(\TuWhatsApp\Modulos::PRECIOS[$k] ?? 0))) . ' al mes)</small>') ?></li>
+            <li class="<?= in_array($k, $plan['activos'], true) ? '' : 'no-incluye' ?>"><?= e($m[0]) ?> <?= in_array($k, $plan['activos'], true) ? '' : ($k === 'facturacion' ? '<small class="suave">(' . (en_app_tienda() ? 'no está activa' : 'Próximamente') . ')</small>' : '<small class="suave">(extra' . (en_app_tienda() ? '' : ' de ' . e(dinero(\TuWhatsApp\Modulos::PRECIOS[$k] ?? 0))) . ' al mes)</small>') ?></li>
             <?php endforeach; ?>
         </ul>
     </details>
     <?php if (!empty($pago)) { require __DIR__ . '/_pago_tarjeta.php'; } ?>
-    <?php if (es_admin()): ?>
+    <?php if (es_admin() && !en_app_ios()): /* iPhone (regla de Apple): sin botones para cancelar ni cambiar el plan */ ?>
     <?php if ($cancela): ?>
     <form method="post"><?= csrf_campo() ?><input type="hidden" name="accion" value="seguir_plan"><button class="boton tk-boton">Seguir con mi plan</button></form>
     <?php elseif ($empresa['estado'] !== 'demo'): ?>
@@ -106,7 +106,7 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
     </form>
 </details>
 <?php else: ?>
-<p class="nota">Tu plan permite <?= (int) $empresa['max_usuarios'] ?> usuarios. Para agregar más, escribe a Tukán.</p>
+<p class="nota">Tu plan permite <?= (int) $empresa['max_usuarios'] ?> usuarios.<?= en_app_ios() ? '' : ' Para agregar más, escribe a Tukán.' ?></p>
 <?php endif; ?>
 
 <h2 class="separador">Conectar otros programas (API)</h2>

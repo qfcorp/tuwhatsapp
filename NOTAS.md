@@ -414,3 +414,15 @@ Decisión de Dimitry: la suscripción se ajusta sola cuando cambia; si sube, se 
   y se avisa «se ajustará cuando el Panel responda» (sin reintento automático: revisarlo en el Panel). Primera cuota sin pagar: no se manda.
 - Panel simulado con `cambiar` como el real (sube con prorrateo, 409 no_baja, igual, 409 sin_pagar).
 - Pruebas: idiomas 43, lógica 778, TuFactura 29, Panel Central v2 230, pantallas 451, app de Android 44. Todo bien.
+
+## 13 nov 2026 — App de iPhone: sin precios ni pagos (regla de Apple), se reconoce por TukanIOS
+Regla SIEMPRE de Dimitry (12 nov 2026, regla 3.1.1 de la App Store): dentro de la app de iPhone no se ve ningún precio de lo que vende Tukán
+(plan, agente con IA) ni botones, enlaces o formularios para pagar, contratar, pedir, mejorar o cancelar el plan, ni a quién escribir para eso.
+- Se reconoce por «TukanIOS» en el User-Agent o por la cookie `canal=ios` que deja `?app=ios` (u `?origen=ios`). Funciones `en_app_ios()`,
+  `en_app_tienda()` y `NO_EN_APP_IOS` en `app/bootstrap.php`. En iPhone también se llama «Tukán Mensajes».
+- Lo que se escondía para Google Play ahora usa `en_app_tienda()`; solo en iPhone: sin Cancelar/Seguir con mi plan, sin «escribe a Tukán» para más
+  usuarios o números, cuenta no disponible neutra. El servidor rechaza pagar con tarjeta y cancelar/seguir con el plan.
+- `class="tukan-ios"` en `<body>`. Catálogo, pedidos, cotizaciones y cobros del negocio siguen igual.
+- Archivos: `app/bootstrap.php`, `app/vistas/_diseno.php`, `bloqueada.php`, `cuenta.php`, `lineas.php`, `login.php`, `mas.php`, `public/index.php`,
+  `src/Mensajeria.php`. Prueba nueva: `tests/prueba_app_iphone.sh` (en `tests/correr.sh`). Docs: `docs/GOOGLE_PLAY.md`, manual, README.
+- **Falta:** regenerar el PDF del manual en una máquina con el generador.

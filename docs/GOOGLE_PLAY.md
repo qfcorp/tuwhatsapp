@@ -89,3 +89,18 @@ Antes de prenderlo falta programar la pantalla de planes (solo dentro de la app)
 ## Pago del plan con tarjeta (10 nov 2026)
 En la web, el administrador puede pagar su plan con tarjeta desde Mi cuenta (`src/PagosCentral.php`). **Dentro de la app de Android no se muestra**
 (`en_app_android()`): ni el botón, ni los precios, ni se acepta el formulario aunque se fuerce. Lo revisa `tests/prueba_web.sh` («en la app de Android»).
+
+## App de iPhone (App Store): sin precios ni pagos (regla 3.1.1 de Apple, 13 nov 2026)
+
+Regla SIEMPRE de Dimitry (12 nov 2026): **App de iPhone: sin precios ni pagos (regla de Apple), se reconoce por TukanIOS.**
+
+| Qué | Cómo |
+|---|---|
+| Cómo se reconoce | El navegador de la app manda «TukanIOS» en el User-Agent (ej. `… TukanIOS/1.0.0`) y la primera página abre con `?app=ios` (u `?origen=ios`), que deja la cookie `canal=ios` (1 año). No depende del modo Google Play |
+| Funciones (`app/bootstrap.php`) | `en_app_ios()`, `en_app_tienda()` = `en_app_android() \|\| en_app_ios()` y `NO_EN_APP_IOS` («Esta acción no está disponible en la app.») |
+| Nombre | En las dos apps (Google Play y iPhone) el programa se llama **Tukán Mensajes** (`nombre_programa()` usa `en_app_tienda()`: las tiendas no dejan usar la marca WhatsApp) |
+| Qué se esconde | Todo lo que ya se escondía en Google Play (usa `en_app_tienda()`): precio del plan y de los extras, «Pagar con tarjeta», «Pedir a Tukán», «Escribe a Tukán para activarlo», «Pide tu prueba por WhatsApp», «Meta te cobra directo a tu tarjeta». Además, solo en iPhone: sin **Cancelar mi plan** ni **Seguir con mi plan**, sin «Para agregar más / conectar otro, escribe a Tukán» y la cuenta no disponible sin decir a quién escribir |
+| Servidor | En iPhone rechaza con el mensaje neutro `pagar_tarjeta`, `cancelar_tarjeta`, `cancelar_plan` y `seguir_plan` |
+| Marca para la app | `class="tukan-ios"` (y `en-app`) en `<body>` |
+| Lo que sigue igual | Catálogo, pedidos, cotizaciones y cobros que el negocio hace a SUS clientes, el costo de Meta por mensaje y la privacidad con «Eliminar mis datos» |
+| Pruebas | `tests/prueba_app_iphone.sh` (la llama `tests/correr.sh`, con el Panel simulado y el pago con tarjeta prendido) |

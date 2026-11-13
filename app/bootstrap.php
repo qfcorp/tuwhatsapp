@@ -47,6 +47,13 @@ if (!defined('TUWA_SIN_SESION') && PHP_SAPI !== 'cli') {
             'secure' => (($_SERVER['HTTPS'] ?? '') === 'on') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')]);
         $_COOKIE['tuwa_app'] = 'play';
     }
+    // App de iPhone (App Store, 13 nov 2026): abre con ?app=ios (u ?origen=ios) y manda «TukanIOS» en el navegador.
+    // Se recuerda con la cookie canal=ios (1 año), sin depender de que el modo Google Play esté prendido.
+    if ((string) ($_GET['app'] ?? $_GET['origen'] ?? '') === 'ios') {
+        setcookie('canal', 'ios', ['expires' => time() + 60 * 60 * 24 * 365, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax',
+            'secure' => (($_SERVER['HTTPS'] ?? '') === 'on') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')]);
+        $_COOKIE['canal'] = 'ios';
+    }
 }
 
 // ---------------------------------------------------------------------
@@ -63,10 +70,31 @@ function en_app_android(): bool
     return ($_COOKIE['tuwa_app'] ?? '') === 'play';
 }
 
-/** Nombre del programa en pantalla: «Tukán Mensajes» dentro de la app de Google Play, «WhatsApp Tukán» en la web. */
+/**
+ * ¿Se está usando dentro de la app de iPhone (App Store)? Regla 3.1.1 de Apple (regla SIEMPRE de Dimitry, 12 nov 2026): ahí no se ve
+ * ningún precio del plan, del agente con IA ni de nada que venda Tukán, ni botones, enlaces o formularios para pagar, contratar,
+ * pedir, mejorar o cancelar el plan, ni textos que digan dónde pagar o a quién pedirlo («escribe a Tukán», WhatsApp de ventas).
+ * Se reconoce por «TukanIOS» en el navegador (User-Agent) o por la cookie canal=ios (la deja ?app=ios u ?origen=ios).
+ * Lo que el negocio cobra a SUS clientes (catálogo, pedidos, cotizaciones, Plux) y lo que cobra Meta por mensaje sí se ve.
+ */
+function en_app_ios(): bool
+{
+    return str_contains((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 'TukanIOS') || ($_COOKIE['canal'] ?? '') === 'ios';
+}
+
+/** ¿Dentro de una app de tienda (Google Play o iPhone)? Ahí se esconde todo lo que vende Tukán. Lo propio de Google Play usa en_app_android(). */
+function en_app_tienda(): bool
+{
+    return en_app_android() || en_app_ios();
+}
+
+/** Mensaje neutro cuando desde la app de iPhone llega una acción de pago, cancelación o cambio de plan. */
+const NO_EN_APP_IOS = 'Esta acción no está disponible en la app.';
+
+/** Nombre del programa en pantalla: «Tukán Mensajes» dentro de las apps (Google Play y iPhone: las tiendas no dejan usar la marca WhatsApp), «WhatsApp Tukán» en la web. */
 function nombre_programa(): string
 {
-    return en_app_android() ? 'Tukán Mensajes' : 'WhatsApp Tukán';
+    return en_app_tienda() ? 'Tukán Mensajes' : 'WhatsApp Tukán';
 }
 
 /**

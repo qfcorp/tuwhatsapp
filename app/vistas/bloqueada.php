@@ -2,7 +2,9 @@
 <section class="bloqueada tarjeta">
     <h1>Cuenta no disponible</h1>
     <p><?= e($empresa ? Empresas::motivoBloqueo($empresa) : 'Tu cuenta no existe.') ?></p>
-    <?php if (en_app_android()): /* app de Google Play: sin enlaces para renovar o pagar afuera */ ?>
+    <?php if (en_app_ios()): /* app de iPhone (regla 3.1.1 de Apple): solo información neutra, sin decir dónde ni a quién pagar */ ?>
+    <p class="suave">Los mensajes que te escriban se siguen guardando, pero no se contesta nada solo ni se puede enviar desde aquí.</p>
+    <?php elseif (en_app_android()): /* app de Google Play: sin enlaces para renovar o pagar afuera */ ?>
     <p class="suave">Los mensajes que te escriban se siguen guardando, pero no se contesta nada solo ni se puede enviar desde aquí. El administrador de tu negocio puede revisarlo con Tukán Software.</p>
     <?php else: ?>
     <p class="suave">Los mensajes que te escriban se siguen guardando, pero no se contesta nada solo ni se puede enviar desde aquí. Para seguir usando el programa, escribe a Tukán.</p>
