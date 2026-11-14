@@ -35,6 +35,13 @@ if ($u && $linea) {
 }
 if ($u && es_super()) $gruposMenu['Tukán'] = ['clientes' => 'Clientes de Tukán'];
 $avisos = tomar_avisos();
+// (14 nov 2026) ¿Le van a llegar avisos de mensajes nuevos? En Inicio y Bandeja: cinta amarilla si no tiene ningún dispositivo con avisos
+// ni el respaldo por correo; dentro de la app de Android, tarjeta para activar los avisos en ESE celular (si no lo está; se ve en JavaScript).
+$avisosApagados = $tarjetaAvisosApp = false;
+if ($u && in_array($rutaActual, ['inicio', 'bandeja'], true)) {
+    $avisosApagados = \TuWhatsApp\Push::funcionando(db(), (int) $u['id']) === 0 && !\TuWhatsApp\AvisoCorreo::activoPara(db(), (int) $u['id']);
+    $tarjetaAvisosApp = en_app_android();
+}
 $empresaVista = $u ? empresa_actual() : null;
 $lineas = $empresaVista ? \TuWhatsApp\Lineas::todas(db(), (int) $empresaVista['id']) : [];
 $cuentaPend = ($u && $linea) ? \TuWhatsApp\Pendientes::contar(db(), (int) $linea['id']) : 0;
@@ -58,7 +65,7 @@ if ($u && $linea) {
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="<?= e(nombre_programa()) ?>">
-<link rel="stylesheet" href="/assets/app.css?v=21">
+<link rel="stylesheet" href="/assets/app.css?v=22">
 <link rel="stylesheet" href="/assets/tukan-ui.css?v=1">
 <?= TK_COLOR_LINEA ?>
 <script>try { var t = localStorage.getItem('tuwa_tema'); if (t) { document.documentElement.dataset.tema = t; } } catch (e) {}</script>
@@ -129,11 +136,23 @@ if ($u && $linea) {
     <?php foreach ($avisos as [$tipo, $texto]): ?>
     <div class="tk-aviso <?= ['ok' => 'ok', 'error' => 'mal'][$tipo] ?? 'info' ?> aviso aviso-<?= e($tipo) ?>" role="<?= $tipo === 'error' ? 'alert' : 'status' ?>"><?= e($texto) ?></div>
     <?php endforeach; ?>
+    <?php if ($avisosApagados): ?>
+    <a class="tk-aviso aviso cinta-avisos" role="alert" href="<?= e(url('app')) ?>">⚠️ <b>No te van a llegar avisos de mensajes nuevos.</b> <span>Activar →</span></a>
+    <?php endif; ?>
+    <?php if ($tarjetaAvisosApp): ?>
+    <section class="tarjeta tk-tarjeta aviso tarjeta-avisos-app" id="tarjeta-avisos-app" data-vapid="<?= e(\TuWhatsApp\Push::clavePublica(db())) ?>" hidden>
+        <h2>🔔 Activa los avisos en este celular</h2>
+        <p>Así te enteras al momento cuando un cliente te escribe, aunque la app esté cerrada, igual que en WhatsApp.</p>
+        <?= csrf_campo() ?>
+        <button type="button" class="boton tk-boton" id="activar-push-app">🔔 Activar avisos en este celular</button>
+        <p class="suave pequeno" id="estado-push-app" aria-live="polite"></p>
+    </section>
+    <?php endif; ?>
     <?= $contenido ?>
 </main>
 <?php if ($u): ?></div><?php endif; ?>
 <script src="/assets/tukan-ui.js?v=1" defer></script>
-<script src="/assets/app.js?v=11" defer></script>
+<script src="/assets/app.js?v=12" defer></script>
 <?php if ($u && $linea && !empty($linea['llamadas_activo'])): ?><script src="/assets/llamadas.js?v=1" defer></script><?php endif; ?>
 </body>
 </html>

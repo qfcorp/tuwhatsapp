@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Corre todas las pruebas con Meta simulado. Necesita PostgreSQL.
-# Variables: PGHOST (127.0.0.1) PGPORT (5432) PGUSER (postgres) PGPASSWORD, SIM_PUERTO (8097), WEB_PUERTO (8096), PLUX_PUERTO (8098), PANEL_PUERTO (8095)
+# Variables: PGHOST (127.0.0.1) PGPORT (5432) PGUSER (postgres) PGPASSWORD, SIM_PUERTO (8097), WEB_PUERTO (8096), PLUX_PUERTO (8098), PANEL_PUERTO (8095), SMTP_PUERTO (8099)
 set -u
 cd "$(dirname "$0")/.."
 export PGHOST="${PGHOST:-127.0.0.1}" PGPORT="${PGPORT:-5432}" PGUSER="${PGUSER:-postgres}"
@@ -10,10 +10,12 @@ SIM_PUERTO="${SIM_PUERTO:-8097}"
 WEB_PUERTO="${WEB_PUERTO:-8096}"
 PLUX_PUERTO="${PLUX_PUERTO:-8098}"
 PANEL_PUERTO="${PANEL_PUERTO:-8095}"
+SMTP_PUERTO="${SMTP_PUERTO:-8099}"
 export SIM_LOG="$(mktemp)"
 export SIM_URL="http://127.0.0.1:$SIM_PUERTO"
 export TUWA_ARCHIVOS="$(mktemp -d)"
 export TUKAN_IA_ENV=/no/existe   # nunca usar la clave real del servidor en las pruebas
+export TUWA_SIN_SENDMAIL=1        # las pruebas nunca usan el sendmail de la maquina (los correos van al SMTP falso)
 
 dropdb --if-exists "$DB" && createdb "$DB" || { echo "No se pudo crear la base de prueba"; exit 1; }
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null || exit 1
@@ -33,7 +35,12 @@ export PANEL_ESTADO="$PLUX_DIR/panel.json" PANEL_LOG="$PLUX_DIR/panel.log" PANEL
 : > "$PANEL_LOG"
 php -S "127.0.0.1:$PANEL_PUERTO" tests/panel_simulado.php > /dev/null 2>&1 &
 PANELF=$!
-trap 'kill $SIM $PLUXF $PANELF ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS" "$PLUX_DIR"' EXIT
+# Servidor de correo FALSO (respaldo por correo de los avisos): nunca manda nada de verdad
+export SMTP_LOG="$PLUX_DIR/correos.log" SMTP_PUERTO
+: > "$SMTP_LOG"
+php tests/smtp_falso.php "$SMTP_PUERTO" > /dev/null 2>&1 &
+SMTPF=$!
+trap 'kill $SIM $PLUXF $PANELF $SMTPF ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS" "$PLUX_DIR"' EXIT
 sleep 0.5
 
 export TUWA_DB_HOST="$PGHOST" TUWA_DB_PORT="$PGPORT" TUWA_DB_NAME="$DB" TUWA_DB_USER="$PGUSER" TUWA_DB_PASS="${PGPASSWORD:-}"

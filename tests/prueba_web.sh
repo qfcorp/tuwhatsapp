@@ -792,6 +792,11 @@ CODIGO=$(curl -s -o "$P" -w '%{http_code} %{content_type}' "$W/manifest.json"); 
 CODIGO=$(curl -s -o /dev/null -w '%{http_code}' "$W/assets/icono-192.png"); ok '[ "$CODIGO" = 200 ]' "ícono de la app"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/sw.js"); ok 'tiene "addEventListener('"'"'push'"'"'"' "el service worker recibe los avisos"
 get "/?r=bandeja"; ok 'tiene "rel=\"manifest\""' "todas las páginas enlazan el manifiesto"
+ok 'tiene "No te van a llegar avisos de mensajes nuevos" && tiene "cinta-avisos"' "sin avisos ni correo de respaldo: cinta amarilla en la bandeja"
+get "/?r=gasto"; ok '! tiene "cinta-avisos"' "la cinta solo sale en Inicio y Bandeja"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" "$W/?r=inicio&app=play")
+ok '[ "$CODIGO" = 200 ] && tiene "id=\"tarjeta-avisos-app\"" && tiene "Activa los avisos en este celular" && tiene "activar-push-app"' "dentro de la app de Android: tarjeta para activar los avisos en ese celular"
+get "/?r=inicio"; ok '! tiene "tarjeta-avisos-app"' "en el navegador normal no sale esa tarjeta"
 get "/?r=app"
 SUB=$(php -r '$k = openssl_pkey_new(["curve_name" => "prime256v1", "private_key_type" => OPENSSL_KEYTYPE_EC]); $d = openssl_pkey_get_details($k);
   $b = fn($s) => rtrim(strtr(base64_encode($s), "+/", "-_"), "=");
@@ -804,6 +809,19 @@ ok 'tiene "Aviso de prueba enviado" && grep -q "push.\{1,2\}ok.\{1,2\}web1" "$SI
 get "/?r=app"
 post "/?r=push" --data-urlencode "accion=suscribir" --data-urlencode "datos={\"endpoint\":\"https://evil.com/x\",\"keys\":{\"p256dh\":\"x\",\"auth\":\"y\"}}"
 ok 'tiene "\"ok\":false" && tiene "no es compatible"' "dirección de avisos rara: rechazada"
+get "/?r=inicio"; ok '! tiene "cinta-avisos"' "con un celular con avisos ya no sale la cinta"
+get "/?r=app"
+ok 'tiene "Dispositivos que reciben avisos" && tiene "Respaldo por correo" && tiene "todavía no tiene configurado el envío de correos" && tiene "Sin restricciones" && tiene "Copia para la empresa"' "App en el celular: dispositivos, batería y respaldo por correo"
+post "/?r=app" --data-urlencode "accion=correo" --data-urlencode "minutos=30" --data-urlencode "correo=yo.otro@gmail.com"
+ok 'tiene "Guardado" && [ "$(SQL "SELECT aviso_correo_min || '"'"' '"'"' || aviso_correo FROM usuarios WHERE aviso_correo = '"'"'yo.otro@gmail.com'"'"'")" = "30 yo.otro@gmail.com" ]' "guardar cuándo y a qué correo llega el respaldo"
+post "/?r=app" --data-urlencode "accion=correo" --data-urlencode "minutos=5" --data-urlencode "correo=esto no es correo"
+ok 'tiene "no es válido"' "correo de respaldo no válido: se rechaza"
+post "/?r=app" --data-urlencode "accion=copia" --data-urlencode "copia=ventas@prueba.ec" --data-urlencode "copia_min=30"
+ok '[ "$(SQL "SELECT aviso_copia || '"'"' '"'"' || aviso_copia_min FROM empresas WHERE aviso_copia <> '"'"''"'"'")" = "ventas@prueba.ec 30" ]' "el administrador pone el correo de copia de la empresa"
+ID_DISP=$(SQL "SELECT id FROM push_suscripciones WHERE endpoint LIKE '%/push/ok/web1' LIMIT 1")
+get "/?r=app"
+post "/?r=app" --data-urlencode "accion=quitar_dispositivo" --data-urlencode "id=$ID_DISP"
+ok 'tiene "ya no recibe avisos" && [ "$(SQL "SELECT count(*) FROM push_suscripciones WHERE id = 0$ID_DISP")" = 0 ]' "quitar un dispositivo de la lista"
 
 echo "== Llamadas de WhatsApp"
 SQLW() { PGPASSWORD="${PGPASSWORD:-}" psql -tAc "$1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}"; }

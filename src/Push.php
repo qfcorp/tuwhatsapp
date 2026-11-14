@@ -16,6 +16,8 @@ use RuntimeException;
 final class Push
 {
     private const PREFIJO_SPKI = '3059301306072a8648ce3d020106082a8648ce3d030107034200';
+    /** Cuánto guarda el servidor de push un aviso si el celular está apagado o sin internet (24 horas). */
+    public const TTL = 86400;
     private const HOSTS = ['fcm.googleapis.com', 'android.googleapis.com', 'updates.push.services.mozilla.com', 'push.services.mozilla.com',
                            'web.push.apple.com', 'notify.windows.com'];
 
@@ -94,7 +96,7 @@ final class Push
         return false;
     }
 
-    public static function suscribir(PDO $db, int $usuarioId, array $s): void
+    public static function suscribir(PDO $db, int $usuarioId, array $s, string $dispositivo = ''): void
     {
         $endpoint = (string) ($s['endpoint'] ?? '');
         $p256 = self::deB64u((string) ($s['keys']['p256dh'] ?? ''));
@@ -106,9 +108,11 @@ final class Push
             throw new RuntimeException('Claves del navegador no válidas.');
         }
         self::publicaDeCruda($p256);   // que sea un punto válido de la curva
-        $db->prepare('INSERT INTO push_suscripciones (usuario_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
-                      ON CONFLICT (endpoint) DO UPDATE SET usuario_id = EXCLUDED.usuario_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, errores = 0')
-           ->execute([$usuarioId, $endpoint, self::b64u($p256), self::b64u($auth)]);
+        $db->prepare("INSERT INTO push_suscripciones (usuario_id, endpoint, p256dh, auth, dispositivo) VALUES (?, ?, ?, ?, ?)
+                      ON CONFLICT (endpoint) DO UPDATE SET usuario_id = EXCLUDED.usuario_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth,
+                      dispositivo = CASE WHEN EXCLUDED.dispositivo <> '' THEN EXCLUDED.dispositivo ELSE push_suscripciones.dispositivo END,
+                      errores = 0, ultimo_error = NULL, error_texto = ''")
+           ->execute([$usuarioId, $endpoint, self::b64u($p256), self::b64u($auth), mb_substr($dispositivo, 0, 80)]);
     }
 
     public static function quitar(PDO $db, int $usuarioId, string $endpoint): void
@@ -121,6 +125,68 @@ final class Push
         $st = $db->prepare('SELECT count(*) FROM push_suscripciones WHERE usuario_id = ?');
         $st->execute([$usuarioId]);
         return (int) $st->fetchColumn();
+    }
+
+    /** Condición SQL: suscripción a la que se le mandan avisos (sin muchas fallas seguidas, o con la última falla de hace más de un día). */
+    private const SQL_USABLE = "(errores < 5 OR ultimo_error IS NULL OR ultimo_error < now() - interval '1 day')";
+
+    /** Dispositivos de esa persona a los que sí les llegan avisos (los que fallaron 5 veces seguidas no cuentan). */
+    public static function funcionando(PDO $db, int $usuarioId): int
+    {
+        $st = $db->prepare('SELECT count(*) FROM push_suscripciones WHERE usuario_id = ? AND errores < 5');
+        $st->execute([$usuarioId]);
+        return (int) $st->fetchColumn();
+    }
+
+    /** @return list<array{id:int, dispositivo:string, creado:string, ultimo_ok:?string, errores:int, ultimo_error:?string, error_texto:string}> */
+    public static function dispositivos(PDO $db, int $usuarioId): array
+    {
+        $st = $db->prepare('SELECT id, endpoint, dispositivo, creado, ultimo_ok, errores, ultimo_error, error_texto FROM push_suscripciones WHERE usuario_id = ? ORDER BY id');
+        $st->execute([$usuarioId]);
+        $r = [];
+        foreach ($st->fetchAll() as $f) {
+            $f['id'] = (int) $f['id'];
+            $f['errores'] = (int) $f['errores'];
+            if ($f['dispositivo'] === '') {
+                $h = (string) parse_url((string) $f['endpoint'], PHP_URL_HOST);
+                $f['dispositivo'] = str_contains($h, 'apple') ? 'iPhone / Safari' : (str_contains($h, 'mozilla') ? 'Firefox'
+                    : (str_contains($h, 'windows') ? 'Windows' : 'Android / Chrome'));
+            }
+            unset($f['endpoint']);
+            $r[] = $f;
+        }
+        return $r;
+    }
+
+    public static function quitarId(PDO $db, int $usuarioId, int $id): void
+    {
+        $db->prepare('DELETE FROM push_suscripciones WHERE usuario_id = ? AND id = ?')->execute([$usuarioId, $id]);
+    }
+
+    /** Nombre corto del dispositivo a partir del navegador (para que la persona reconozca cuál es cuál). */
+    public static function describir(string $ua, bool $appAndroid = false): string
+    {
+        $so = match (true) {
+            str_contains($ua, 'iPhone') || str_contains($ua, 'iPad') => 'iPhone',
+            str_contains($ua, 'Android') => 'Android',
+            str_contains($ua, 'Windows') => 'Windows',
+            str_contains($ua, 'Mac OS') => 'Mac',
+            str_contains($ua, 'Linux') => 'Linux',
+            default => '',
+        };
+        if (preg_match('/Android [\d.]+; ([^;)]+?)(?: Build|\))/', $ua, $m) && trim($m[1]) !== 'K') {
+            $so .= ' ' . trim($m[1]);
+        }
+        $nav = match (true) {
+            $appAndroid => 'App Tukán Mensajes',
+            str_contains($ua, 'Edg/') => 'Edge',
+            str_contains($ua, 'Firefox/') => 'Firefox',
+            str_contains($ua, 'SamsungBrowser') => 'Samsung Internet',
+            str_contains($ua, 'Chrome/') => 'Chrome',
+            str_contains($ua, 'Safari/') => 'Safari',
+            default => 'Navegador',
+        };
+        return trim($nav . ($so !== '' ? ' · ' . $so : ''));
     }
 
     /**
@@ -181,7 +247,7 @@ final class Push
         if (!$usuarios) {
             return 0;
         }
-        $st = $db->prepare('SELECT * FROM push_suscripciones WHERE usuario_id IN (' . implode(',', array_fill(0, count($usuarios), '?')) . ') AND errores < 5 LIMIT 50');
+        $st = $db->prepare('SELECT * FROM push_suscripciones WHERE usuario_id IN (' . implode(',', array_fill(0, count($usuarios), '?')) . ') AND ' . self::SQL_USABLE . ' LIMIT 50');
         $st->execute($usuarios);
         $subs = $st->fetchAll();
         if (!$subs) {
@@ -198,22 +264,26 @@ final class Push
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_CONNECTTIMEOUT => 3, CURLOPT_TIMEOUT => 5, CURLOPT_POSTFIELDS => $datos,
                     CURLOPT_HTTPHEADER => ['Authorization: ' . self::vapid($s['endpoint'], $publica, $privada, time()), 'Content-Encoding: aes128gcm',
-                                           'Content-Type: application/octet-stream', 'TTL: 3600', 'Urgency: high'],
+                                           'Content-Type: application/octet-stream', 'TTL: ' . self::TTL, 'Urgency: high'],
                 ]);
                 curl_exec($ch);
                 $codigo = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+                $falla = $codigo === 0 ? 'sin conexión: ' . curl_error($ch) : 'respuesta ' . $codigo;
                 curl_close($ch);
             } catch (\Throwable $e) {
                 $codigo = 0;
+                $falla = $e->getMessage();
                 error_log('tuwhatsapp push: ' . $e->getMessage());
             }
             if ($codigo >= 200 && $codigo < 300) {
                 $ok++;
-                $db->prepare('UPDATE push_suscripciones SET ultimo_ok = now(), errores = 0 WHERE id = ?')->execute([$s['id']]);
+                $db->prepare("UPDATE push_suscripciones SET ultimo_ok = now(), errores = 0, ultimo_error = NULL, error_texto = '' WHERE id = ?")->execute([$s['id']]);
             } elseif ($codigo === 404 || $codigo === 410) {   // el navegador ya no la usa
                 $db->prepare('DELETE FROM push_suscripciones WHERE id = ?')->execute([$s['id']]);
             } else {
-                $db->prepare('UPDATE push_suscripciones SET errores = errores + 1 WHERE id = ?')->execute([$s['id']]);
+                // Falla temporal (sin internet, servidor de push caído…): se cuenta; a las 5 seguidas se deja de intentar hasta el día siguiente
+                $db->prepare('UPDATE push_suscripciones SET errores = errores + 1, ultimo_error = now(), error_texto = ? WHERE id = ?')
+                   ->execute([mb_substr($falla, 0, 200), $s['id']]);
             }
         }
         return $ok;
@@ -221,7 +291,8 @@ final class Push
 
     /**
      * Aviso de mensaje nuevo: a quien atiende la conversación; si no tiene a nadie, a todo el equipo que recibe chats.
-     * No avisa de contactos personales.
+     * Si a ninguna de esas personas le llegan avisos (no los activó o le fallan), también se avisa a los administradores de la cuenta.
+     * No avisa de contactos personales. (Si nadie lo lee, después llega el respaldo por correo: ver AvisoCorreo.)
      */
     public static function mensajeNuevo(PDO $db, array $linea, array $contacto, string $texto, int $mensajeId): void
     {
@@ -235,7 +306,23 @@ final class Push
             $st->execute([(int) $linea['empresa_id']]);
             $usuarios = array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
         }
+        if (!self::algunoFunciona($db, $usuarios)) {
+            $st = $db->prepare("SELECT id FROM usuarios WHERE empresa_id = ? AND activo AND rol = 'admin'");
+            $st->execute([(int) $linea['empresa_id']]);
+            $usuarios = array_merge($usuarios, array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN)));
+        }
         self::enviar($db, $usuarios, ['titulo' => Contactos::nombre($contacto), 'texto' => mb_strimwidth($texto, 0, 120, '…'),
                                       'url' => '/?r=chat&c=' . (int) $contacto['id'], 'tag' => 'tuwa-c' . (int) $contacto['id'] . '-' . $mensajeId]);
+    }
+
+    /** ¿A alguna de esas personas le llegan avisos? */
+    private static function algunoFunciona(PDO $db, array $usuarios): bool
+    {
+        if (!$usuarios) {
+            return false;
+        }
+        $st = $db->prepare('SELECT 1 FROM push_suscripciones WHERE usuario_id IN (' . implode(',', array_fill(0, count($usuarios), '?')) . ') AND errores < 5 LIMIT 1');
+        $st->execute(array_values($usuarios));
+        return (bool) $st->fetchColumn();
     }
 }

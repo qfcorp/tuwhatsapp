@@ -319,6 +319,16 @@ try {
 
     case 'chat':
         $c = Contactos::buscar(db(), $lid, (int) ($_GET['c'] ?? 0));
+        if (!$c && !$post) {
+            // Viene de un aviso o de un correo y el chat es de OTRO número de la misma cuenta: se cambia a ese número
+            $st = db()->prepare('SELECT linea_id FROM contactos WHERE id = ?');
+            $st->execute([(int) ($_GET['c'] ?? 0)]);
+            $otraLinea = (int) $st->fetchColumn();
+            if ($otraLinea > 0 && $otraLinea !== $lid && Lineas::buscar(db(), $otraLinea, (int) empresa_actual()['id'])) {
+                $_SESSION['linea_id'] = $otraLinea;
+                redirigir('chat', ['c' => (int) $_GET['c']]);
+            }
+        }
         if (!$c) {
             aviso('Esa conversación no existe.', 'error');
             redirigir('bandeja');
@@ -1195,7 +1205,31 @@ try {
                                             'carritos' => \TuWhatsApp\Tiendas::carritos(db(), $lid), 'pedidosTienda' => $st->fetchAll()]);
 
     case 'app':
-        vista('app', 'App en el celular', ['vapid' => \TuWhatsApp\Push::clavePublica(db()), 'suscripciones' => \TuWhatsApp\Push::cuantas(db(), (int) usuario()['id'])]);
+        $uidApp = (int) usuario()['id'];
+        if ($post) {   // respaldo por correo: ajustes de la persona, correo de copia de la empresa, correo de prueba, quitar un dispositivo
+            $accion = (string) ($_POST['accion'] ?? '');
+            try {
+                if ($accion === 'correo') {
+                    \TuWhatsApp\AvisoCorreo::guardar(db(), $uidApp, (int) ($_POST['minutos'] ?? 5), (string) ($_POST['correo'] ?? ''));
+                    aviso('Guardado.');
+                } elseif ($accion === 'copia' && es_admin() && !cuenta_muestra(empresa_actual())) {
+                    \TuWhatsApp\AvisoCorreo::guardarCopia(db(), (int) empresa_actual()['id'], (string) ($_POST['copia'] ?? ''), (int) ($_POST['copia_min'] ?? 15));
+                    aviso('Guardado.');
+                } elseif ($accion === 'correo_prueba') {
+                    $para = \TuWhatsApp\AvisoCorreo::prueba(db(), $uidApp, tukan_idioma_actual());
+                    aviso(tukan_tr('Correo de prueba enviado a') . ' ' . $para . '. ' . tukan_tr('Si no lo ves, revisa la carpeta de spam (correo no deseado).'));
+                } elseif ($accion === 'quitar_dispositivo') {
+                    \TuWhatsApp\Push::quitarId(db(), $uidApp, (int) ($_POST['id'] ?? 0));
+                    aviso('Ese dispositivo ya no recibe avisos.');
+                }
+            } catch (\RuntimeException $ex) {
+                aviso(tukan_tr($ex->getMessage()), 'error');
+            }
+            redirigir('app');
+        }
+        vista('app', 'App en el celular', ['vapid' => \TuWhatsApp\Push::clavePublica(db()), 'suscripciones' => \TuWhatsApp\Push::cuantas(db(), $uidApp),
+                                           'dispositivos' => \TuWhatsApp\Push::dispositivos(db(), $uidApp), 'ajustesCorreo' => \TuWhatsApp\AvisoCorreo::ajustes(db(), $uidApp),
+                                           'correoModo' => \TuWhatsApp\Correo::modo(), 'empresaApp' => empresa_actual()]);
 
     case 'push':   // el navegador activa, quita o prueba los avisos (JSON)
         header('Content-Type: application/json; charset=utf-8');
@@ -1208,7 +1242,7 @@ try {
         $accion = (string) ($_POST['accion'] ?? '');
         try {
             if ($accion === 'suscribir') {
-                \TuWhatsApp\Push::suscribir(db(), (int) usuario()['id'], $d);
+                \TuWhatsApp\Push::suscribir(db(), (int) usuario()['id'], $d, \TuWhatsApp\Push::describir((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), en_app_android()));
                 $r = ['ok' => true, 'mensaje' => tukan_tr('Listo: te llegarán avisos en este celular.')];
             } elseif ($accion === 'quitar') {
                 \TuWhatsApp\Push::quitar(db(), (int) usuario()['id'], (string) ($d['endpoint'] ?? ''));

@@ -1692,7 +1692,7 @@ $pushes = array_values(array_filter(sim(), fn ($r) => ($r['metodo'] ?? '') === '
 igual([$n, count($pushes)], [1, 2], 'se entrega a Ana (Beto ya no usa ese navegador)');
 $pa = array_values(array_filter($pushes, fn ($x) => str_contains($x['ruta'], '/ok/')))[0];
 $aviso = json_decode((string) $descifrar(base64_decode($pa['cuerpo64'])), true);
-igual([$aviso['titulo'] ?? null, $aviso['texto'] ?? null, $aviso['url'] ?? null, $pa['enc'], $pa['ttl']], ['Lucía', '¿Tienen talla M?', '/?r=chat&c=5', 'aes128gcm', '3600'], 'el celular recibe el aviso cifrado con el texto');
+igual([$aviso['titulo'] ?? null, $aviso['texto'] ?? null, $aviso['url'] ?? null, $pa['enc'], $pa['ttl']], ['Lucía', '¿Tienen talla M?', '/?r=chat&c=5', 'aes128gcm', '86400'], 'el celular recibe el aviso cifrado con el texto (y el servidor de push lo guarda 24 horas)');
 preg_match('/^vapid t=([^.]+)\.([^.]+)\.([^,]+), k=(.+)$/', $pa['vapid'], $mv);
 $jwt = json_decode(Push::deB64u($mv[2] ?? ''), true);
 $firmaCruda = Push::deB64u($mv[3] ?? '');
@@ -1711,6 +1711,33 @@ igual(count(array_filter(sim(), fn ($r) => ($r['metodo'] ?? '') === 'PUSH')), 1,
 limpiarSim();
 Push::mensajeNuevo($db, $lineaN, $cN('593981000009'), 'hijo', 2);
 igual(count(array_filter(sim(), fn ($r) => ($r['metodo'] ?? '') === 'PUSH')), 0, 'de contactos personales no se avisa');
+// (14 nov 2026) Si a quien atiende el chat no le llegan avisos, también les llega a los administradores
+$cBeto = Contactos::guardar($db, $lN, '0981000077', 'Cliente de Beto', 'cliente');
+$db->exec('UPDATE contactos SET asignado_a = ' . $idBeto . ' WHERE id = ' . (int) $cBeto['id']);
+$cBeto = $cN('593981000077');
+igual((int) $cBeto['asignado_a'], $idBeto, 'ese chat lo atiende Beto');
+Push::suscribir($db, $idMia, ['endpoint' => $sim . '/push/ok/mia', 'keys' => ['p256dh' => Push::b64u($uaPub), 'auth' => Push::b64u($auth)]], 'Chrome · Android SM-A15');
+limpiarSim();
+Push::mensajeNuevo($db, $lineaN, $cBeto, 'Hola Beto', 3);
+$rutasPush = array_column(array_values(array_filter(sim(), fn ($r) => ($r['metodo'] ?? '') === 'PUSH')), 'ruta');
+igual($rutasPush, ['/push/ok/mia'], 'Beto no tiene avisos: le llega a Mía (administradora)');
+limpiarSim();
+Push::mensajeNuevo($db, $lineaN, $cAna, 'Otra vez', 4);
+igual(array_column(array_values(array_filter(sim(), fn ($r) => ($r['metodo'] ?? '') === 'PUSH')), 'ruta'), ['/push/ok/ana'], 'a Ana sí le llegan: no se molesta a la administradora');
+$dm = Push::dispositivos($db, $idMia);
+igual([count($dm), $dm[0]['dispositivo'], $dm[0]['ultimo_ok'] !== null], [1, 'Chrome · Android SM-A15', true], 'Mi cuenta ve su dispositivo y cuándo le llegó el último aviso');
+// Fallas temporales: a las 5 seguidas se deja de intentar, pero al día siguiente se vuelve a probar (antes se apagaba para siempre)
+$db->exec("UPDATE push_suscripciones SET errores = 5, ultimo_error = now() - interval '1 hour', error_texto = 'respuesta 500' WHERE usuario_id = $idMia");
+igual(Push::funcionando($db, $idMia), 0, 'con 5 fallas seguidas no cuenta como que le llegan');
+limpiarSim();
+igual(Push::enviar($db, [$idMia], ['titulo' => 'x', 'texto' => 'y', 'url' => '/']), 0, 'falló hace una hora: todavía no se reintenta');
+$db->exec("UPDATE push_suscripciones SET ultimo_error = now() - interval '25 hours' WHERE usuario_id = $idMia");
+igual(Push::enviar($db, [$idMia], ['titulo' => 'x', 'texto' => 'y', 'url' => '/']), 1, 'falló ayer: se vuelve a intentar y llega');
+igual([Push::funcionando($db, $idMia), Push::dispositivos($db, $idMia)[0]['errores']], [1, 0], 'al llegar se borran las fallas');
+Push::quitarId($db, $idMia, $dm[0]['id']);
+igual(Push::cuantas($db, $idMia), 0, 'quitar un dispositivo desde la lista');
+igual(Push::describir('Mozilla/5.0 (Linux; Android 14; SM-A155M Build/UP1A) AppleWebKit/537.36 Chrome/131.0 Mobile Safari/537.36', true), 'App Tukán Mensajes · Android SM-A155M', 'nombre del dispositivo (app de Android)');
+igual(Push::describir('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'), 'Safari · iPhone', 'nombre del dispositivo (iPhone)');
 Push::quitar($db, $idAna, $sim . '/push/ok/ana');
 igual(Push::cuantas($db, $idAna), 0, 'desactivar los avisos');
 putenv('TUWA_PUSH_PRUEBA=');
@@ -2080,6 +2107,161 @@ $ec = Empresas::buscar($db, $eC);
 ok($ec['cancelar_en'] === null && $ec['cancelar_pedido'] === null, 'se arrepintió: sigue con su plan');
 try { Empresas::pedirCancelacion($db, 1, '', []); $okT = false; } catch (RuntimeException $e) { $okT = true; }
 ok($okT, 'la cuenta de Tukán no se cancela');
+
+echo "== Respaldo por correo de los avisos (chats sin contestar)\n";
+use TuWhatsApp\{AvisoCorreo, Correo};
+$smtpLog = (string) getenv('SMTP_LOG');
+$correos = function () use ($smtpLog): array {
+    $r = [];
+    foreach (file($smtpLog) ?: [] as $l) {
+        $c = json_decode($l, true);
+        preg_match('/^Subject: (.*)$/mi', $c['datos'], $m);
+        $c['asunto'] = iconv_mime_decode(trim($m[1] ?? ''), 0, 'UTF-8');
+        preg_match_all('/Content-Transfer-Encoding: base64\r?\n\r?\n([A-Za-z0-9+\/=\r\n]+)/', $c['datos'], $partes);
+        $c['texto'] = base64_decode(preg_replace('/\s+/', '', $partes[1][0] ?? ''));
+        $c['html'] = base64_decode(preg_replace('/\s+/', '', $partes[1][1] ?? ''));
+        $r[] = $c;
+    }
+    return $r;
+};
+$limpiarCorreos = fn () => file_put_contents($smtpLog, '');
+foreach (['SMTP_HOST' => '', 'SMTP_PORT' => '', 'SMTP_USUARIO' => '', 'SMTP_CLAVE' => '', 'SMTP_DE' => '', 'SMTP_SEGURIDAD' => ''] as $k => $v) putenv("$k=$v");
+putenv('TUWA_SIN_SENDMAIL=1');
+igual([Correo::configurado(), Correo::modo()], [false, 'ninguno'], 'sin SMTP ni sendmail: no hay cómo mandar correos');
+try { Correo::enviar('ana@prueba.ec', 'x', 'y'); ok(false, 'sin configurar no manda'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'SMTP'), 'sin configurar no manda y lo dice'); }
+putenv('SMTP_HOST=127.0.0.1');
+putenv('SMTP_PORT=' . (getenv('SMTP_PUERTO') ?: '8099'));
+putenv('SMTP_SEGURIDAD=ninguna');   // el servidor falso no tiene TLS
+putenv('SMTP_USUARIO=avisos@prueba.ec');
+putenv('SMTP_CLAVE=clave-buena');
+putenv('SMTP_DE=avisos@prueba.ec');
+putenv('TUWA_URL=https://whatsapp.ejemplo.com');
+igual([Correo::configurado(), Correo::modo()], [true, 'smtp'], 'con SMTP en config/.env');
+igual(Correo::cabeceraUtf8('Hola'), 'Hola', 'asunto sin tildes queda igual');
+igual(Correo::cabeceraUtf8('💬 Lucía'), '=?UTF-8?B?' . base64_encode('💬 Lucía') . '?=', 'asunto con tildes y emoji codificado');
+ok(Correo::valido('a@b.ec') && !Correo::valido("a@b.ec\r\nBcc: x@y.z") && !Correo::valido('nada'), 'valida correos (sin saltos de línea escondidos)');
+$limpiarCorreos();
+ok(Correo::enviar('ana@prueba.ec', 'Prueba ñandú', "Hola\n.punto al inicio", '<b>Hola</b>'), 'manda por SMTP con usuario y clave');
+$cs = $correos();
+igual([count($cs), $cs[0]['para'] ?? null, $cs[0]['usuario'] ?? null, $cs[0]['asunto'] ?? null], [1, ['ana@prueba.ec'], 'avisos@prueba.ec', 'Prueba ñandú'], 'llega al servidor con el asunto bien');
+ok(str_contains($cs[0]['texto'] ?? '', ".punto al inicio") && str_contains($cs[0]['html'] ?? '', '<b>Hola</b>') && str_contains($cs[0]['datos'], 'Auto-Submitted: auto-generated'), 'texto + HTML; línea que empieza con punto intacta');
+putenv('SMTP_CLAVE=clave-mala');
+try { Correo::enviar('ana@prueba.ec', 'x', 'y'); ok(false, 'clave mala'); } catch (RuntimeException $e) { igual($e->getMessage(), 'El servidor de correo no aceptó el usuario o la clave.', 'clave mala: lo dice claro (sin mostrar la clave)'); }
+putenv('SMTP_CLAVE=clave-buena');
+putenv('SMTP_PORT=1');
+try { Correo::enviar('ana@prueba.ec', 'x', 'y'); ok(false, 'servidor caído'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'No se pudo conectar'), 'servidor de correo caído: lo dice'); }
+putenv('SMTP_PORT=' . (getenv('SMTP_PUERTO') ?: '8099'));
+
+// Una cuenta nueva: Dueño (admin), Ana y Beto (agentes). Chat 1 lo atiende Ana; chat 2 sin asignar; chat 3 es personal.
+$eK = Empresas::crear($db, ['nombre' => 'Correo SA', 'estado' => 'activa', 'admin_correo' => 'dueno@correo.ec', 'admin_nombre' => 'Dueño', 'max_usuarios' => 10])['empresa_id'];
+$lK = Lineas::guardarConexion($db, null, ['nombre' => 'Ventas Correo', 'telefono' => '0996409911', 'phone_number_id' => '919110', 'waba_id' => '919111', 'token' => 'EAAGtokenCorreo1234567890'], $eK);
+Empresas::agregarUsuario($db, $eK, 'ana@correo.ec', 'Ana C', 'agente');
+Empresas::agregarUsuario($db, $eK, 'beto@correo.ec', 'Beto C', 'agente');
+[$kDueno, $kAna, $kBeto] = [$uidN('dueno@correo.ec'), $uidN('ana@correo.ec'), $uidN('beto@correo.ec')];
+igual(AvisoCorreo::ajustes($db, $kAna)['min'], 5, 'por defecto: correo a los 5 minutos');
+$k1 = Contactos::guardar($db, $lK, '0981777001', 'Lucía Correo', 'cliente');
+$k2 = Contactos::guardar($db, $lK, '0981777002', 'Pedro Correo', 'cliente');
+$k3 = Contactos::guardar($db, $lK, '0981777003', 'Mamá', 'personal');
+$db->exec('UPDATE contactos SET asignado_a = ' . $kAna . ' WHERE id = ' . (int) $k1['id']);
+$msgK = function (array $c, string $texto, string $cuando, string $dir = 'entra', string $origen = 'cliente') use ($db, $lK): int {
+    $st = $db->prepare("INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, texto, leido, creado) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id");
+    $st->execute([$lK, $c['id'], $dir, $origen, $texto, $dir === 'entra' ? 'false' : 'true', $cuando]);
+    return (int) $st->fetchColumn();
+};
+$t = fn (string $h) => new DateTimeImmutable("2030-01-01 $h:00");
+$paraK = fn () => array_merge(...array_map(fn ($c) => $c['para'], $correos()) ?: [[]]);
+$db->exec("DELETE FROM ajustes WHERE clave = 'aviso_correo_desde'");
+$msgK($k1, 'mensaje viejo de antes de instalar', '2030-01-01 07:50:00');
+igual(AvisoCorreo::procesar($db, $t('08:00')), ['correos' => 0, 'fallidos' => 0], 'al instalar: no avisa de los mensajes viejos sin leer');
+$limpiarCorreos();
+$msgK($k1, '¿Tienen talla M del vestido rojo?', '2030-01-01 11:57:00');
+igual(AvisoCorreo::procesar($db, $t('12:00'))['correos'], 0, 'a los 3 minutos todavía no');
+igual(AvisoCorreo::procesar($db, $t('12:03'))['correos'], 1, 'a los 6 minutos: un correo');
+$cs = $correos();
+igual($cs[0]['para'] ?? null, ['ana@correo.ec'], 'le llega a Ana (atiende ese chat), no a todo el equipo');
+ok(str_contains($cs[0]['asunto'] ?? '', 'Lucía Correo') && str_contains($cs[0]['texto'] ?? '', 'talla M') && !str_contains($cs[0]['texto'] ?? '', 'mensaje viejo')
+   && str_contains($cs[0]['texto'] ?? '', 'https://whatsapp.ejemplo.com/?r=chat&c=' . $k1['id']) && str_contains($cs[0]['html'] ?? '', 'Abrir el chat'), 'el correo dice quién escribió, qué dijo y el enlace al chat');
+$limpiarCorreos();
+igual(AvisoCorreo::procesar($db, $t('12:04'))['correos'], 0, 'no se repite el mismo mensaje');
+$msgK($k2, 'Hola, precio?', '2030-01-01 12:00:00');
+$msgK($k2, 'Para hoy', '2030-01-01 12:01:00');
+$msgK($k3, 'Hijo, ven a comer', '2030-01-01 12:00:00');
+igual(AvisoCorreo::procesar($db, $t('12:10'))['correos'], 2, 'chat sin asignar: al equipo (Ana ya recibió uno hace menos de 15 min)');
+$cs = $correos();
+$paras = $paraK();
+sort($paras);
+igual($paras, ['beto@correo.ec', 'dueno@correo.ec'], 'Dueño y Beto; Ana espera su turno');
+ok(substr_count($cs[0]['texto'] ?? '', 'Pedro Correo') === 1 && str_contains($cs[0]['texto'] ?? '', '2 mensajes') && !str_contains($cs[0]['texto'] ?? '', 'Mamá') && !str_contains($cs[0]['texto'] ?? '', 'comer'),
+   'un chat con 2 mensajes va una sola vez; los contactos personales no');
+$limpiarCorreos();
+$msgK($k1, 'Y en azul?', '2030-01-01 12:12:00');
+igual(AvisoCorreo::procesar($db, $t('12:19'))['correos'], 1, 'pasaron 15 minutos: Ana recibe lo pendiente');
+$cs = $correos();
+ok(($cs[0]['para'] ?? null) === ['ana@correo.ec'] && str_contains($cs[0]['asunto'] ?? '', 'Tienes 2 chats sin contestar') && str_contains($cs[0]['texto'] ?? '', 'Pedro Correo') && str_contains($cs[0]['texto'] ?? '', 'en azul'),
+   'un solo correo con sus dos chats pendientes');
+$limpiarCorreos();
+AvisoCorreo::guardar($db, $kBeto, 0, '');
+AvisoCorreo::guardar($db, $kAna, 15, 'ana.personal@gmail.com');
+try { AvisoCorreo::guardar($db, $kAna, 5, 'no-es-correo'); ok(false, 'correo no válido'); } catch (RuntimeException $e) { ok(true, 'correo no válido se rechaza'); }
+$msgK($k2, 'Sigo esperando', '2030-01-01 12:30:00');
+igual(AvisoCorreo::procesar($db, $t('12:40'))['correos'], 1, 'Beto apagó el correo; Ana lo quiere a los 15 minutos');
+igual($paraK(), ['dueno@correo.ec'], 'solo le llega al Dueño');
+$limpiarCorreos();
+igual(AvisoCorreo::procesar($db, $t('12:46'))['correos'], 1, 'a los 16 minutos le llega a Ana');
+igual($paraK(), ['ana.personal@gmail.com'], 'a Ana le llega al otro correo que eligió');
+$limpiarCorreos();
+$m7 = $msgK($k2, 'ya leído', '2030-01-01 13:00:00');
+$db->exec("UPDATE mensajes SET leido = true WHERE contacto_id = {$k2['id']}");
+$db->exec("UPDATE mensajes SET leido = true WHERE contacto_id = {$k1['id']}");
+igual(AvisoCorreo::procesar($db, $t('13:30'))['correos'], 0, 'mensajes ya leídos: nada');
+$msgK($k2, 'Hola de nuevo', '2030-01-01 14:00:00');
+$msgK($k2, 'Claro, te ayudo', '2030-01-01 14:02:00', 'sale', 'celular');
+igual(AvisoCorreo::procesar($db, $t('14:30'))['correos'], 0, 'ya le contestaron (desde el celular): nada aunque siga sin leer');
+$db->exec("UPDATE mensajes SET leido = true WHERE contacto_id = {$k2['id']}");
+// Copia para la empresa
+try { AvisoCorreo::guardarCopia($db, $eK, 'mal', 15); ok(false, 'copia no válida'); } catch (RuntimeException $e) { ok(true, 'correo de copia no válido se rechaza'); }
+AvisoCorreo::guardarCopia($db, $eK, 'ventas@correo.ec', 15);
+AvisoCorreo::guardar($db, $kAna, 5, '');
+$msgK($k1, '¿Hacen envíos a Cuenca?', '2030-01-01 15:00:00');
+AvisoCorreo::procesar($db, $t('15:06'));
+igual($paraK(), ['ana@correo.ec'], 'a los 6 minutos: Ana sí, la copia todavía no (15 min)');
+$limpiarCorreos();
+AvisoCorreo::procesar($db, $t('15:16'));
+$cs = $correos();
+ok(count($cs) === 1 && $cs[0]['para'] === ['ventas@correo.ec'] && str_contains($cs[0]['texto'], 'Cuenca') && str_contains($cs[0]['texto'], 'Copia para la empresa'), 'a los 16 minutos: copia a ventas@');
+$limpiarCorreos();
+igual(AvisoCorreo::procesar($db, $t('15:40'))['correos'], 0, 'la copia tampoco se repite');
+// Si el servidor de correo falla, se vuelve a intentar en unos minutos (no cada minuto) y no se pierde
+$db->exec("UPDATE mensajes SET leido = true WHERE contacto_id = {$k1['id']}");
+$msgK($k1, 'Necesito factura', '2030-01-01 16:00:00');
+putenv('SMTP_CLAVE=clave-mala');
+igual(AvisoCorreo::procesar($db, $t('16:10'))['fallidos'] >= 1, true, 'servidor de correo con clave mala: falla');
+putenv('SMTP_CLAVE=clave-buena');
+$limpiarCorreos();
+AvisoCorreo::procesar($db, $t('16:12'));
+igual(in_array('ana@correo.ec', $paraK(), true), false, 'no reintenta al minuto siguiente');
+AvisoCorreo::procesar($db, $t('16:16'));
+igual(in_array('ana@correo.ec', $paraK(), true), true, 'a los 5 minutos reintenta y llega');
+// Cuenta suspendida: no se manda nada
+$db->exec("UPDATE mensajes SET leido = true WHERE contacto_id = {$k1['id']}");
+$db->exec("UPDATE empresas SET estado = 'suspendida' WHERE id = $eK");
+$msgK($k1, 'hola?', '2030-01-01 17:00:00');
+$limpiarCorreos();
+igual(AvisoCorreo::procesar($db, $t('17:30'))['correos'], 0, 'cuenta suspendida: no se mandan correos');
+$db->exec("UPDATE empresas SET estado = 'activa' WHERE id = $eK");
+// Se apaga el SMTP: no hace nada y lo dice
+putenv('SMTP_HOST=');
+igual(AvisoCorreo::activoPara($db, $kAna), false, 'sin servidor de correo el respaldo no cuenta como activo');
+igual(AvisoCorreo::procesar($db, $t('17:40')), ['correos' => 0, 'fallidos' => 0], 'sin servidor de correo no hace nada');
+putenv('SMTP_HOST=127.0.0.1');
+igual(AvisoCorreo::activoPara($db, $kAna), true, 'con servidor de correo y encendido: activo');
+$limpiarCorreos();
+igual(AvisoCorreo::prueba($db, $kAna), 'ana@correo.ec', 'correo de prueba');
+ok(str_contains($correos()[0]['asunto'] ?? '', 'Así te llegarán'), 'llega el correo de prueba');
+[$asEn] = AvisoCorreo::armar([['contacto_id' => 1, 'contacto' => ['nombre' => 'Ann', 'telefono' => '1'], 'l_nombre' => 'L', 'creado' => '2030-01-01 10:00:00', 'tipo' => 'texto', 'texto' => 'hi'],
+                               ['contacto_id' => 2, 'contacto' => ['nombre' => 'Bob', 'telefono' => '2'], 'l_nombre' => 'L', 'creado' => '2030-01-01 10:00:00', 'tipo' => 'otro', 'texto' => '']], 'en', $t('10:30'));
+igual($asEn, '💬 You have 2 unanswered chats', 'el correo sale en el idioma de la persona');
+foreach (['SMTP_HOST', 'SMTP_PORT', 'SMTP_USUARIO', 'SMTP_CLAVE', 'SMTP_DE', 'SMTP_SEGURIDAD', 'TUWA_URL'] as $k) putenv("$k=");
 
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";

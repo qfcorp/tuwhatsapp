@@ -461,52 +461,90 @@
             pedidoInstalar.userChoice.then(function () { pedidoInstalar = null; botonInstalar.hidden = true; });
         });
     }
+    // Avisos (Web Push): lo comparten la página "App en el celular" (#caja-push) y la tarjeta de la app de Android (#tarjeta-avisos-app)
+    var csrfPush = (document.querySelector('input[name="csrf"]') || {}).value || '';
+    var aBytes = function (b64) {
+        var p = '='.repeat((4 - b64.length % 4) % 4), t = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/')), r = new Uint8Array(t.length);
+        for (var i = 0; i < t.length; i++) { r[i] = t.charCodeAt(i); }
+        return r;
+    };
+    var pushPosible = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+    var mandarPush = function (accion, datos, estado) {
+        var f = new FormData();
+        f.append('csrf', csrfPush); f.append('accion', accion); f.append('datos', JSON.stringify(datos || {}));
+        return fetch('/?r=push', { method: 'POST', body: f, credentials: 'same-origin' }).then(function (r) { return r.json(); })
+            .then(function (d) { if (estado) { estado.textContent = d.mensaje || ''; } return d; })
+            .catch(function () { if (estado) { estado.textContent = TR('No se pudo conectar. Intenta de nuevo.'); } });
+    };
+    // Vuelve a guardar en el servidor la suscripción que este navegador ya tiene (por si el servidor la perdió), una vez por sesión
+    var resincronizar = function (sub) {
+        try { if (sessionStorage.getItem('tuwaPushSinc') === sub.endpoint) { return; } sessionStorage.setItem('tuwaPushSinc', sub.endpoint); } catch (x) {}
+        mandarPush('suscribir', sub.toJSON(), null);
+    };
+    var registroPush = function () {
+        return navigator.serviceWorker.register('/sw.js').then(function () { return navigator.serviceWorker.ready; });
+    };
+    // Pide permiso, suscribe este navegador y lo guarda en el servidor. Devuelve la suscripción (o null).
+    var activarAvisos = function (clave, estado) {
+        return Notification.requestPermission().then(function (p) {
+            if (p !== 'granted') { estado.textContent = TR('Los avisos están bloqueados: actívalos en el candado junto a la dirección (Notificaciones → Permitir).'); return null; }
+            return registroPush().then(function (reg) {
+                return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: aBytes(clave) });
+            }).then(function (sub) {
+                return mandarPush('suscribir', sub.toJSON(), estado).then(function (d) { return d && d.ok ? sub : null; });
+            });
+        }).catch(function () { estado.textContent = TR('No se pudieron activar los avisos en este navegador.'); return null; });
+    };
     var cajaPush = $('#caja-push');
     if (cajaPush) {
         var estadoPush = $('#estado-push'), activarPush = $('#activar-push'), probarPush = $('#probar-push'), quitarPush = $('#quitar-push');
-        var csrfPush = (document.querySelector('input[name="csrf"]') || {}).value || '';
         var clave = cajaPush.dataset.vapid;
-        var aBytes = function (b64) {
-            var p = '='.repeat((4 - b64.length % 4) % 4), t = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/')), r = new Uint8Array(t.length);
-            for (var i = 0; i < t.length; i++) { r[i] = t.charCodeAt(i); }
-            return r;
-        };
-        var mandar = function (accion, datos) {
-            var f = new FormData();
-            f.append('csrf', csrfPush); f.append('accion', accion); f.append('datos', JSON.stringify(datos || {}));
-            return fetch('/?r=push', { method: 'POST', body: f, credentials: 'same-origin' }).then(function (r) { return r.json(); })
-                .then(function (d) { estadoPush.textContent = d.mensaje || ''; return d; })
-                .catch(function () { estadoPush.textContent = TR('No se pudo conectar. Intenta de nuevo.'); });
-        };
         var pintar = function (sub) {
             activarPush.hidden = !!sub; probarPush.hidden = !sub; quitarPush.hidden = !sub;
         };
-        if (!('serviceWorker' in navigator) || !('PushManager' in window) || !clave) {
+        if (!pushPosible || !clave) {
             activarPush.hidden = true;
             estadoPush.textContent = TR('Este navegador no permite avisos con la app cerrada. En iPhone, primero agrégala a la pantalla de inicio y ábrela desde ahí.');
         } else {
-            navigator.serviceWorker.register('/sw.js').then(function () { return navigator.serviceWorker.ready; }).then(function (reg) {
-                return reg.pushManager.getSubscription().then(pintar);
+            registroPush().then(function (reg) {
+                return reg.pushManager.getSubscription().then(function (sub) {
+                    // Si el navegador tiene la suscripción pero el servidor la perdió (o cambió de persona), se vuelve a guardar
+                    if (sub && Notification.permission === 'granted') { resincronizar(sub); }
+                    pintar(sub);
+                });
             }).catch(function () {});
             activarPush.addEventListener('click', function () {
-                Notification.requestPermission().then(function (p) {
-                    if (p !== 'granted') { estadoPush.textContent = TR('Los avisos están bloqueados: actívalos en el candado junto a la dirección (Notificaciones → Permitir).'); return; }
-                    return navigator.serviceWorker.ready.then(function (reg) {
-                        return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: aBytes(clave) });
-                    }).then(function (sub) {
-                        return mandar('suscribir', sub.toJSON()).then(function (d) { if (d && d.ok) { pintar(sub); } });
-                    });
-                }).catch(function () { estadoPush.textContent = TR('No se pudieron activar los avisos en este navegador.'); });
+                activarAvisos(clave, estadoPush).then(function (sub) { if (sub) { pintar(sub); } });
             });
-            probarPush.addEventListener('click', function () { mandar('probar'); });
+            probarPush.addEventListener('click', function () { mandarPush('probar', {}, estadoPush); });
             quitarPush.addEventListener('click', function () {
                 navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
                     if (!sub) { pintar(null); return; }
                     var datos = { endpoint: sub.endpoint };
-                    return sub.unsubscribe().then(function () { return mandar('quitar', datos); }).then(function () { pintar(null); });
+                    return sub.unsubscribe().then(function () { return mandarPush('quitar', datos, estadoPush); }).then(function () { pintar(null); });
                 });
             });
         }
+    }
+    // App de Android: si ESTE celular no tiene los avisos activos, se muestra la tarjeta grande para activarlos
+    var tarjetaApp = $('#tarjeta-avisos-app');
+    if (tarjetaApp && pushPosible && tarjetaApp.dataset.vapid) {
+        var estadoApp = $('#estado-push-app');
+        registroPush().then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+            if (sub && Notification.permission === 'granted') {
+                resincronizar(sub);   // por si el servidor la perdió: así sigue llegando
+                return;
+            }
+            tarjetaApp.hidden = false;
+        }).catch(function () { tarjetaApp.hidden = false; });
+        $('#activar-push-app').addEventListener('click', function () {
+            activarAvisos(tarjetaApp.dataset.vapid, estadoApp).then(function (sub) {
+                if (sub) {
+                    estadoApp.textContent = TR('Listo: te llegarán avisos en este celular.');
+                    setTimeout(function () { tarjetaApp.hidden = true; }, 2500);
+                }
+            });
+        });
     }
 })();
 

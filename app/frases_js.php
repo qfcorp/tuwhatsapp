@@ -50,4 +50,5 @@ return [
     "No se pudo llamar",
     "No contestó o rechazó la llamada",
     "La llamada falló",
+    "Listo: te llegarán avisos en este celular.",
 ];
