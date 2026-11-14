@@ -2404,6 +2404,159 @@ ok(str_contains($correos()[0]['asunto'] ?? '', 'Así te llegarán'), 'llega el c
 [$asEn] = AvisoCorreo::armar([['contacto_id' => 1, 'contacto' => ['nombre' => 'Ann', 'telefono' => '1'], 'l_nombre' => 'L', 'creado' => '2030-01-01 10:00:00', 'tipo' => 'texto', 'texto' => 'hi'],
                                ['contacto_id' => 2, 'contacto' => ['nombre' => 'Bob', 'telefono' => '2'], 'l_nombre' => 'L', 'creado' => '2030-01-01 10:00:00', 'tipo' => 'otro', 'texto' => '']], 'en', $t('10:30'));
 igual($asEn, '💬 You have 2 unanswered chats', 'el correo sale en el idioma de la persona');
+
+echo "== Respaldo por correo: revisión (respuestas automáticas, empresas grandes, dos corridas a la vez, seguridad)\n";
+$db->exec('UPDATE mensajes SET leido = true');
+$puertoBueno = getenv('SMTP_PUERTO') ?: '8099';
+$nuevaEmpresa = function (string $n, string $tel, string $pnid, array $agentes = []) use ($db, $uidN): array {
+    $e = Empresas::crear($db, ['nombre' => $n, 'estado' => 'activa', 'admin_correo' => "jefe@$n.ec", 'admin_nombre' => 'Jefe', 'max_usuarios' => 10])['empresa_id'];
+    $l = Lineas::guardarConexion($db, null, ['nombre' => $n, 'telefono' => $tel, 'phone_number_id' => $pnid, 'waba_id' => $pnid . 'w', 'token' => 'EAAGtoken' . $pnid . '1234567890'], $e);
+    foreach ($agentes as $a) {
+        Empresas::agregarUsuario($db, $e, "$a@$n.ec", $a, 'agente');
+    }
+    return [$e, $l];
+};
+$msgL = function (int $linea, int $contacto, string $texto, string $cuando, string $dir = 'entra', string $origen = 'cliente') use ($db): int {
+    $st = $db->prepare("INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, texto, leido, creado) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id");
+    $st->execute([$linea, $contacto, $dir, $origen, $texto, $dir === 'entra' ? 'false' : 'true', $cuando]);
+    return (int) $st->fetchColumn();
+};
+$paraDe = fn () => array_merge(...array_map(fn ($c) => $c['para'], $correos()) ?: [[]]);
+
+// 1) La respuesta del agente con IA (o de un chatbot) cuenta como contestado, salvo que la IA haya pasado el chat a una persona
+[$eBot, $lBot] = $nuevaEmpresa('botsa', '0996401201', '912010');
+$cb1 = Contactos::guardar($db, $lBot, '0981201001', 'Cliente Bot', 'cliente');
+$cb2 = Contactos::guardar($db, $lBot, '0981201002', 'Cliente Persona', 'cliente');
+$msgL($lBot, (int) $cb1['id'], '¿Precio?', '2030-01-02 09:00:00');
+$msgL($lBot, (int) $cb1['id'], 'Cuesta $10, ¿te lo separo?', '2030-01-02 09:00:20', 'sale', 'bot');
+$msgL($lBot, (int) $cb2['id'], 'Quiero reclamar', '2030-01-02 09:00:00');
+$msgL($lBot, (int) $cb2['id'], 'En un momento te atiende una persona', '2030-01-02 09:00:20', 'sale', 'bot');
+$db->exec("UPDATE contactos SET traspaso_en = '2030-01-02 09:00:20', traspaso_nota = 'reclamo' WHERE id = " . (int) $cb2['id']);
+$limpiarCorreos();
+AvisoCorreo::procesar($db, new DateTimeImmutable('2030-01-02 09:10:00'));
+$cs = array_values(array_filter($correos(), fn ($c) => in_array('jefe@botsa.ec', $c['para'], true)));
+ok(count($cs) === 1 && str_contains($cs[0]['texto'], 'Cliente Persona') && !str_contains($cs[0]['texto'], 'Cliente Bot'),
+   'la IA contestó: no hay correo; la IA pasó el chat a una persona: sí hay correo');
+$msgL($lBot, (int) $cb2['id'], 'Hola, soy Ana, te ayudo', '2030-01-02 09:12:00', 'sale', 'panel');
+$msgL($lBot, (int) $cb2['id'], 'Gracias', '2030-01-02 09:20:00');
+$msgL($lBot, (int) $cb2['id'], '¿Algo más?', '2030-01-02 09:20:10', 'sale', 'bot');
+$limpiarCorreos();
+AvisoCorreo::procesar($db, new DateTimeImmutable('2030-01-02 09:40:00'));
+ok(!in_array('jefe@botsa.ec', $paraDe(), true), 'después de que una persona contestó, la respuesta de la IA vuelve a contar');
+$db->exec('UPDATE mensajes SET leido = true');
+
+// 2) Una empresa con miles de chats sin leer no deja sin correo a las demás
+[$eG, $lG] = $nuevaEmpresa('grandesa', '0996401202', '912020');
+[$eCh, $lCh] = $nuevaEmpresa('chicasa', '0996401203', '912030');
+$db->exec("INSERT INTO contactos (linea_id, telefono, nombre, tipo) SELECT $lG, '0985' || lpad(g::text, 6, '0'), 'Masivo ' || g, 'cliente' FROM generate_series(1, 1000) g");
+$db->exec("INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, texto, leido, creado)
+           SELECT $lG, id, 'entra', 'cliente', 'gracias', false, '2030-01-02 08:00:00' FROM contactos WHERE linea_id = $lG");
+$limpiarCorreos();
+AvisoCorreo::procesar($db, new DateTimeImmutable('2030-01-02 10:00:00'));
+$cs = array_values(array_filter($correos(), fn ($c) => in_array('jefe@grandesa.ec', $c['para'], true)));
+ok(count($cs) === 1 && str_contains($cs[0]['asunto'], 'Tienes ' . AvisoCorreo::CHATS_POR_EMPRESA . ' chats'), 'empresa grande: un correo con un tope de chats por corrida');
+igual((int) $db->query("SELECT count(*) FROM avisos_correo a JOIN mensajes m ON m.id = a.mensaje_id WHERE m.linea_id = $lG AND a.destino = 'fin'")->fetchColumn(),
+      AvisoCorreo::CHATS_POR_EMPRESA, 'los mensajes ya avisados a todos quedan marcados y no se vuelven a revisar');
+$cch = Contactos::guardar($db, $lCh, '0981203001', 'Cliente Chica', 'cliente');
+$msgL($lCh, (int) $cch['id'], 'quiero comprar', '2030-01-02 10:50:00');
+$limpiarCorreos();
+AvisoCorreo::procesar($db, new DateTimeImmutable('2030-01-02 11:00:00'));
+ok(in_array('jefe@chicasa.ec', $paraDe(), true), '1000 chats sin leer de otra empresa no tapan el aviso de la empresa chica');
+$limpiarCorreos();
+AvisoCorreo::procesar($db, new DateTimeImmutable('2030-01-02 11:16:00'));
+ok(in_array('jefe@grandesa.ec', $paraDe(), true), 'y en las siguientes corridas le llegan los demás chats de la empresa grande');
+$db->exec('UPDATE mensajes SET leido = true');
+
+// 3) Dos corridas del cron a la vez (servidor de correo lento): un solo correo por destino
+$lentoPuerto = (int) $puertoBueno + 50;
+$lentoLog = tempnam(sys_get_temp_dir(), 'smtp_lento');
+$authLog = tempnam(sys_get_temp_dir(), 'smtp_auth');
+$lento = proc_open([PHP_BINARY, dirname(__DIR__) . '/tests/smtp_falso.php', (string) $lentoPuerto], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $tuboL,
+                   null, array_merge(getenv(), ['SMTP_LOG' => $lentoLog, 'SMTP_ESPERA' => '1.5', 'SMTP_LOG_AUTH' => $authLog]));
+usleep(400000);
+[$eD, $lD] = $nuevaEmpresa('doblesa', '0996401204', '912040', ['a1', 'a2']);
+$db->exec("UPDATE empresas SET aviso_copia = 'ventas@doblesa.ec', aviso_copia_min = 5 WHERE id = $eD");
+foreach ([1, 2, 3] as $i) {
+    $cd = Contactos::guardar($db, $lD, '098120400' . $i, 'Doble ' . $i, 'cliente');
+    $msgL($lD, (int) $cd['id'], 'hola', '2030-01-02 11:50:00');
+}
+putenv("SMTP_PORT=$lentoPuerto");
+$hijo = tempnam(sys_get_temp_dir(), 'aviso_hijo') . '.php';
+file_put_contents($hijo, '<?php define("TUWA_SIN_SESION", 1); require ' . var_export(dirname(__DIR__) . '/app/bootstrap.php', true) . ';'
+    . ' echo json_encode(\TuWhatsApp\AvisoCorreo::procesar(db(), new DateTimeImmutable("2030-01-02 12:00:00")));');
+$procs = [];
+foreach ([1, 2] as $i) {
+    $procs[$i] = proc_open([PHP_BINARY, $hijo], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $tubos[$i]);
+}
+$salidas = [];
+foreach ($procs as $i => $p) {
+    $salidas[$i] = stream_get_contents($tubos[$i][1]) . stream_get_contents($tubos[$i][2]);
+    proc_close($p);
+}
+$recibidos = array_merge(...array_map(fn ($l) => json_decode($l, true)['para'] ?? [], array_filter(explode("\n", (string) file_get_contents($lentoLog)))) ?: [[]]);
+sort($recibidos);
+igual($recibidos, ['a1@doblesa.ec', 'a2@doblesa.ec', 'jefe@doblesa.ec', 'ventas@doblesa.ec'], 'dos corridas a la vez: cada uno recibe UN solo correo (' . trim(implode(' | ', $salidas)) . ')');
+
+// 4) Sin STARTTLS no se manda la clave en claro (salvo SMTP_SEGURIDAD=ninguna)
+file_put_contents($authLog, '');
+putenv('SMTP_SEGURIDAD=');
+try { Correo::enviar('ana@prueba.ec', 'x', 'y'); ok(false, 'sin STARTTLS'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'STARTTLS'), 'servidor sin STARTTLS: error claro'); }
+igual((string) file_get_contents($authLog), '', '…y nunca recibió el usuario ni la clave');
+putenv('SMTP_SEGURIDAD=ninguna');
+proc_terminate($lento);
+proc_close($lento);
+@unlink($lentoLog); @unlink($authLog); @unlink($hijo);
+putenv("SMTP_PORT=$puertoBueno");
+
+// 5) sendmail solo si se pide (SMTP_MODO=sendmail); sin SMTP no hay correo y la cinta sigue avisando
+putenv('SMTP_HOST=');
+putenv('TUWA_SIN_SENDMAIL=');
+putenv('SMTP_MODO=');
+igual([Correo::configurado(), Correo::modo()], [false, 'ninguno'], 'sin SMTP y sin SMTP_MODO=sendmail: no manda (aunque la máquina tenga sendmail)');
+igual(AvisoCorreo::activoPara($db, $uidN('jefe@chicasa.ec')), false, '…y el respaldo no cuenta como activo (la cinta amarilla sigue)');
+putenv('TUWA_SIN_SENDMAIL=1');
+putenv('SMTP_HOST=127.0.0.1');
+
+// 6) Clave con ; # o espacios llega entera (config/.env entre comillas, como lo guarda configurar_correo.sh)
+$ini = tempnam(sys_get_temp_dir(), 'env');
+file_put_contents($ini, "SMTP_CLAVE=\"ab;cd #x y\$z\\w\"\n");
+igual(parse_ini_file($ini, false, INI_SCANNER_RAW)['SMTP_CLAVE'] ?? null, 'ab;cd #x y$z\\w', 'clave con ; # espacios y $ entre comillas: llega entera');
+if (trim((string) shell_exec('sudo -n true 2>&1 && echo si')) === 'si' && getenv('TUWA_SIN_SUDO') !== '1') {
+    $app = sys_get_temp_dir() . '/tuwa_cfg_' . getmypid();
+    @mkdir("$app/config", 0700, true);
+    file_put_contents("$app/config/.env", "META_APP_ID=1\n");
+    $p = proc_open(['bash', dirname(__DIR__) . '/deploy/configurar_correo.sh'], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $tc,
+                   null, array_merge(getenv(), ['APP' => $app, 'CORREO_HOST' => 'mail.ejemplo.com', 'CORREO_PUERTO' => '465', 'CORREO_USUARIO' => 'avisos@ejemplo.com']));
+    fwrite($tc[0], "ab;cd #x y\$z\\w\n");
+    fclose($tc[0]);
+    stream_get_contents($tc[1]);
+    proc_close($p);
+    $leido = parse_ini_file("$app/config/.env", false, INI_SCANNER_RAW);
+    igual([$leido['SMTP_CLAVE'] ?? null, $leido['SMTP_HOST'] ?? null, $leido['META_APP_ID'] ?? null], ['ab;cd #x y$z\\w', 'mail.ejemplo.com', '1'],
+          'configurar_correo.sh guarda la clave entera y no borra lo demás');
+    ok(!glob("$app/config/.env.*") && !is_file('/tmp/tuwa_env_nuevo'), 'configurar_correo.sh no deja copias del .env (ni en /tmp)');
+    shell_exec('sudo rm -rf ' . escapeshellarg($app));
+}
+@unlink($ini);
+
+// 7) Correo de prueba: máximo 3 por hora
+$db->exec("UPDATE usuarios SET aviso_pruebas = '[]' WHERE correo = 'jefe@chicasa.ec'");
+$limpiarCorreos();
+$jefeCh = $uidN('jefe@chicasa.ec');
+foreach (['10:00', '10:10', '10:20'] as $h) {
+    AvisoCorreo::prueba($db, $jefeCh, 'es', new DateTimeImmutable("2030-01-02 $h:00"));
+}
+try { AvisoCorreo::prueba($db, $jefeCh, 'es', new DateTimeImmutable('2030-01-02 10:30:00')); ok(false, '4.º correo de prueba'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), '3 correos de prueba'), 'el 4.º correo de prueba en una hora se rechaza'); }
+igual(count($correos()), 3, 'solo salieron 3 correos de prueba');
+AvisoCorreo::prueba($db, $jefeCh, 'es', new DateTimeImmutable('2030-01-02 11:05:00'));
+igual(count($correos()), 4, 'pasada la hora se puede otra vez');
+
+// 8) Limpieza una vez al día de las marcas de más de 30 días
+$db->exec("UPDATE avisos_correo SET creado = '2029-11-01'");
+$db->exec("DELETE FROM ajustes WHERE clave = 'aviso_correo_limpieza'");
+ok(AvisoCorreo::limpiar($db, new DateTimeImmutable('2030-01-03 10:00:00')) > 0, 'borra las marcas de avisos de más de 30 días');
+igual(AvisoCorreo::limpiar($db, new DateTimeImmutable('2030-01-03 11:00:00')), 0, 'y solo una vez al día');
 foreach (['SMTP_HOST', 'SMTP_PORT', 'SMTP_USUARIO', 'SMTP_CLAVE', 'SMTP_DE', 'SMTP_SEGURIDAD', 'TUWA_URL'] as $k) putenv("$k=");
 
 echo "\nResultado: $bien bien, $mal mal\n";

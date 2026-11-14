@@ -1326,6 +1326,8 @@ try {
                 } elseif ($accion === 'copia' && es_admin() && !cuenta_muestra(empresa_actual())) {
                     \TuWhatsApp\AvisoCorreo::guardarCopia(db(), (int) empresa_actual()['id'], (string) ($_POST['copia'] ?? ''), (int) ($_POST['copia_min'] ?? 15));
                     aviso('Guardado.');
+                } elseif ($accion === 'correo_prueba' && !es_super() && cuenta_muestra(empresa_actual())) {
+                    aviso('Cuenta de demostración: esto se puede ver, pero no se cambia.', 'info');
                 } elseif ($accion === 'correo_prueba') {
                     $para = \TuWhatsApp\AvisoCorreo::prueba(db(), $uidApp, tukan_idioma_actual());
                     aviso(tukan_tr('Correo de prueba enviado a') . ' ' . $para . '. ' . tukan_tr('Si no lo ves, revisa la carpeta de spam (correo no deseado).'));

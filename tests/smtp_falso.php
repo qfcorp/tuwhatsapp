@@ -5,6 +5,7 @@ declare(strict_types=1);
  * Servidor de correo (SMTP) FALSO para las pruebas: nunca manda nada de verdad. Guarda cada correo en SMTP_LOG (una línea JSON).
  * Uso: SMTP_LOG=/tmp/correos.log php tests/smtp_falso.php 8099
  * Acepta AUTH PLAIN y AUTH LOGIN con el usuario avisos@prueba.ec y la clave clave-buena (cualquier otra → 535).
+ * SMTP_ESPERA=1.5 → espera esos segundos antes de saludar (servidor lento). SMTP_LOG_AUTH=archivo → anota cada AUTH que recibe.
  */
 $puerto = (int) ($argv[1] ?? 8099);
 $log = (string) getenv('SMTP_LOG');
@@ -16,6 +17,9 @@ if (!$srv) {
 while ($c = @stream_socket_accept($srv, -1)) {
     stream_set_timeout($c, 10);
     $di = fn (string $l) => fwrite($c, $l . "\r\n");
+    if ((float) getenv('SMTP_ESPERA') > 0) {
+        usleep((int) ((float) getenv('SMTP_ESPERA') * 1000000));
+    }
     $di('220 smtp.prueba.ec ESMTP falso');
     $correo = ['de' => '', 'para' => [], 'usuario' => '', 'datos' => ''];
     $usuarioLogin = null;
@@ -39,6 +43,9 @@ while ($c = @stream_socket_accept($srv, -1)) {
             continue;
         }
         $orden = strtoupper(substr($l, 0, 4));
+        if ($orden === 'AUTH' && getenv('SMTP_LOG_AUTH')) {
+            file_put_contents((string) getenv('SMTP_LOG_AUTH'), "auth\n", FILE_APPEND | LOCK_EX);
+        }
         if ($orden === 'EHLO' || $orden === 'HELO') {
             fwrite($c, "250-smtp.prueba.ec\r\n250-AUTH " . (getenv('SMTP_SOLO_LOGIN') === '1' ? 'LOGIN' : 'PLAIN LOGIN') . "\r\n250 8BITMIME\r\n");
         } elseif (str_starts_with(strtoupper($l), 'AUTH PLAIN ')) {

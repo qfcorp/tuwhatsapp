@@ -9,11 +9,17 @@ set -u
 APP="${APP:-/var/www/tuwhatsapp}"
 ENVF="$APP/config/.env"
 [ -f "$ENVF" ] || { echo "ERROR: primero corre el instalador"; exit 1; }
-guardar() {   # guardar NOMBRE VALOR
-  sudo grep -v -E "^$1=" "$ENVF" > /tmp/tuwa_env_nuevo; echo "$1=$2" >> /tmp/tuwa_env_nuevo
-  sudo cp /tmp/tuwa_env_nuevo "$ENVF"; rm -f /tmp/tuwa_env_nuevo
+guardar() {   # guardar NOMBRE VALOR  (entre comillas dobles: asi una clave con ; # o espacios llega entera)
+  case "$2" in
+    *'"'*) echo "   ERROR: el valor de $1 no puede tener comillas dobles (\"). Cambia esa clave en el buzon y vuelve a correr esto."; return 1 ;;
+  esac
+  # Archivo temporal en la misma carpeta, solo para root (mktemp lo crea con permisos 600); nunca en /tmp
+  local tmp; tmp="$(sudo mktemp "$ENVF.XXXXXX")" || return 1
+  sudo sh -c 'grep -v -E "^$1=" "$2" > "$3"; true' _ "$1" "$ENVF" "$tmp"
+  printf '%s="%s"\n' "$1" "$2" | sudo tee -a "$tmp" > /dev/null
+  sudo chown --reference="$ENVF" "$tmp" && sudo chmod 640 "$tmp" && sudo chgrp www-data "$tmp" && sudo mv "$tmp" "$ENVF"
 }
-actual() { sudo grep -E "^$1=" "$ENVF" | head -1 | cut -d= -f2- || true; }
+actual() { sudo grep -E "^$1=" "$ENVF" | head -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' || true; }
 limpio() { echo "$1" | tr -d ' \r'; }
 preguntar() {   # preguntar NOMBRE "Texto" [por_defecto] [valor_ya_dado]
   if [ -n "${4:-}" ]; then guardar "$1" "$(limpio "$4")"; echo "$2: $4"; return; fi
@@ -33,7 +39,7 @@ YA=""; [ -n "$(actual SMTP_CLAVE)" ] && YA=" (ya hay una guardada: Enter para de
 printf 'Clave del buzon%s: ' "$YA"
 read -r -s C; echo
 C="$(echo "$C" | tr -d '\r')"
-[ -n "$C" ] && guardar SMTP_CLAVE "$C" && echo "   clave guardada"
+if [ -n "$C" ]; then guardar SMTP_CLAVE "$C" && echo "   clave guardada" || exit 1; fi
 preguntar SMTP_DE "Correo que aparece como remitente" "$(actual SMTP_USUARIO)" "${CORREO_DE:-${CORREO_USUARIO:-}}"
 if [ -z "${CORREO_HOST:-}" ]; then
   printf 'Nombre del remitente (Enter = Tukan Mensajes con tilde): '

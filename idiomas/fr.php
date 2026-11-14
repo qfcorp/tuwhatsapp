@@ -990,4 +990,6 @@ return [
     'Te llega este correo porque nadie leyó estos mensajes. Para cambiar cuándo te llega (o apagarlo): App en el celular → Respaldo por correo.' => 'Vous recevez cet e-mail car personne n\'a lu ces messages. Pour changer quand il arrive (ou le désactiver) : App sur le téléphone → Secours par e-mail.',
     'Así te llegarán los avisos de chats sin contestar' => 'Voici comment vous recevrez les alertes de conversations sans réponse',
     'Correo de prueba: si nadie lee un mensaje de un cliente, te llegará un correo como este con el enlace para abrir el chat.' => 'E-mail de test : si personne ne lit le message d\'un client, vous recevrez un e-mail comme celui-ci avec le lien pour ouvrir la conversation.',
+    'Ya mandaste 3 correos de prueba en la última hora. Intenta más tarde.' => 'Vous avez déjà envoyé 3 e-mails de test au cours de la dernière heure. Réessayez plus tard.',
+    'El servidor de correo no ofrece conexión cifrada (STARTTLS): no se manda la clave sin cifrar. Usa el puerto 465 o 587.' => 'Le serveur de messagerie ne propose pas de connexion chiffrée (STARTTLS) : le mot de passe n\'est pas envoyé en clair. Utilisez le port 465 ou 587.',
 ];

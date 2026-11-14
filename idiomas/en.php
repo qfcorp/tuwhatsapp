@@ -994,4 +994,6 @@ return [
     'Te llega este correo porque nadie leyó estos mensajes. Para cambiar cuándo te llega (o apagarlo): App en el celular → Respaldo por correo.' => 'You got this email because nobody read these messages. To change when it arrives (or turn it off): Phone app → Email backup.',
     'Así te llegarán los avisos de chats sin contestar' => 'This is how unanswered-chat alerts will reach you',
     'Correo de prueba: si nadie lee un mensaje de un cliente, te llegará un correo como este con el enlace para abrir el chat.' => 'Test email: if nobody reads a client\'s message, you\'ll get an email like this with the link to open the chat.',
+    'Ya mandaste 3 correos de prueba en la última hora. Intenta más tarde.' => 'You already sent 3 test emails in the last hour. Try again later.',
+    'El servidor de correo no ofrece conexión cifrada (STARTTLS): no se manda la clave sin cifrar. Usa el puerto 465 o 587.' => 'The mail server doesn\'t offer an encrypted connection (STARTTLS): the password isn\'t sent unencrypted. Use port 465 or 587.',
 ];

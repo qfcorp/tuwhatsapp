@@ -792,3 +792,7 @@ CREATE TABLE IF NOT EXISTS avisos_correo (
     PRIMARY KEY (mensaje_id, destino)
 );
 CREATE INDEX IF NOT EXISTS mensajes_entra_sin_leer ON mensajes (creado) WHERE NOT leido AND direccion = 'entra';
+-- Correo de prueba (App en el celular): máximo 3 por hora por persona, para que nadie use el buzón de Tukán para mandar correos repetidos.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS aviso_pruebas jsonb NOT NULL DEFAULT '[]';
+-- Mensajes avisados a todos los que tocaba: destino 'fin' (ya no se vuelven a revisar en cada corrida).
+CREATE INDEX IF NOT EXISTS avisos_correo_creado ON avisos_correo (creado);
