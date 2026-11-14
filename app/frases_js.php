@@ -54,4 +54,5 @@ return [
     "No se pudo usar la huella. Intenta de nuevo o entra con tu contraseña.",
     "Listo: la próxima vez entras con tu huella.",
     "Cancelaste o se venció la huella. Intenta de nuevo.",
+    "Listo: te llegarán avisos en este celular.",
 ];

@@ -13,6 +13,17 @@ Pedido de Dimitry: «debo ingresar a cada rato; debería ingresar una vez y que 
   atrás, usuario desactivado; cookie válida/robada/vencida/borrada al salir y al cambiar la clave; de punta a punta en pantallas con `tests/huella_celular.php`.
 - Manual: capítulo 21 nuevo (+ novedades). **Falta regenerar el PDF del manual** después de unir con los cambios de avisos.
 - Al actualizar el servidor: correr el instalador (crea la carpeta de sesiones y las 2 tablas nuevas). Los usuarios entran **una vez más** con la casilla marcada.
+## 🔔 Que no se pierda ningún cliente: avisos más fuertes + respaldo por correo (14 nov 2026)
+Pedido de Dimitry: "hemos perdido muchas notificaciones por estar apagada la app; debería enviar alguna notificación por mail o algo; con eso se pierden clientes".
+- **Avisos (Web Push):** el servidor de push guarda el aviso **24 horas** (antes 1 hora: si el celular estaba apagado o sin internet más de una hora, el aviso se perdía).
+  Una suscripción con fallas temporales ya **no se apaga para siempre** a las 5 fallas: se vuelve a intentar cada día (solo 404/410 la borran). Se guarda la última falla y el nombre del dispositivo.
+  Si a quien atiende el chat no le llegan avisos, **también les llega a los administradores**.
+- **Respaldo por correo** (`src/AvisoCorreo.php`, corre cada minuto desde `bin/campanias.php`): si nadie lee ni contesta un mensaje de un cliente en N minutos, correo a quien atiende el chat (o al equipo que recibe chats; si nadie, a los administradores). Cada persona elige **apagado / 5 / 15 / 30 / 60 min** (por defecto 5) y otro correo si quiere; un solo correo con todos sus chats pendientes y enlace a cada uno; máximo uno cada 15 min; cada mensaje se avisa una sola vez (`avisos_correo`). Contactos personales y chats ya contestados (desde el panel o el celular) no. Solo mensajes de las últimas 12 horas y de después de instalarlo. El administrador puede poner un **correo de copia** para la empresa (ventas@…). Si el correo falla, reintenta en 5 minutos.
+- **Correo:** cliente SMTP propio `src/Correo.php` (465 SSL / 587 STARTTLS, AUTH PLAIN/LOGIN). Se configura con `bash /var/www/tuwhatsapp/deploy/configurar_correo.sh` (SMTP_HOST, SMTP_PORT, SMTP_USUARIO, SMTP_CLAVE, SMTP_DE, SMTP_DE_NOMBRE). **Sin configurarlo, no se mandan correos** (el panel lo dice).
+- **Pantallas:** App en el celular muestra cada dispositivo con su último aviso entregado y fallas (y Quitar), los pasos de batería para Android (Chrome y Tukán Mensajes "Sin restricciones"; Xiaomi, Samsung, Huawei) y la sección Respaldo por correo. **Cinta amarilla** en Inicio y Bandeja si a la persona no le llegaría ningún aviso. **Dentro de la app de Android**, si ese celular no tiene los avisos activos, tarjeta grande "Activa los avisos en este celular" en Inicio y Bandeja. Si el navegador ya tenía la suscripción y el servidor la perdió, se vuelve a guardar sola.
+- Al tocar un aviso o el enlace del correo de un chat de **otro número** de la misma cuenta, el programa cambia solo a ese número (antes decía "Esa conversación no existe").
+- Pruebas: SMTP falso `tests/smtp_falso.php`; idiomas 43, lógica 833, Panel Central 230, pantallas 462, app Android 44, iPhone 93 — TODO BIEN.
+- **Al actualizar el servidor:** correr `bash /var/www/tuwhatsapp/deploy/configurar_correo.sh` con un buzón (p. ej. avisos@tukansoftware.com del VPS de correos).
 
 ## 🎨 Identidad gráfica común de Tukán (10 nov 2026, noche)
 Pedido de Dimitry: «todos los programas iguales al ERP, cada uno con sus colores».

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// Envía el siguiente grupo de las campañas activas, los seguimientos que ya tocan, los recordatorios de carritos abandonados de la tienda y el resumen de cada mañana. Lo corre el cron cada minuto (lo pone deploy/instalar.sh):
+// Envía el siguiente grupo de las campañas activas, los seguimientos que ya tocan, los recordatorios de carritos abandonados de la tienda, el resumen de cada mañana y los avisos por correo de chats sin contestar. Lo corre el cron cada minuto (lo pone deploy/instalar.sh):
 //   * * * * * php /var/www/tuwhatsapp/bin/campanias.php
 require dirname(__DIR__) . '/app/bootstrap.php';
 
@@ -23,4 +23,10 @@ if (array_sum($t) > 0) {
 $n = \TuWhatsApp\Copiloto::procesarResumenes(db());
 if ($n > 0) {
     echo date('Y-m-d H:i') . " resúmenes de la mañana: $n\n";
+}
+
+// Respaldo por correo de los avisos: chats de clientes que nadie leyó en N minutos (src/AvisoCorreo.php)
+$c = \TuWhatsApp\AvisoCorreo::procesar(db());
+if ($c['correos'] + $c['fallidos'] > 0) {
+    echo date('Y-m-d H:i') . " avisos por correo: enviados {$c['correos']}, fallidos {$c['fallidos']}\n";
 }

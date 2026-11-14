@@ -60,7 +60,8 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 | Enlaces, QR y botón web | Enlace corto que cuenta los clics, su QR y botón para la página web | Más → Enlaces y QR |
 | Integraciones | Excel de contactos y mensajes; aviso firmado a Make, Zapier o n8n | Más → Integraciones |
 | **Tienda en línea** | **Shopify** o **WooCommerce**: cada pedido le avisa al cliente por WhatsApp (pedido recibido, enviado) con plantillas aprobadas; con Shopify, recordatorio del carrito abandonado (lo manda el cron cada minuto) | Más → Tienda en línea |
-| **App en el celular** | Se instala desde el navegador (Android, iPhone, computadora) y avisa cada mensaje nuevo aunque esté cerrada (Web Push); el aviso le llega a quien tiene el chat | Más → App en el celular |
+| **App en el celular** | Se instala desde el navegador (Android, iPhone, computadora) y avisa cada mensaje nuevo aunque esté cerrada (Web Push); el aviso le llega a quien tiene el chat (y a los administradores si a esa persona no le llegan avisos). El servidor de push guarda el aviso 24 horas si el celular está apagado | Más → App en el celular |
+| **Respaldo por correo** | Si nadie lee ni contesta un mensaje de un cliente en 5/15/30/60 minutos (lo elige cada persona), le llega un correo con el enlace al chat; un solo correo con todo lo pendiente, máximo uno cada 15 min; copia opcional para la empresa (ventas@…). Cinta amarilla en Inicio/Bandeja si a la persona no le llegaría ningún aviso | Más → App en el celular → Respaldo por correo |
 | **Llamadas de WhatsApp** | Los clientes llaman con el botón 📞 de WhatsApp y suena en el panel (Contestar / Rechazar); se contesta en una ventanita (WebRTC, el audio va directo entre el navegador y Meta). Llamar al cliente después de que acepte el **pedido de permiso** (7 días o siempre). Historial, llamadas perdidas con aviso y mensaje automático. **Fuera de horario** no suena y al cliente le llega un WhatsApp con el horario (o, si se elige, Meta bloquea la llamada). Gratis las que entran; Meta cobra por minuto las que salen | Más → Llamadas · Chat |
 
 ### El extra: agente con IA (`ia`)
@@ -165,6 +166,11 @@ En "Inicio de sesión con Facebook para empresas → Configurar" están `https:/
    ```
    bash /var/www/tuwhatsapp/deploy/clave_meta.sh 2592670637899782 1865337081309109
    ```
+1b. **Correo para el respaldo de los avisos** (chats que nadie contesta): pega la línea y responde las preguntas (servidor SMTP, puerto 587 o 465, buzón y clave; al final manda un correo de prueba). Sin esto el programa funciona igual, pero no manda los correos de respaldo:
+   ```
+   bash /var/www/tuwhatsapp/deploy/configurar_correo.sh
+   ```
+   Variables que guarda en `config/.env`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USUARIO`, `SMTP_CLAVE`, `SMTP_DE` y opcional `SMTP_DE_NOMBRE` (por defecto "Tukán Mensajes"). Extras: `SMTP_SEGURIDAD=ninguna` (sin cifrar, solo para un servidor en la misma máquina) y `SMTP_SIN_VERIFICAR=1` (certificado propio). Sin `SMTP_HOST` usa el `sendmail` del servidor si existe.
 2. **Webhook**: en Meta → **Casos de uso → Conectar en WhatsApp → Configuración** → **URL de devolución de llamada** y **Token de verificación**: pega los que muestra el panel en **Conectar número** (botón Copiar) → **Verificar y guardar**. Luego en **Campos del webhook** suscríbete a `messages`, `smb_message_echoes`, `history`, `smb_app_state_sync` y `account_update`.
 3. **Política de privacidad** (la pide Meta para publicar): `https://whatsapp.tukanec.com/privacidad.php` · **Eliminación de datos**: `https://whatsapp.tukanec.com/eliminar-datos.php`. Van en Meta → **Configuración de la app → Básica**.
 4. **Conectar el número**: en el panel → **Conectar número** → botón **Conectar con WhatsApp Business** → entra con tu Facebook, elige **Qfproducciones**, escribe el número, escanea el **código QR** desde WhatsApp Business en el celular y acepta compartir el historial → **Finalizar**. El programa guarda todo solo y pide a Meta los contactos y el historial (hasta 6 meses).
@@ -273,7 +279,7 @@ PGPORT=5432 PGUSER=postgres bash tests/correr.sh
 ```
 En paralelo con otras pruebas: `TUWA_DB_PRUEBA=otra_base SIM_PUERTO=… WEB_PUERTO=… PLUX_PUERTO=… bash tests/correr.sh`.
 Al final corre `tests/prueba_app_android.sh` (assetlinks, privacidad, modo app y la cuenta de muestra del revisor de Google).
-Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`). Idiomas 43, lógica 446, Panel Tukán Central v2 162 y pantallas 212: deben terminar en `TODO BIEN`.
+Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`); el correo va a un servidor SMTP falso (`tests/smtp_falso.php`, puerto `SMTP_PUERTO`, 8099 por defecto). Idiomas 43, lógica 833, Panel Tukán Central v2 230 y pantallas 462 (14 nov 2026): deben terminar en `TODO BIEN`.
 
 ## Archivos
 - `public/index.php` panel · `public/webhook.php` lo que avisa Meta · `public/api.php` API
@@ -284,6 +290,7 @@ Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/m
 - `src/Modulos.php` módulos y planes · `src/Archivos.php` fotos, audios y documentos · `src/Embudo.php` · `src/Seguimientos.php` · `src/Reportes.php` · `src/Asistente.php` (IA) · `src/Enlaces.php` · `src/Integraciones.php`
 - `public/w.php` enlace corto · `public/boton.js` botón para páginas web · `public/assets/qrcode.js` códigos QR (MIT, Kazuhiko Arase)
 - `src/TukanCentral.php` (v1: entrar y cifras) y `src/TukanCentralV2.php` (v2: demos, clientes, módulos) · `public/tukan_central.php` conector · `tests/prueba_central_v2.php`
+- `src/Push.php` avisos al celular (Web Push) · `src/AvisoCorreo.php` respaldo por correo de los chats sin contestar (lo corre `bin/campanias.php` cada minuto) · `src/Correo.php` cliente SMTP propio · `deploy/configurar_correo.sh`
 - `db/schema.sql` base (se puede correr muchas veces) · `deploy/instalar.sh` instalador · `deploy/clave_meta.sh` clave de Meta · `src/tukan_ia.php` IA compartida (no editar: se copia del Panel Tukán Central)
 
 ## Factura electrónica con TuFactura (módulo aparte, viene apagado)

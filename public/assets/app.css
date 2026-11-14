@@ -719,3 +719,11 @@ body.tk { --fuente: var(--tk-letra); font-family: var(--tk-letra); font-size: 15
 .tk .entrada-marca h1 b { color: inherit; }
 .tk label.boton, .tk label.tk-boton, .tk label .boton, .tk label .tk-boton { text-transform: none; letter-spacing: 0; font-size: 13.5px; }
 .tk label.boton:not(.boton-claro), .tk label .boton:not(.boton-claro) { color: var(--tk-color-texto); }
+/* (14 nov 2026) Avisos de mensajes nuevos: cinta si están apagados, tarjeta en la app de Android, dispositivos y respaldo por correo */
+.cinta-avisos { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; text-decoration: none; background: #fef3c7; border-left: 4px solid #d97706; color: #78350f; }
+.cinta-avisos span { margin-left: auto; font-weight: 700; text-decoration: underline; }
+.tarjeta-avisos-app { border-left: 4px solid #F28C28; }
+.tarjeta-avisos-app .boton { width: 100%; min-height: 52px; font-size: 1.05rem; }
+.lista-dispositivos { list-style: none; padding: 0; margin: 0 0 12px; }
+.lista-dispositivos li { display: flex; gap: 8px; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--linea, #e5e7eb); }
+.borde-arriba { border-top: 1px solid var(--linea, #e5e7eb); padding-top: 14px; margin-top: 14px; }

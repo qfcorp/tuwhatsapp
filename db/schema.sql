@@ -762,3 +762,31 @@ CREATE TABLE IF NOT EXISTS huellas (
     ultimo_uso      timestamptz
 );
 CREATE INDEX IF NOT EXISTS huellas_usuario ON huellas (usuario_id);
+-- (14 nov 2026) Que no se pierda ningún mensaje de cliente:
+--  * Web Push: una suscripción con fallas temporales se vuelve a intentar al día siguiente (antes se apagaba para siempre a las 5 fallas)
+--    y se guarda cuál fue la última falla y en qué dispositivo está.
+--  * Respaldo por correo: si nadie lee un mensaje de un cliente en N minutos, le llega un correo a quien lo atiende (o al equipo).
+-- =====================================================================
+ALTER TABLE push_suscripciones ADD COLUMN IF NOT EXISTS ultimo_error   timestamptz;
+ALTER TABLE push_suscripciones ADD COLUMN IF NOT EXISTS error_texto    text NOT NULL DEFAULT '';
+ALTER TABLE push_suscripciones ADD COLUMN IF NOT EXISTS dispositivo    text NOT NULL DEFAULT '';
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS aviso_correo_min    integer NOT NULL DEFAULT 5;   -- 0 = apagado; 5, 15, 30 o 60 minutos
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS aviso_correo        text NOT NULL DEFAULT '';      -- '' = el correo con el que entra
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS aviso_correo_ultimo timestamptz;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS aviso_copia         text NOT NULL DEFAULT '';      -- correo extra que recibe copia (ventas@...)
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS aviso_copia_min     integer NOT NULL DEFAULT 15;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS aviso_copia_ultimo  timestamptz;
+DO $$ BEGIN
+    ALTER TABLE usuarios ADD CONSTRAINT usuarios_aviso_correo_min CHECK (aviso_correo_min IN (0, 5, 15, 30, 60));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE empresas ADD CONSTRAINT empresas_aviso_copia_min CHECK (aviso_copia_min IN (5, 15, 30, 60));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- Cada mensaje se avisa una sola vez a cada destino ('u<id>' = una persona del equipo, 'copia' = el correo extra de la empresa)
+CREATE TABLE IF NOT EXISTS avisos_correo (
+    mensaje_id bigint NOT NULL REFERENCES mensajes(id) ON DELETE CASCADE,
+    destino    text NOT NULL,
+    creado     timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (mensaje_id, destino)
+);
+CREATE INDEX IF NOT EXISTS mensajes_entra_sin_leer ON mensajes (creado) WHERE NOT leido AND direccion = 'entra';
