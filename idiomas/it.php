@@ -1028,4 +1028,7 @@ return [
     'Así te llegarán los mensajes de tus clientes.' => 'Così ti arriveranno i messaggi dei tuoi clienti.',
     'Abrir WhatsApp Tukán' => 'Apri WhatsApp Tukán',
     'Un cliente te escribió y nadie ha contestado' => 'Un cliente ti ha scritto e nessuno ha risposto',
+    'Ya mandaste 3 avisos de prueba a Telegram en la última hora. Intenta más tarde.' => 'Hai già inviato 3 avvisi di prova a Telegram nell\'ultima ora. Riprova più tardi.',
+    'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares, se quitaron tus huellas y se desconectó tu Telegram (conéctalo de nuevo en App en el celular).' => 'La tua password è stata cambiata. Sei uscito dagli altri telefoni, le impronte sono state rimosse e il tuo Telegram è stato scollegato (collegalo di nuovo in App sul telefono).',
+    'Contraseña nueva creada (se muestra una sola vez). Se cerró su sesión en sus celulares y, si tenía Telegram conectado, se desconectó.' => 'Nuova password creata (si vede una sola volta). La sessione è stata chiusa sui suoi telefoni e, se aveva Telegram collegato, è stato scollegato.',
 ];

@@ -16,7 +16,9 @@ use PDO;
  *  - Cuándo avisa (cada persona elige): -1 = cada mensaje nuevo al momento (por defecto) · 5/15/30/60 = solo si nadie contesta en esos
  *    minutos (un solo mensaje con la lista de chats, como el respaldo por correo) · 0 = apagado.
  *  - Al momento: máximo 1 aviso por chat cada 2 minutos por persona (las ráfagas de mensajes no llenan el Telegram).
- *  - Si la persona bloqueó el bot (Telegram responde 403), se desconecta sola y no se vuelve a intentar.
+ *  - Si Telegram dice en su respuesta que el chat ya no existe (403: bloqueó el bot; 400 "chat not found"), se desconecta sola.
+ *  - Cambiar o resetear la contraseña, o desactivar a la persona, desconecta su Telegram. Cambiar de bot desconecta a todos.
+ *  - Llamadas a Telegram con 1 s para conectar y 2 s en total; desde el webhook de WhatsApp va al final, después de la respuesta automática.
  */
 final class Telegram
 {
@@ -67,10 +69,14 @@ final class Telegram
         return ['codigo' => $codigo, 'json' => is_string($r) ? (json_decode($r, true) ?: null) : null];
     }
 
+    /** Avisos: 1 s para conectar y 2 s en total (nunca frenan el webhook de WhatsApp ni el cron). */
+    public const SEG_CONECTAR = 1;
+    public const SEG_TOTAL = 2;
+
     private static function opcionesCurl(array $datos, int $tiempo): array
     {
         return [
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_CONNECTTIMEOUT => min(3, $tiempo), CURLOPT_TIMEOUT => $tiempo,
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_CONNECTTIMEOUT => $tiempo >= 10 ? 5 : self::SEG_CONECTAR, CURLOPT_TIMEOUT => $tiempo,   // el script de instalar tiene más paciencia
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
             CURLOPT_POSTFIELDS => json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
@@ -79,9 +85,9 @@ final class Telegram
     /**
      * Manda varios mensajes a la vez (en paralelo): con 10 personas no se esperan 10 llamadas una tras otra.
      * @param array<int, array> $mensajes usuario_id => datos de sendMessage
-     * @return array<int, int> usuario_id => código HTTP (0 = sin conexión)
+     * @return array<int, array{codigo:int, json:?array}> usuario_id => código HTTP (0 = sin conexión) y la respuesta de Telegram
      */
-    private static function mandarVarios(array $mensajes, int $tiempo = 4): array
+    private static function mandarVarios(array $mensajes, int $tiempo = self::SEG_TOTAL): array
     {
         if (!$mensajes) {
             return [];
@@ -102,7 +108,9 @@ final class Telegram
         } while ($activos && $st === CURLM_OK);
         $r = [];
         foreach ($manijas as $uid => $ch) {
-            $r[$uid] = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $cuerpo = curl_multi_getcontent($ch);
+            $r[$uid] = ['codigo' => (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE),
+                        'json' => is_string($cuerpo) && $cuerpo !== '' ? (json_decode($cuerpo, true) ?: null) : null];
             curl_multi_remove_handle($multi, $ch);
             curl_close($ch);
         }
@@ -176,9 +184,52 @@ final class Telegram
         return $st->rowCount();
     }
 
-    public static function desvincular(PDO $db, int $usuarioId): void
+    /**
+     * Desconecta el Telegram de esa persona (botón Desconectar, contraseña cambiada o reseteada, usuario desactivado).
+     * Devuelve true si tenía uno conectado.
+     */
+    public static function desvincular(PDO $db, int $usuarioId): bool
     {
-        $db->prepare("UPDATE usuarios SET tg_chat_id = NULL, tg_nombre = '', tg_codigo = NULL, tg_codigo_vence = NULL WHERE id = ?")->execute([$usuarioId]);
+        $st = $db->prepare("UPDATE usuarios u SET tg_chat_id = NULL, tg_nombre = '', tg_codigo = NULL, tg_codigo_vence = NULL
+                            FROM (SELECT id, tg_chat_id AS antes FROM usuarios WHERE id = ? FOR UPDATE) p WHERE u.id = p.id RETURNING p.antes");
+        $st->execute([$usuarioId]);
+        $antes = $st->fetchColumn();
+        return $antes !== false && $antes !== null;
+    }
+
+    /**
+     * Telegram dijo que ese chat ya no existe para el bot: 403 (bloqueó el bot, borró la cuenta) o 400 "chat not found".
+     * Solo si el JSON lo dice (un 403/400 de un proxy o de otra cosa no desconecta a nadie).
+     */
+    public static function chatPerdido(int $codigo, ?array $json): bool
+    {
+        $error = (int) ($json['error_code'] ?? 0);
+        if ($codigo === 403 && $error === 403) {
+            return true;
+        }
+        return $codigo === 400 && $error === 400 && stripos((string) ($json['description'] ?? ''), 'chat not found') !== false;
+    }
+
+    /** Quita ese chat de esa persona, solo si sigue siendo el que falló (si ya conectó otro, no se toca; su código tampoco). */
+    private static function soltarChat(PDO $db, int $usuarioId, int $chatId): void
+    {
+        $db->prepare("UPDATE usuarios SET tg_chat_id = NULL, tg_nombre = '' WHERE id = ? AND tg_chat_id = ?")->execute([$usuarioId, $chatId]);
+    }
+
+    /**
+     * Cambió el bot (otro TUWA_TELEGRAM_BOT): los chats conectados al bot viejo no sirven con el nuevo. Se desconecta a todos,
+     * se borran los códigos pendientes y se quita el webhook del bot viejo. Devuelve cuántas personas tenían Telegram.
+     */
+    public static function cambioDeBot(PDO $db, string $tokenViejo = ''): int
+    {
+        $n = (int) $db->query('SELECT count(*) FROM usuarios WHERE tg_chat_id IS NOT NULL')->fetchColumn();
+        $db->exec("UPDATE usuarios SET tg_chat_id = NULL, tg_nombre = '', tg_codigo = NULL, tg_codigo_vence = NULL
+                   WHERE tg_chat_id IS NOT NULL OR tg_codigo IS NOT NULL");
+        $db->exec('DELETE FROM tg_rafagas');
+        if ($tokenViejo !== '' && $tokenViejo !== self::token()) {
+            self::api('deleteWebhook', ['drop_pending_updates' => true], 10, $tokenViejo);
+        }
+        return $n;
     }
 
     /** @return array{configurado:bool, bot:string, conectado:bool, nombre:string, modo:int} */
@@ -264,14 +315,8 @@ final class Telegram
             return 0;
         }
         $ahora ??= new DateTimeImmutable();
-        if (!empty($contacto['asignado_a'])) {
-            $st = $db->prepare('SELECT id, idioma, tg_chat_id FROM usuarios WHERE id = ? AND empresa_id = ? AND activo AND tg_chat_id IS NOT NULL AND tg_modo = -1');
-            $st->execute([(int) $contacto['asignado_a'], (int) $linea['empresa_id']]);
-        } else {
-            $st = $db->prepare('SELECT id, idioma, tg_chat_id FROM usuarios WHERE empresa_id = ? AND activo AND recibe_chats AND tg_chat_id IS NOT NULL AND tg_modo = -1');
-            $st->execute([(int) $linea['empresa_id']]);
-        }
-        $personas = $st->fetchAll();
+        $personas = array_values(array_filter(self::destinatarios($db, (int) $linea['empresa_id'], $contacto),
+                                              fn ($u) => $u['tg_chat_id'] !== null && (int) $u['tg_modo'] === -1));
         if (!$personas) {
             return 0;
         }
@@ -290,15 +335,39 @@ final class Telegram
         return self::entregar($db, $mensajes);
     }
 
-    /** Manda y procesa las respuestas: 403 (bloqueó el bot o borró el chat) → se desconecta sola. */
+    /**
+     * A quién se avisa al momento de ese chat (la misma regla que Push::mensajeNuevo y el respaldo por correo): quien lo atiende,
+     * si está activo; si no (sin asignar o asignado a alguien desactivado), el equipo que recibe chats (si nadie recibe chats, los
+     * administradores). Si a ninguna de esas personas le llega ningún aviso (ni del celular ni por Telegram), también a los administradores.
+     * @return list<array>
+     */
+    public static function destinatarios(PDO $db, int $empresaId, array $contacto): array
+    {
+        $equipo = self::equipo($db, $empresaId);
+        $base = self::quienes($equipo, $contacto);
+        $ids = array_map(fn ($u) => (int) $u['id'], $base);
+        $avisado = Push::algunoFunciona($db, $ids)
+            || (bool) array_filter($base, fn ($u) => $u['tg_chat_id'] !== null && (int) $u['tg_modo'] !== 0);
+        if (!$avisado) {
+            foreach ($equipo as $u) {
+                if ($u['rol'] === 'admin' && !in_array((int) $u['id'], $ids, true)) {
+                    $base[] = $u;
+                }
+            }
+        }
+        return $base;
+    }
+
+    /** Manda y procesa las respuestas: si Telegram dice que el chat ya no existe (403 o 400 chat not found), se desconecta sola. */
     private static function entregar(PDO $db, array $mensajes): int
     {
         $ok = 0;
-        foreach (self::mandarVarios($mensajes) as $uid => $codigo) {
+        foreach (self::mandarVarios($mensajes) as $uid => $res) {
+            $codigo = $res['codigo'];
             if ($codigo >= 200 && $codigo < 300) {
                 $ok++;
-            } elseif ($codigo === 403) {
-                self::desvincular($db, $uid);
+            } elseif (self::chatPerdido($codigo, $res['json'])) {
+                self::soltarChat($db, $uid, (int) $mensajes[$uid]['chat_id']);
             } else {
                 error_log('tuwhatsapp telegram: respuesta ' . $codigo . ' para el usuario ' . $uid);
             }
@@ -306,15 +375,33 @@ final class Telegram
         return $ok;
     }
 
-    /** Aviso de prueba a la propia persona. */
-    public static function prueba(PDO $db, int $usuarioId, string $idioma = 'es'): bool
+    public const PRUEBAS_POR_HORA = 3;
+
+    /** Aviso de prueba a la propia persona: máximo 3 por hora (como el correo de prueba). @throws \RuntimeException */
+    public static function prueba(PDO $db, int $usuarioId, string $idioma = 'es', ?DateTimeImmutable $ahora = null): bool
     {
-        $st = $db->prepare('SELECT tg_chat_id FROM usuarios WHERE id = ? AND tg_chat_id IS NOT NULL');
-        $st->execute([$usuarioId]);
-        $chat = $st->fetchColumn();
-        if ($chat === false) {
-            throw new \RuntimeException('Primero conecta tu Telegram.');
+        $ahora ??= new DateTimeImmutable();
+        $db->beginTransaction();
+        try {
+            $st = $db->prepare('SELECT tg_chat_id, tg_pruebas FROM usuarios WHERE id = ? FOR UPDATE');
+            $st->execute([$usuarioId]);
+            $u = $st->fetch();
+            if (!$u || $u['tg_chat_id'] === null) {
+                throw new \RuntimeException('Primero conecta tu Telegram.');
+            }
+            $hace1h = $ahora->getTimestamp() - 3600;
+            $veces = array_values(array_filter(array_map('intval', json_decode((string) $u['tg_pruebas'], true) ?: []), fn ($t) => $t > $hace1h));
+            if (count($veces) >= self::PRUEBAS_POR_HORA) {
+                throw new \RuntimeException('Ya mandaste 3 avisos de prueba a Telegram en la última hora. Intenta más tarde.');
+            }
+            $veces[] = $ahora->getTimestamp();
+            $db->prepare('UPDATE usuarios SET tg_pruebas = ? WHERE id = ?')->execute([json_encode($veces), $usuarioId]);
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
         }
+        $chat = $u['tg_chat_id'];
         $r = self::entregar($db, [$usuarioId => ['chat_id' => (int) $chat, 'text' => '✅ ' . tukan_tr('Así te llegarán los mensajes de tus clientes.', $idioma),
                                                  'reply_markup' => ['inline_keyboard' => [[['text' => tukan_tr('Abrir WhatsApp Tukán', $idioma), 'url' => self::base() . '/?r=bandeja']]]]]]);
         return $r > 0;
@@ -331,6 +418,9 @@ final class Telegram
         $r = ['mensajes' => 0, 'fallidos' => 0];
         $ahora ??= new DateTimeImmutable();
         $db->prepare("INSERT INTO ajustes (clave, valor) VALUES ('aviso_tg_desde', ?) ON CONFLICT (clave) DO NOTHING")->execute([$ahora->format('c')]);
+        // Limpieza una vez al día (aunque el servidor no tenga correo ni bot): marcas de avisos de más de 30 días y ráfagas viejas
+        AvisoCorreo::limpiar($db, $ahora);
+        self::limpiar($db, $ahora);
         if (!self::configurado()) {
             return $r;
         }
@@ -343,6 +433,20 @@ final class Telegram
         } finally {
             $db->query('SELECT pg_advisory_unlock(' . self::CANDADO . ')');
         }
+    }
+
+    /** Una vez al día: borra las marcas de ráfagas de más de 1 día. Devuelve cuántas borró. */
+    public static function limpiar(PDO $db, DateTimeImmutable $ahora): int
+    {
+        $st = $db->prepare("INSERT INTO ajustes (clave, valor) VALUES ('tg_limpieza', ?)
+                            ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor WHERE ajustes.valor IS DISTINCT FROM EXCLUDED.valor RETURNING clave");
+        $st->execute([$ahora->format('Y-m-d')]);
+        if (!$st->fetchColumn()) {
+            return 0;
+        }
+        $b = $db->prepare('DELETE FROM tg_rafagas WHERE ultimo < ?');
+        $b->execute([$ahora->modify('-1 day')->format('c')]);
+        return $b->rowCount();
     }
 
     private static function mandarPendientes(PDO $db, DateTimeImmutable $ahora, array $r): array
@@ -433,14 +537,17 @@ final class Telegram
                 $db->prepare('UPDATE usuarios SET tg_ultimo = ? WHERE id = ?')->execute([$turno['antes'], $uid]);
                 continue;
             }
-            $codigo = self::mandarVarios([$uid => ['chat_id' => (int) $g['u']['tg_chat_id']] + self::resumen($mios, (string) ($g['u']['idioma'] ?: 'es'), $ahora)])[$uid] ?? 0;
+            $chat = (int) $g['u']['tg_chat_id'];
+            $res = self::mandarVarios([$uid => ['chat_id' => $chat] + self::resumen($mios, (string) ($g['u']['idioma'] ?: 'es'), $ahora)])[$uid]
+                   ?? ['codigo' => 0, 'json' => null];
+            $codigo = $res['codigo'];
             if ($codigo >= 200 && $codigo < 300) {
                 $r['mensajes']++;
                 continue;
             }
             $r['fallidos']++;
-            if ($codigo === 403) {   // bloqueó el bot: se desconecta y no se insiste
-                self::desvincular($db, $uid);
+            if (self::chatPerdido($codigo, $res['json'])) {   // bloqueó el bot o el chat ya no existe: se desconecta y no se insiste
+                self::soltarChat($db, $uid, $chat);
                 continue;
             }
             // Falla temporal: se sueltan los mensajes y se vuelve a intentar en unos 5 minutos

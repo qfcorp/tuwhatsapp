@@ -221,88 +221,101 @@ final class Webhook
         } catch (\Throwable $e) {
             error_log('tuwhatsapp reparto/aviso: ' . $e->getMessage());
         }
-        try {   // aviso por Telegram a quien lo pidió "al momento" (aparte: si falla Push, igual sale; si falla esto, el mensaje queda guardado)
-            Telegram::mensajeNuevo($this->db, $linea, $contacto, $texto, (int) $id);
+        // (14 nov 2026, revisión) El aviso por Telegram va AL FINAL, después de la respuesta automática (IA, chatbot, menú):
+        // así una demora de Telegram nunca atrasa la respuesta al cliente. Va en finally: sale aunque se corte antes con return.
+        try {
+            if (($m['interactive']['type'] ?? '') === 'call_permission_reply') {   // contestó el pedido de permiso para llamar
+                $this->motivo((int) $id, Llamadas::permiso($this->db, (int) $contacto['id'], (array) ($m['interactive']['call_permission_reply'] ?? [])) . ': no se contesta solo');
+                return;
+            }
+            if (!in_array((string) ($m['type'] ?? ''), self::CON_RESPUESTA, true)) {
+                $this->motivo((int) $id, 'No es texto: contestas tú');
+                return;
+            }
+            if (Campanias::pideBaja($texto)) {
+                Campanias::marcarMarketing($this->db, (int) $linea['id'], (int) $contacto['id'], 'baja');
+                $this->motivo((int) $id, 'Pidió no recibir más promociones: ya no entra en campañas');
+                return;
+            }
+            if (!Empresas::alDiaPorLinea($this->db, $linea)) {
+                $this->motivo((int) $id, 'La cuenta no está al día: no se contesta solo');
+                return;
+            }
+            $idBoton = (string) ($m['interactive']['button_reply']['id'] ?? $m['interactive']['list_reply']['id'] ?? '');
+            $libre = ($contacto['tipo'] ?? '') !== 'personal'
+                  && !(!empty($contacto['silencio_hasta']) && new DateTimeImmutable((string) $contacto['silencio_hasta']) > $ahora);
+
+            // 1. Chatbots y catálogo. Si está en medio de un chatbot, el chatbot va primero (sus opciones pueden parecerse a
+            //    "ver productos"); si no, primero el catálogo (tocó un producto, pidió el catálogo o quiere comprar) y luego los chatbots.
+            if ($libre) {
+                $enFlujo = !empty($contacto['flujo_id']) && !empty($contacto['flujo_hasta']) && new DateTimeImmutable((string) $contacto['flujo_hasta']) > $ahora
+                           && !str_starts_with($idBoton, 'prod:');
+                $st = $this->db->prepare("SELECT count(*) FROM mensajes WHERE contacto_id = ? AND direccion = 'entra'");
+                $st->execute([$contacto['id']]);
+                $primero = (int) $st->fetchColumn() <= 1;
+                $chatbot = fn () => Flujos::responder($this->db, $linea, $contacto, $texto, $idBoton, $ahora, $primero);
+                if ($enFlujo && ($f = $chatbot()) !== null) {
+                    $this->motivo((int) $id, $f['motivo']);
+                    return;
+                }
+                if (($v = $this->catalogo($linea, $contacto, $texto, $idBoton, $ahora)) !== null) {
+                    $this->motivo((int) $id, $v);
+                    return;
+                }
+                if (!$enFlujo && ($f = $chatbot()) !== null) {
+                    $this->motivo((int) $id, $f['motivo']);
+                    return;
+                }
+            }
+            // 2. Agente con IA (si no está disponible, siguen las respuestas automáticas de siempre)
+            $b = Bot::responder($this->db, $linea, $contacto, $texto, $ahora);
+            if ($b !== null) {
+                $this->motivo((int) $id, $b['motivo']);
+                return;
+            }
+
+            // 3. Respuestas automáticas de siempre (menú)
+            $st = $this->db->prepare("SELECT count(*) FROM mensajes WHERE contacto_id = ? AND origen = 'auto' AND estado NOT IN ('fallido', 'bloqueado') AND creado > ?");
+            $st->execute([$contacto['id'], $ahora->modify('-' . (int) $linea['horas_silencio'] . ' hours')->format('c')]);
+            // Si tocó un botón del menú (id op1, op2…), se decide con el número de la opción
+            $paraDecidir = $texto;
+            if (preg_match('/^op(\d{1,2})$/', $idBoton, $mb)) {
+                $paraDecidir = $mb[1];
+            }
+            $d = Reglas::decidir($linea, $contacto, $paraDecidir, $ahora, (int) $st->fetchColumn());
+            if (!$d['responder']) {
+                $this->motivo((int) $id, $d['motivo']);
+                return;
+            }
+            $mens = new Mensajeria($this->db, $this->ahora);
+            $r = !empty($d['botones'])
+                ? $mens->botones($linea, $contacto, (string) ($d['saludo'] ?: 'Elige una opción:'), $d['botones'], 'auto')
+                : $mens->texto($linea, $contacto, (string) $d['texto'], 'auto');
+            if ($r['ok']) {
+                $this->motivo((int) $id, 'Contestado solo: ' . $d['motivo'] . ($r['costo'] > 0 ? ' (' . '$' . number_format($r['costo'], 4, ',', '.') . ')' : ' (gratis)'));
+                if ($d['humano']) {
+                    $this->db->prepare('UPDATE contactos SET silencio_hasta = ? WHERE id = ?')
+                       ->execute([$ahora->modify('+' . (int) $linea['horas_silencio'] . ' hours')->format('c'), $contacto['id']]);
+                    Reparto::alLlegar($this->db, $linea, Contactos::buscar($this->db, (int) $linea['id'], (int) $contacto['id']), $texto, $ahora);
+                }
+            } else {
+                $this->motivo((int) $id, !empty($r['bloqueado']) ? 'No se contestó: llegaste al tope del mes' : 'No se pudo contestar: ' . $r['error']);
+            }
+        } finally {
+            $this->avisarTelegram($linea, (int) $contacto['id'], $texto, (int) $id);
+        }
+    }
+
+    /** Aviso por Telegram "al momento" (src/Telegram.php). Si falla, el mensaje igual queda guardado y contestado. */
+    private function avisarTelegram(array $linea, int $contactoId, string $texto, int $mensajeId): void
+    {
+        try {
+            $contacto = Contactos::buscar($this->db, (int) $linea['id'], $contactoId);   // por si el reparto lo asignó a alguien
+            if ($contacto) {
+                Telegram::mensajeNuevo($this->db, $linea, $contacto, $texto, $mensajeId);
+            }
         } catch (\Throwable $e) {
             error_log('tuwhatsapp telegram: ' . $e->getMessage());
-        }
-
-        if (($m['interactive']['type'] ?? '') === 'call_permission_reply') {   // contestó el pedido de permiso para llamar
-            $this->motivo((int) $id, Llamadas::permiso($this->db, (int) $contacto['id'], (array) ($m['interactive']['call_permission_reply'] ?? [])) . ': no se contesta solo');
-            return;
-        }
-        if (!in_array((string) ($m['type'] ?? ''), self::CON_RESPUESTA, true)) {
-            $this->motivo((int) $id, 'No es texto: contestas tú');
-            return;
-        }
-        if (Campanias::pideBaja($texto)) {
-            Campanias::marcarMarketing($this->db, (int) $linea['id'], (int) $contacto['id'], 'baja');
-            $this->motivo((int) $id, 'Pidió no recibir más promociones: ya no entra en campañas');
-            return;
-        }
-        if (!Empresas::alDiaPorLinea($this->db, $linea)) {
-            $this->motivo((int) $id, 'La cuenta no está al día: no se contesta solo');
-            return;
-        }
-        $idBoton = (string) ($m['interactive']['button_reply']['id'] ?? $m['interactive']['list_reply']['id'] ?? '');
-        $libre = ($contacto['tipo'] ?? '') !== 'personal'
-              && !(!empty($contacto['silencio_hasta']) && new DateTimeImmutable((string) $contacto['silencio_hasta']) > $ahora);
-
-        // 1. Chatbots y catálogo. Si está en medio de un chatbot, el chatbot va primero (sus opciones pueden parecerse a
-        //    "ver productos"); si no, primero el catálogo (tocó un producto, pidió el catálogo o quiere comprar) y luego los chatbots.
-        if ($libre) {
-            $enFlujo = !empty($contacto['flujo_id']) && !empty($contacto['flujo_hasta']) && new DateTimeImmutable((string) $contacto['flujo_hasta']) > $ahora
-                       && !str_starts_with($idBoton, 'prod:');
-            $st = $this->db->prepare("SELECT count(*) FROM mensajes WHERE contacto_id = ? AND direccion = 'entra'");
-            $st->execute([$contacto['id']]);
-            $primero = (int) $st->fetchColumn() <= 1;
-            $chatbot = fn () => Flujos::responder($this->db, $linea, $contacto, $texto, $idBoton, $ahora, $primero);
-            if ($enFlujo && ($f = $chatbot()) !== null) {
-                $this->motivo((int) $id, $f['motivo']);
-                return;
-            }
-            if (($v = $this->catalogo($linea, $contacto, $texto, $idBoton, $ahora)) !== null) {
-                $this->motivo((int) $id, $v);
-                return;
-            }
-            if (!$enFlujo && ($f = $chatbot()) !== null) {
-                $this->motivo((int) $id, $f['motivo']);
-                return;
-            }
-        }
-        // 2. Agente con IA (si no está disponible, siguen las respuestas automáticas de siempre)
-        $b = Bot::responder($this->db, $linea, $contacto, $texto, $ahora);
-        if ($b !== null) {
-            $this->motivo((int) $id, $b['motivo']);
-            return;
-        }
-
-        // 3. Respuestas automáticas de siempre (menú)
-        $st = $this->db->prepare("SELECT count(*) FROM mensajes WHERE contacto_id = ? AND origen = 'auto' AND estado NOT IN ('fallido', 'bloqueado') AND creado > ?");
-        $st->execute([$contacto['id'], $ahora->modify('-' . (int) $linea['horas_silencio'] . ' hours')->format('c')]);
-        // Si tocó un botón del menú (id op1, op2…), se decide con el número de la opción
-        $paraDecidir = $texto;
-        if (preg_match('/^op(\d{1,2})$/', $idBoton, $mb)) {
-            $paraDecidir = $mb[1];
-        }
-        $d = Reglas::decidir($linea, $contacto, $paraDecidir, $ahora, (int) $st->fetchColumn());
-        if (!$d['responder']) {
-            $this->motivo((int) $id, $d['motivo']);
-            return;
-        }
-        $mens = new Mensajeria($this->db, $this->ahora);
-        $r = !empty($d['botones'])
-            ? $mens->botones($linea, $contacto, (string) ($d['saludo'] ?: 'Elige una opción:'), $d['botones'], 'auto')
-            : $mens->texto($linea, $contacto, (string) $d['texto'], 'auto');
-        if ($r['ok']) {
-            $this->motivo((int) $id, 'Contestado solo: ' . $d['motivo'] . ($r['costo'] > 0 ? ' (' . '$' . number_format($r['costo'], 4, ',', '.') . ')' : ' (gratis)'));
-            if ($d['humano']) {
-                $this->db->prepare('UPDATE contactos SET silencio_hasta = ? WHERE id = ?')
-                   ->execute([$ahora->modify('+' . (int) $linea['horas_silencio'] . ' hours')->format('c'), $contacto['id']]);
-                Reparto::alLlegar($this->db, $linea, Contactos::buscar($this->db, (int) $linea['id'], (int) $contacto['id']), $texto, $ahora);
-            }
-        } else {
-            $this->motivo((int) $id, !empty($r['bloqueado']) ? 'No se contestó: llegaste al tope del mes' : 'No se pudo contestar: ' . $r['error']);
         }
     }
 

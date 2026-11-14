@@ -92,6 +92,12 @@ ok 'tiene "Cuenta de demostración" && [ "$(sql "SELECT count(*) FROM lineas WHE
 get "/?r=bandeja"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" --data-urlencode "csrf=$(csrf)" --data-urlencode "code=abc" "$W/?r=conectar_qr")
 ok 'tiene "\"ok\":false" && tiene "demostración"' "no se conectan números con el botón QR"
+sql "UPDATE usuarios SET tg_chat_id = 880999, tg_pruebas = '[]' WHERE correo = '$CORREO'" > /dev/null
+TGN=$(grep -c '"chat_id":880999' "${TG_LOG:-/dev/null}" 2>/dev/null || true)
+get "/?r=app"
+post "/?r=app" --data-urlencode "accion=tg_prueba"
+ok 'tiene "Cuenta de demostración" && [ "$(grep -c "\"chat_id\":880999" "${TG_LOG:-/dev/null}" 2>/dev/null || true)" = "$TGN" ]' "no se mandan avisos de prueba a Telegram"
+sql "UPDATE usuarios SET tg_chat_id = NULL WHERE correo = '$CORREO'" > /dev/null
 ok '[ "$(meta)" = "$M0" ] && [ "$(sql "$OTRAS")" = "$ANTES" ]' "usarla no llamó a Meta ni tocó otra cuenta"
 entrar "$CORREO" "" "$CLAVE"
 get "/?r=mas"

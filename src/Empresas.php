@@ -212,6 +212,7 @@ final class Empresas
                 // (14 nov 2026) Contraseña nueva = se cierra en todos sus celulares y se borran sus huellas (por si perdió el celular)
                 Sesiones::olvidarUsuario($db, $usuarioId);
                 $db->prepare('DELETE FROM huellas WHERE usuario_id = ?')->execute([$usuarioId]);
+                Telegram::desvincular($db, $usuarioId);   // y su Telegram deja de recibir los mensajes de los clientes
                 return $clave;
             case 'admin':
             case 'agente':
@@ -220,6 +221,7 @@ final class Empresas
             case 'desactivar':
                 $db->prepare('UPDATE usuarios SET activo = false WHERE id = ?')->execute([$usuarioId]);
                 Sesiones::olvidarUsuario($db, $usuarioId);   // (14 nov 2026) se cierra en todos sus celulares
+                Telegram::desvincular($db, $usuarioId);      // y ya no le llegan los mensajes de los clientes a su Telegram
                 return null;
             case 'activar':
                 $e = self::buscar($db, $empresaId);
@@ -234,8 +236,11 @@ final class Empresas
         throw new RuntimeException('Acción no válida.');
     }
 
-    /** Cambia la contraseña propia. (14 nov 2026) Cierra la sesión en los demás celulares; $esteCelular (id del recuerdo) se queda abierto. */
-    public static function cambiarMiClave(PDO $db, int $usuarioId, string $actual, string $nueva, string $repetir, ?int $esteCelular = null): void
+    /**
+     * Cambia la contraseña propia. (14 nov 2026) Cierra la sesión en los demás celulares ($esteCelular, id del recuerdo, se queda abierto),
+     * borra las huellas y desconecta el Telegram. Devuelve true si tenía Telegram conectado (para decírselo).
+     */
+    public static function cambiarMiClave(PDO $db, int $usuarioId, string $actual, string $nueva, string $repetir, ?int $esteCelular = null): bool
     {
         $st = $db->prepare('SELECT clave FROM usuarios WHERE id = ?');
         $st->execute([$usuarioId]);
@@ -252,6 +257,7 @@ final class Empresas
         Sesiones::olvidarUsuario($db, $usuarioId, $esteCelular);
         // (14 nov 2026, revisión) también se borran sus huellas: una huella dejada por otra persona no sobrevive al cambio de contraseña
         $db->prepare('DELETE FROM huellas WHERE usuario_id = ?')->execute([$usuarioId]);
+        return Telegram::desvincular($db, $usuarioId);
     }
 
     /** Crea un token de API nuevo para la empresa (se muestra una sola vez; se guarda solo su huella). */

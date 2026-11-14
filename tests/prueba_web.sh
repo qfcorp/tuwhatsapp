@@ -965,6 +965,11 @@ L="$LID_TG" U="$UID_TG" php -r 'require "app/bootstrap.php"; $c = \TuWhatsApp\Co
 MSG_TG='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593983662181","phone_number_id":"'"$PNI_TG"'"},"contacts":[{"profile":{"name":"Cliente Telegram"},"wa_id":"593995550123"}],"messages":[{"from":"593995550123","id":"wamid.TG1","timestamp":"'$(date +%s)'","type":"text","text":{"body":"Quiero <precios> & envío"}}]}}]}]}'
 CODIGO=$(webhook "$MSG_TG")
 ok '[ "$CODIGO" = 200 ] && grep -q "\"chat_id\":880001" "$TG_LOG" && grep -q "Cliente &lt;Telegram&gt;" "$TG_LOG" && grep -q "&lt;precios&gt; &amp; envío" "$TG_LOG"' "mensaje de un cliente por WhatsApp: le llega al momento a su Telegram (escapado)"
+ORDEN=$(SIM_LOG="$SIM_LOG" TG_LOG="$TG_LOG" php -r '
+  $meta = 0; foreach (file(getenv("SIM_LOG")) as $l) { $j = json_decode($l, true); if (str_ends_with((string) ($j["ruta"] ?? ""), "/messages") && (($j["cuerpo"]["to"] ?? "") === "593995550123")) $meta = max($meta, (float) ($j["t"] ?? 0)); }
+  $tg = 0; foreach (file(getenv("TG_LOG")) as $l) { $j = json_decode($l, true); if (($j["metodo"] ?? "") === "sendMessage" && (int) ($j["datos"]["chat_id"] ?? 0) === 880001) $tg = (float) $j["t"]; }
+  echo $meta > 0 && $tg > $meta ? "bien" : "mal meta=$meta tg=$tg";')
+ok '[ "$ORDEN" = bien ]' "el aviso a Telegram sale DESPUÉS de la respuesta automática al cliente ($ORDEN)"
 CODIGO=$(tg "$TGS" '{"update_id":3,"message":{"message_id":3,"from":{"id":880001},"chat":{"id":880001,"type":"private"},"text":"/parar"}}')
 ok 'tiene "ya no te llegarán" && [ "$(SQL "SELECT count(*) FROM usuarios WHERE tg_chat_id = 880001")" = 0 ]' "/parar en Telegram desconecta"
 get "/?r=app"; ok 'tiene "id=\"conectar-telegram\""' "después de /parar vuelve el botón para conectar"

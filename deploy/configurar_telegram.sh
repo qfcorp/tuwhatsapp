@@ -30,6 +30,7 @@ if [ -z "$T" ]; then
 fi
 T="$(echo "$T" | tr -d ' \r')"
 ANTES="$(actual TUWA_TELEGRAM_TOKEN)"
+BOT_ANTES="$(actual TUWA_TELEGRAM_BOT)"
 if [ -n "$T" ]; then
   echo "$T" | grep -Eq '^[0-9]{5,}:[A-Za-z0-9_-]{30,}$' || { echo "ERROR: ese token no parece de un bot (se ve como 123456789:ABC...)."; exit 1; }
   guardar TUWA_TELEGRAM_TOKEN "$T" || exit 1
@@ -48,5 +49,11 @@ fi
 BOT="$(echo "$SALIDA" | sed -n 's/^BOT=//p' | head -1)"
 [ -n "$BOT" ] || { echo "ERROR: Telegram no devolvio el nombre del bot."; exit 1; }
 guardar TUWA_TELEGRAM_BOT "$BOT" || exit 1
+if [ -n "$BOT_ANTES" ] && [ "$BOT_ANTES" != "$BOT" ]; then
+  # Otro bot: los Telegram conectados al bot viejo ya no reciben nada. Se desconecta a todos y se quita el webhook del viejo.
+  N="$(printf '%s' "$ANTES" | sudo -u www-data php "$APP/bin/telegram.php" cambio_bot | sed -n 's/^DESCONECTADOS=//p')"
+  echo "   ATENCION: cambiaste de bot (@$BOT_ANTES -> @$BOT). Se desconecto a ${N:-0} personas."
+  echo "   Cada persona debe conectar de nuevo: App en el celular -> Avisos por Telegram -> Conectar mi Telegram."
+fi
 echo "LISTO: bot @$BOT conectado"
 echo "Cada persona lo conecta en: WhatsApp Tukan -> App en el celular -> Avisos por Telegram -> Conectar mi Telegram."

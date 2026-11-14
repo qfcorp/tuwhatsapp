@@ -2728,6 +2728,144 @@ igual(Telegram::procesarPendientes($db, $tt('17:30'))['mensajes'], 0, 'si otra c
 $otra->query('SELECT pg_advisory_unlock(7720141127)');
 $otra = null;
 igual(Telegram::procesarPendientes($db, $tt('17:31'))['mensajes'], 1, 'cuando la otra termina, sale una sola vez');
+
+echo "== Avisos por Telegram: arreglos de la revisión\n";
+// (1) Cambiar o resetear la contraseña, o desactivar a la persona, desconecta su Telegram
+$conectarTg = function (int $uid, int $chat) use ($db, $upd): void {
+    preg_match('#start=([0-9a-f]{32})#', Telegram::crearCodigo($db, $uid, new DateTimeImmutable()), $mc);
+    Telegram::procesarUpdate($db, $upd($chat, '/start ' . $mc[1]));
+};
+$conectarTg($tBeto, 7003);
+ok(Empresas::cambiarUsuario($db, $eT, $tBeto, 'clave', $tDueno) !== null && !Telegram::estado($db, $tBeto)['conectado'], 'el administrador le pone contraseña nueva: su Telegram se desconecta');
+$db->prepare('UPDATE usuarios SET clave = ? WHERE id = ?')->execute([password_hash('claveVieja123', PASSWORD_DEFAULT), $tAna]);
+igual(Empresas::cambiarMiClave($db, $tAna, 'claveVieja123', 'claveNueva456', 'claveNueva456'), true, 'cambiar mi contraseña: avisa que tenía Telegram…');
+ok(!Telegram::estado($db, $tAna)['conectado'], '…y lo desconecta');
+igual(Empresas::cambiarMiClave($db, $tAna, 'claveNueva456', 'claveOtra7890', 'claveOtra7890'), false, 'sin Telegram conectado: no dice nada de Telegram');
+$conectarTg($tBeto, 7003);
+Empresas::cambiarUsuario($db, $eT, $tBeto, 'desactivar', $tDueno);
+ok(!Telegram::estado($db, $tBeto)['conectado'], 'usuario desactivado: su Telegram se desconecta');
+Empresas::cambiarUsuario($db, $eT, $tBeto, 'activar', $tDueno);
+
+// (2) Al momento: la misma regla de destinatarios que los avisos del celular
+$conectarTg($tAna, 7001);
+$conectarTg($tBeto, 7003);
+$conectarTg($tDueno, 7002);
+foreach ([$tAna, $tBeto, $tDueno] as $x) Telegram::guardarModo($db, $x, -1);
+$db->exec("DELETE FROM push_suscripciones WHERE usuario_id IN ($tAna, $tBeto, $tDueno)");
+$db->exec("UPDATE usuarios SET recibe_chats = (rol <> 'admin') WHERE empresa_id = $eT");
+$idsDe = fn (array $c) => array_map(fn ($u) => (int) $u['id'], Telegram::destinatarios($db, $eT, $recargar($c)));
+$c6 = Contactos::guardar($db, $lT, '0981888006', 'Regla Tele', 'cliente');
+$db->exec('UPDATE contactos SET asignado_a = ' . $tAna . ' WHERE id = ' . (int) $c6['id']);
+igual($idsDe($c6), [$tAna], 'asignado activo con Telegram: solo esa persona');
+$db->exec("UPDATE usuarios SET activo = false WHERE id = $tAna");
+igual($idsDe($c6), [$tBeto], 'asignado DESACTIVADO: al equipo que recibe chats');
+$db->exec("UPDATE usuarios SET activo = true WHERE id = $tAna");
+$db->exec("UPDATE usuarios SET recibe_chats = false WHERE empresa_id = $eT");
+igual($idsDe($c2), [$tDueno], 'sin asignar y nadie recibe chats: a los administradores');
+$db->exec("UPDATE usuarios SET recibe_chats = (rol <> 'admin') WHERE empresa_id = $eT");
+foreach ([$tAna, $tBeto] as $x) Telegram::desvincular($db, $x);
+$ids = $idsDe($c2);
+sort($ids);
+$esperado = [$tDueno, $tAna, $tBeto];
+sort($esperado);
+igual($ids, $esperado, 'a nadie del equipo le llega ningún aviso: también a los administradores');
+$tgLimpiar();
+igual(Telegram::mensajeNuevo($db, $lineaT, $recargar($c2), 'nadie tiene avisos', 201, new DateTimeImmutable('2030-03-01 10:00:00')), 1, '…y le llega al Telegram del dueño');
+igual(array_map(fn ($c) => $c['datos']['chat_id'], $tgEnvios()), [7002], '…solo al dueño (los demás no tienen Telegram)');
+$conectarTg($tAna, 7001);
+igual($idsDe($c2), [$tAna, $tBeto], 'si a alguien del equipo le llega un aviso, los administradores no se suman');
+
+// (3) Cambio de bot: todos desconectados, códigos borrados y webhook del bot viejo quitado
+Telegram::crearCodigo($db, $tBeto);
+$tgLimpiar();
+igual(Telegram::cambioDeBot($db, '654321:tokenDelBotViejoDeTukanMensajes0123456789'), 2, 'cambio de bot: desconecta a los 2 que tenían Telegram');
+igual((int) $db->query('SELECT count(*) FROM usuarios WHERE tg_chat_id IS NOT NULL OR tg_codigo IS NOT NULL')->fetchColumn(), 0, '…y borra los códigos pendientes');
+$dw = array_values(array_filter($tgLlamadas(), fn ($c) => $c['metodo'] === 'deleteWebhook'));
+igual([count($dw), $dw[0]['token'] ?? ''], [1, '654321:tokenDelBotViejoDeTukanMensajes0123456789'], '…y quita el webhook con el token del bot VIEJO');
+$tgLimpiar();
+Telegram::cambioDeBot($db, Telegram::token());
+ok(!array_filter($tgLlamadas(), fn ($c) => $c['metodo'] === 'deleteWebhook'), 'mismo token: no se borra el webhook del bot que está en uso');
+
+// (5) Solo se desconecta si Telegram lo dice en su JSON; solo ese chat; el código pendiente se queda
+$conectarTg($tAna, 7001);
+foreach ([400400 => true, 403000 => false, 500500 => false, 403403 => true] as $chatX => $desconecta) {
+    $db->exec("UPDATE usuarios SET tg_chat_id = $chatX, tg_modo = -1 WHERE id = $tAna");
+    $db->exec("DELETE FROM tg_rafagas WHERE usuario_id = $tAna");
+    Telegram::crearCodigo($db, $tAna);
+    Telegram::mensajeNuevo($db, $lineaT, $recargar($c6), 'hola', 300 + $chatX % 1000);
+    $e = $db->query("SELECT tg_chat_id, tg_codigo FROM usuarios WHERE id = $tAna")->fetch();
+    igual($e['tg_chat_id'] === null, $desconecta, "chat $chatX: " . ($desconecta ? 'Telegram dice que no existe → se desconecta' : 'falla sin JSON de Telegram o temporal → NO se desconecta'));
+    if ($desconecta) ok($e['tg_codigo'] !== null, "chat $chatX: el código para volver a conectar no se borra");
+}
+// (4) Telegram lento: el aviso se rinde a los 2 segundos y no desconecta a nadie
+$db->exec("UPDATE usuarios SET tg_chat_id = 900900 WHERE id = $tAna");
+$db->exec("DELETE FROM tg_rafagas WHERE usuario_id = $tAna");
+$t1 = microtime(true);
+igual(Telegram::mensajeNuevo($db, $lineaT, $recargar($c6), 'Telegram lento', 401), 0, 'Telegram lento: no llega…');
+$dur = microtime(true) - $t1;
+ok($dur < 3.0, 'Telegram lento: se rinde en ~2 segundos (' . round($dur, 1) . ' s), no frena el webhook de WhatsApp');
+ok(Telegram::estado($db, $tAna)['conectado'], '…y no desconecta a nadie');
+usleep(3200000);   // que el Telegram simulado termine con la llamada lenta antes de seguir
+$db->exec("UPDATE usuarios SET tg_chat_id = 7001 WHERE id = $tAna");
+
+// (6) Limpieza una vez al día, aunque el servidor no tenga correo: marcas de más de 30 días y ráfagas de más de 1 día
+$db->exec("DELETE FROM ajustes WHERE clave IN ('aviso_correo_limpieza', 'tg_limpieza')");
+$db->exec("INSERT INTO tg_rafagas (usuario_id, contacto_id, ultimo) VALUES ($tBeto, " . (int) $c6['id'] . ", '2030-01-01') ON CONFLICT (usuario_id, contacto_id) DO UPDATE SET ultimo = '2030-01-01'");
+$viejoM = $tgM($c2, 'marca vieja', '2029-12-01 10:00:00');
+$db->exec("INSERT INTO avisos_correo (mensaje_id, destino, creado) VALUES ($viejoM, 'tfin', '2029-12-01')");
+$smtpAntes = getenv('SMTP_HOST');
+putenv('SMTP_HOST=');
+Telegram::procesarPendientes($db, new DateTimeImmutable('2030-03-05 09:00:00'));
+igual((int) $db->query("SELECT count(*) FROM avisos_correo WHERE mensaje_id = $viejoM")->fetchColumn(), 0, 'sin correo configurado: igual se borran las marcas de más de 30 días');
+igual((int) $db->query("SELECT count(*) FROM tg_rafagas WHERE ultimo < '2030-03-04'")->fetchColumn(), 0, 'y las ráfagas de más de 1 día');
+igual(Telegram::limpiar($db, new DateTimeImmutable('2030-03-05 15:00:00')), 0, 'la limpieza corre una sola vez al día');
+putenv('SMTP_HOST=' . $smtpAntes);
+
+// (7) Aviso de prueba a Telegram: máximo 3 por hora
+$db->exec("UPDATE usuarios SET tg_pruebas = '[]' WHERE id = $tAna");
+$tgLimpiar();
+foreach (['10:00', '10:10', '10:20'] as $h) Telegram::prueba($db, $tAna, 'es', new DateTimeImmutable("2030-03-06 $h:00"));
+try { Telegram::prueba($db, $tAna, 'es', new DateTimeImmutable('2030-03-06 10:30:00')); ok(false, '4.º aviso de prueba'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), '3 avisos de prueba'), 'el 4.º aviso de prueba en una hora se rechaza'); }
+igual(count($tgEnvios()), 3, 'solo salieron 3 avisos de prueba');
+ok(Telegram::prueba($db, $tAna, 'es', new DateTimeImmutable('2030-03-06 11:05:00')), 'pasada la hora se puede otra vez');
+
+// (3b) configurar_telegram.sh de punta a punta (con sudo, como en el servidor): mismo bot no desconecta; otro bot sí
+if (trim((string) shell_exec('sudo -n true 2>&1 && echo si')) === 'si' && getenv('TUWA_SIN_SUDO') !== '1' && trim((string) shell_exec('id -u www-data 2>/dev/null')) !== '') {
+    $app = sys_get_temp_dir() . '/tuwa_tg_' . getmypid();
+    foreach (['app', 'src', 'bin', 'idiomas'] as $d) shell_exec('mkdir -p ' . escapeshellarg($app) . ' && cp -r ' . escapeshellarg(dirname(__DIR__) . "/$d") . ' ' . escapeshellarg("$app/$d"));
+    @mkdir("$app/config", 0755, true);
+    file_put_contents("$app/config/.env", "META_APP_ID=1\nTUWA_URL=https://whatsapp.ejemplo.com\nTUWA_TELEGRAM_API_URL=" . getenv('TG_URL') . "\n"
+        . 'TUWA_DB_HOST=' . getenv('TUWA_DB_HOST') . "\nTUWA_DB_PORT=" . getenv('TUWA_DB_PORT') . "\nTUWA_DB_NAME=" . getenv('TUWA_DB_NAME')
+        . "\nTUWA_DB_USER=" . getenv('TUWA_DB_USER') . "\nTUWA_DB_PASS=" . getenv('TUWA_DB_PASS') . "\n");
+    shell_exec('chmod -R a+rX ' . escapeshellarg($app));
+    $correrTg = function (string $token) use ($app): string {
+        $p = proc_open(['bash', dirname(__DIR__) . '/deploy/configurar_telegram.sh'], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $tc,
+                       null, array_merge(getenv(), ['APP' => $app, 'TELEGRAM_TOKEN_NUEVO' => $token]));
+        fclose($tc[0]);
+        $o = stream_get_contents($tc[1]) . stream_get_contents($tc[2]);
+        proc_close($p);
+        return $o;
+    };
+    $o1 = $correrTg('123456:tokenDePruebaDelBotTukanMensajes0123456789');
+    ok(str_contains($o1, 'LISTO: bot @TukanMensajesBot conectado') && !str_contains($o1, 'ATENCION'), 'configurar_telegram.sh: primer bot conectado');
+    $leido = parse_ini_file("$app/config/.env", false, INI_SCANNER_RAW);
+    ok(strlen($leido['TUWA_TELEGRAM_SECRETO'] ?? '') === 64 && ($leido['TUWA_TELEGRAM_BOT'] ?? '') === 'TukanMensajesBot' && ($leido['META_APP_ID'] ?? '') === '1', 'guarda token, secreto y bot sin borrar lo demás');
+    $conectarTg($tAna, 7001);
+    $o2 = $correrTg('123456:tokenDePruebaDelBotTukanMensajes0123456789');
+    ok(!str_contains($o2, 'ATENCION') && Telegram::estado($db, $tAna)['conectado'], 'volver a correrlo con el mismo bot: nadie se desconecta');
+    $tgLimpiar();
+    $o3 = $correrTg('654321:tokenDelOtroBotDeTukanMensajes0123456789');
+    ok(str_contains($o3, 'ATENCION: cambiaste de bot (@TukanMensajesBot -> @OtroTukanBot)') && str_contains($o3, 'conectar de nuevo') && str_contains($o3, 'LISTO: bot @OtroTukanBot'), 'otro bot: avisa en pantalla que cada persona debe conectar de nuevo');
+    ok(!Telegram::estado($db, $tAna)['conectado'], '…y desconecta a todos');
+    $dw = array_values(array_filter($tgLlamadas(), fn ($c) => $c['metodo'] === 'deleteWebhook'));
+    igual($dw[0]['token'] ?? '', '123456:tokenDePruebaDelBotTukanMensajes0123456789', '…y quita el webhook del bot viejo');
+    $o4 = $correrTg('999999:tokenQueTelegramNoConoce0123456789abc');
+    $leido = parse_ini_file("$app/config/.env", false, INI_SCANNER_RAW);
+    ok(str_contains($o4, 'no aceptó') && ($leido['TUWA_TELEGRAM_TOKEN'] ?? '') === '654321:tokenDelOtroBotDeTukanMensajes0123456789', 'token que Telegram no acepta: deja el que estaba');
+    ok(!glob("$app/config/.env.*"), 'configurar_telegram.sh no deja copias del .env');
+    shell_exec('sudo rm -rf ' . escapeshellarg($app));
+}
 foreach (['TUWA_TELEGRAM_TOKEN', 'TUWA_TELEGRAM_SECRETO', 'TUWA_TELEGRAM_BOT', 'TUWA_TELEGRAM_API_URL'] as $k) putenv("$k=");
 
 echo "\nResultado: $bien bien, $mal mal\n";

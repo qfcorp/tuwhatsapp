@@ -6,7 +6,7 @@ $log = getenv('SIM_LOG') ?: sys_get_temp_dir() . '/tuwa_sim.log';
 $ruta = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $cuerpo = (string) file_get_contents('php://input');
 $auth = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
-file_put_contents($log, json_encode(['metodo' => $_SERVER['REQUEST_METHOD'], 'ruta' => $ruta, 'auth' => $auth, 'cuerpo' => json_decode($cuerpo, true) ?? $cuerpo]) . "\n", FILE_APPEND | LOCK_EX);
+file_put_contents($log, json_encode(['metodo' => $_SERVER['REQUEST_METHOD'], 'ruta' => $ruta, 'auth' => $auth, 'cuerpo' => json_decode($cuerpo, true) ?? $cuerpo, 't' => microtime(true)]) . "\n", FILE_APPEND | LOCK_EX);
 header('Content-Type: application/json');
 
 function sale(int $c, array $d): never { http_response_code($c); echo json_encode($d); exit; }

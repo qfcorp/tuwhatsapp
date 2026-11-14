@@ -11,7 +11,13 @@ Pedido de Dimitry: «podemos mandar una notificación a Telegram con el bot».
   5/15/30/60 = si nadie contesta (`Telegram::procesarPendientes` desde `bin/campanias.php`, marcas 't<id>'/'tfin' en `avisos_correo`, candado y reserva de turno
   con `usuarios.tg_ultimo`, 10 min entre resúmenes), 0 apagado. 403 → se desconecta sola. Texto con parse_mode HTML escapado.
 - Pantalla: App en el celular → 4. Avisos por Telegram. Cuenta para la cinta amarilla. Manual cap. 19 + novedades + pregunta frecuente.
-- Pruebas: Telegram simulado `tests/telegram_simulado.php` (TG_PUERTO 8094); idiomas 43, lógica 961, TuFactura 29, Panel Central 230, pantallas 520, Android 44, iPhone 93.
+- Pruebas: Telegram simulado `tests/telegram_simulado.php` (TG_PUERTO 8094); idiomas 43, lógica 1000, TuFactura 29, Panel Central 230, pantallas 521, Android 45, iPhone 93.
+- Revisión independiente (arreglado): contraseña cambiada/reseteada o usuario desactivado → `Telegram::desvincular`; destinatarios al momento con la misma
+  regla que Push (`Telegram::destinatarios`: asignado activo, si no equipo que recibe chats/admins, y admins si a nadie le llega ningún aviso); cambio de bot
+  (`bin/telegram.php cambio_bot`, token viejo por stdin) desconecta a todos y hace deleteWebhook del viejo; Telegram con 1 s/2 s y al final de `entrante()`
+  (finally, después de IA/chatbot/menú); desconectar solo con JSON 403 o 400 "chat not found" y solo ese chat (no borra el código); limpieza diaria de
+  `avisos_correo` aunque no haya SMTP y de `tg_rafagas` > 1 día; aviso de prueba 3/hora (`tg_pruebas`) y bloqueado en la cuenta de muestra.
+  Pruebas: lógica 1000, pantallas 521, Android 45 (incluye correr `configurar_telegram.sh` con sudo: mismo bot, otro bot, token malo).
 - **Al actualizar el servidor:** crear el bot en @BotFather y correr `bash /var/www/tuwhatsapp/deploy/configurar_telegram.sh`. La app de Android no cambia.
 
 ## 🔓 La app se queda abierta como WhatsApp + entrar con huella (14 nov 2026)

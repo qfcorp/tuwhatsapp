@@ -823,3 +823,5 @@ CREATE TABLE IF NOT EXISTS tg_rafagas (
     ultimo      timestamptz NOT NULL,
     PRIMARY KEY (usuario_id, contacto_id)
 );
+-- (revisión) Aviso de prueba a Telegram: máximo 3 por hora por persona.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tg_pruebas jsonb NOT NULL DEFAULT '[]';

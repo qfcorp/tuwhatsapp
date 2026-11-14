@@ -682,9 +682,10 @@ try {
             $accion = (string) ($_POST['accion'] ?? '');
             if ($accion === 'mi_clave') {
                 $esteId = este_celular();
-                Empresas::cambiarMiClave(db(), (int) usuario()['id'], (string) ($_POST['actual'] ?? ''), (string) ($_POST['nueva'] ?? ''), (string) ($_POST['repetir'] ?? ''), $esteId);
+                $teniaTg = Empresas::cambiarMiClave(db(), (int) usuario()['id'], (string) ($_POST['actual'] ?? ''), (string) ($_POST['nueva'] ?? ''), (string) ($_POST['repetir'] ?? ''), $esteId);
                 sellar_sesion((int) usuario()['id'], $esteId, true);   // este aparato sigue dentro; los demás se salen en su próximo clic
-                aviso('Tu contraseña se cambió. Se cerró la sesión en tus otros celulares y se quitaron tus huellas (actívala de nuevo si quieres).');
+                aviso($teniaTg ? 'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares, se quitaron tus huellas y se desconectó tu Telegram (conéctalo de nuevo en App en el celular).'
+                               : 'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares y se quitaron tus huellas (actívala de nuevo si quieres).');
             } elseif ($accion === 'cerrar_celular') {   // (14 nov 2026) Dispositivos con sesión abierta
                 $id = (int) ($_POST['id'] ?? 0);
                 $esEste = $id === este_celular();
@@ -720,7 +721,7 @@ try {
                     $st = db()->prepare('SELECT correo FROM usuarios WHERE id = ?');
                     $st->execute([(int) $_POST['id']]);
                     $_SESSION['clave_mostrar'] = ['correo' => (string) $st->fetchColumn(), 'clave' => $clave];
-                    aviso('Contraseña nueva creada (se muestra una sola vez).');
+                    aviso('Contraseña nueva creada (se muestra una sola vez). Se cerró su sesión en sus celulares y, si tenía Telegram conectado, se desconectó.');
                 } else {
                     aviso('Cambiado.');
                 }
@@ -1367,6 +1368,8 @@ try {
                 } elseif ($accion === 'tg_modo') {
                     \TuWhatsApp\Telegram::guardarModo(db(), $uidApp, (int) ($_POST['modo'] ?? -1));
                     aviso('Guardado.');
+                } elseif ($accion === 'tg_prueba' && !es_super() && cuenta_muestra(empresa_actual())) {
+                    aviso('Cuenta de demostración: esto se puede ver, pero no se cambia.', 'info');
                 } elseif ($accion === 'tg_prueba') {
                     $okTg = \TuWhatsApp\Telegram::prueba(db(), $uidApp, tukan_idioma_actual());
                     aviso($okTg ? 'Aviso de prueba enviado a tu Telegram.' : 'No se pudo mandar el aviso a tu Telegram. Vuelve a conectarlo.', $okTg ? 'ok' : 'error');

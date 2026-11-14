@@ -316,7 +316,7 @@ final class Push
     }
 
     /** ¿A alguna de esas personas le llegan avisos? */
-    private static function algunoFunciona(PDO $db, array $usuarios): bool
+    public static function algunoFunciona(PDO $db, array $usuarios): bool
     {
         if (!$usuarios) {
             return false;

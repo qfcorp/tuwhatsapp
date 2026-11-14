@@ -1032,4 +1032,7 @@ return [
     'Así te llegarán los mensajes de tus clientes.' => 'This is how your clients\' messages will reach you.',
     'Abrir WhatsApp Tukán' => 'Open WhatsApp Tukán',
     'Un cliente te escribió y nadie ha contestado' => 'A client wrote to you and nobody has replied',
+    'Ya mandaste 3 avisos de prueba a Telegram en la última hora. Intenta más tarde.' => 'You already sent 3 test notifications to Telegram in the last hour. Try again later.',
+    'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares, se quitaron tus huellas y se desconectó tu Telegram (conéctalo de nuevo en App en el celular).' => 'Your password was changed. You were signed out on your other phones, your fingerprints were removed and your Telegram was disconnected (connect it again in Phone app).',
+    'Contraseña nueva creada (se muestra una sola vez). Se cerró su sesión en sus celulares y, si tenía Telegram conectado, se desconectó.' => 'New password created (shown only once). They were signed out on their phones and, if they had Telegram connected, it was disconnected.',
 ];
