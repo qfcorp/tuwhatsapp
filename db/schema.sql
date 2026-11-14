@@ -762,6 +762,8 @@ CREATE TABLE IF NOT EXISTS huellas (
     ultimo_uso      timestamptz
 );
 CREATE INDEX IF NOT EXISTS huellas_usuario ON huellas (usuario_id);
+
+-- =====================================================================
 -- (14 nov 2026) Que no se pierda ningún mensaje de cliente:
 --  * Web Push: una suscripción con fallas temporales se vuelve a intentar al día siguiente (antes se apagaba para siempre a las 5 fallas)
 --    y se guarda cuál fue la última falla y en qué dispositivo está.
