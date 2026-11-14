@@ -1002,4 +1002,6 @@ return [
     'Se activó una huella nueva para entrar a tu cuenta de WhatsApp Tukán' => 'A new fingerprint was turned on to sign in to your WhatsApp Tukán account',
     'Si fuiste tú, no tienes que hacer nada. Si no fuiste tú, entra a Mi cuenta, quita esa huella y cambia tu contraseña.' => 'If it was you, there\'s nothing to do. If it wasn\'t you, go to My account, remove that fingerprint and change your password.',
     'Huella nueva en tu cuenta de WhatsApp Tukán' => 'New fingerprint on your WhatsApp Tukán account',
+    'Ya mandaste 3 correos de prueba en la última hora. Intenta más tarde.' => 'You already sent 3 test emails in the last hour. Try again later.',
+    'El servidor de correo no ofrece conexión cifrada (STARTTLS): no se manda la clave sin cifrar. Usa el puerto 465 o 587.' => 'The mail server doesn\'t offer an encrypted connection (STARTTLS): the password isn\'t sent unencrypted. Use port 465 or 587.',
 ];

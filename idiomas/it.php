@@ -998,4 +998,6 @@ return [
     'Se activó una huella nueva para entrar a tu cuenta de WhatsApp Tukán' => 'È stata attivata una nuova impronta per entrare nel tuo account WhatsApp Tukán',
     'Si fuiste tú, no tienes que hacer nada. Si no fuiste tú, entra a Mi cuenta, quita esa huella y cambia tu contraseña.' => 'Se sei stato tu, non devi fare nulla. Altrimenti entra in Il mio account, rimuovi quell\'impronta e cambia la password.',
     'Huella nueva en tu cuenta de WhatsApp Tukán' => 'Nuova impronta nel tuo account WhatsApp Tukán',
+    'Ya mandaste 3 correos de prueba en la última hora. Intenta más tarde.' => 'Hai già inviato 3 e-mail di prova nell\'ultima ora. Riprova più tardi.',
+    'El servidor de correo no ofrece conexión cifrada (STARTTLS): no se manda la clave sin cifrar. Usa el puerto 465 o 587.' => 'Il server di posta non offre una connessione cifrata (STARTTLS): la password non viene inviata in chiaro. Usa la porta 465 o 587.',
 ];

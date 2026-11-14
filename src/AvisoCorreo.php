@@ -15,12 +15,32 @@ use PDO;
  *  - Cada persona elige: apagado / 5 / 15 / 30 / 60 minutos (por defecto 5) y, si quiere, otro correo.
  *  - La empresa puede poner un correo extra que recibe copia de todo (p. ej. ventas@…).
  *  - Un solo correo por persona con todos sus chats pendientes; nunca dos correos a la misma persona en menos de 15 minutos
- *    y nunca dos veces el mismo mensaje (tabla avisos_correo). Solo mensajes de las últimas 12 horas y de después de instalar esto.
+ *    y nunca dos veces el mismo mensaje (tabla avisos_correo, con 'fin' cuando ya se avisó a todos). Solo mensajes de las últimas 12 horas
+ *    y de después de instalar esto. Candado de PostgreSQL + reservas antes de mandar: dos corridas a la vez no repiten correos.
+ *  - Una respuesta automática (IA, chatbot…) cuenta como contestado, salvo que la IA haya pasado el chat a una persona.
  */
 final class AvisoCorreo
 {
     public const MINUTOS = [0, 5, 15, 30, 60];
     public const ESPERA_ENTRE_CORREOS = 15;   // minutos
+
+    /** Llave del candado de PostgreSQL: dos corridas del cron a la vez no mandan el mismo correo dos veces. */
+    private const CANDADO = 7720141126;
+    public const CHATS_POR_EMPRESA = 50;     // por corrida: una empresa con miles de chats sin leer no deja sin correo a las demás
+    public const CHATS_POR_CORRIDA = 1000;
+
+    /**
+     * Mensaje respondido: si después del mensaje del cliente salió una respuesta de una persona (panel o celular) o una
+     * respuesta automática (agente con IA, chatbot, respuesta automática, tienda). Si el agente con IA pasó el chat a una
+     * persona (contactos.traspaso_en) y ninguna persona contestó después de eso, solo cuenta la respuesta de una persona.
+     * Las campañas y los pendientes (para mandar a mano) no cuentan como respuesta.
+     */
+    public const SQL_RESPONDIDO = "EXISTS (SELECT 1 FROM mensajes r WHERE r.contacto_id = m.contacto_id AND r.direccion = 'sale'
+              AND r.creado > m.creado AND r.estado <> 'fallido'
+              AND (r.origen IN ('panel', 'celular')
+                   OR (r.origen IN ('bot', 'flujo', 'auto', 'tienda')
+                       AND NOT (c.traspaso_en IS NOT NULL AND NOT EXISTS (SELECT 1 FROM mensajes h WHERE h.contacto_id = m.contacto_id
+                                AND h.direccion = 'sale' AND h.origen IN ('panel', 'celular') AND h.creado > c.traspaso_en)))))";
 
     /** @return array{correos:int, fallidos:int} */
     public static function procesar(PDO $db, ?DateTimeImmutable $ahora = null): array
@@ -32,83 +52,169 @@ final class AvisoCorreo
         if (!Correo::configurado()) {
             return $r;
         }
+        if (!$db->query('SELECT pg_try_advisory_lock(' . self::CANDADO . ')')->fetchColumn()) {
+            return $r;   // otra corrida del cron está mandando: esta no hace nada
+        }
+        try {
+            self::limpiar($db, $ahora);
+            return self::mandar($db, $ahora, $r);
+        } finally {
+            $db->query('SELECT pg_advisory_unlock(' . self::CANDADO . ')');
+        }
+    }
+
+    /** Una vez al día: borra las marcas de avisos con más de 30 días. */
+    public static function limpiar(PDO $db, DateTimeImmutable $ahora): int
+    {
+        $hoy = $ahora->format('Y-m-d');
+        $st = $db->prepare("INSERT INTO ajustes (clave, valor) VALUES ('aviso_correo_limpieza', ?)
+                            ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor WHERE ajustes.valor IS DISTINCT FROM EXCLUDED.valor RETURNING clave");
+        $st->execute([$hoy]);
+        if (!$st->fetchColumn()) {
+            return 0;
+        }
+        $b = $db->prepare('DELETE FROM avisos_correo WHERE creado < ?');
+        $b->execute([$ahora->modify('-30 days')->format('c')]);
+        return $b->rowCount();
+    }
+
+    /** @param array{correos:int, fallidos:int} $r */
+    private static function mandar(PDO $db, DateTimeImmutable $ahora, array $r): array
+    {
         $desde = new DateTimeImmutable((string) $db->query("SELECT valor FROM ajustes WHERE clave = 'aviso_correo_desde'")->fetchColumn());
         $hace12 = $ahora->modify('-12 hours');
-        $st = $db->prepare("SELECT m.id, m.creado, m.texto, m.tipo, m.contacto_id, m.linea_id, l.empresa_id, l.nombre AS l_nombre
-            FROM mensajes m
-            JOIN contactos c ON c.id = m.contacto_id
-            JOIN lineas l ON l.id = m.linea_id
-            WHERE m.direccion = 'entra' AND m.origen = 'cliente' AND NOT m.leido
-              AND m.creado > ? AND m.creado <= ? AND c.tipo <> 'personal'
-              AND NOT EXISTS (SELECT 1 FROM mensajes r WHERE r.contacto_id = m.contacto_id AND r.direccion = 'sale'
-                              AND r.origen IN ('panel', 'celular') AND r.creado > m.creado)
-            ORDER BY m.creado LIMIT 1000");
+        // Un renglón por chat (no por mensaje), del más nuevo al más viejo, con tope por empresa y por corrida.
+        // Los mensajes que ya se avisaron a todos los que tocaba quedan marcados 'fin' y no vuelven a leerse.
+        $st = $db->prepare("WITH pend AS (
+                SELECT m.id, m.creado, left(m.texto, 300) AS texto, m.tipo, m.contacto_id, m.linea_id, l.empresa_id, l.nombre AS l_nombre
+                FROM mensajes m
+                JOIN contactos c ON c.id = m.contacto_id
+                JOIN lineas l ON l.id = m.linea_id
+                WHERE m.direccion = 'entra' AND m.origen = 'cliente' AND NOT m.leido
+                  AND m.creado > ? AND m.creado <= ? AND c.tipo <> 'personal'
+                  AND NOT EXISTS (SELECT 1 FROM avisos_correo a WHERE a.mensaje_id = m.id AND a.destino = 'fin')
+                  AND NOT " . self::SQL_RESPONDIDO . "
+            ), chats AS (
+                SELECT contacto_id, linea_id, empresa_id, l_nombre, max(creado) AS ultimo,
+                       json_agg(json_build_object('id', id, 'creado', creado, 'texto', texto, 'tipo', tipo) ORDER BY creado) AS mensajes,
+                       row_number() OVER (PARTITION BY empresa_id ORDER BY max(creado) DESC) AS puesto
+                FROM pend GROUP BY contacto_id, linea_id, empresa_id, l_nombre
+            )
+            SELECT * FROM chats WHERE puesto <= " . self::CHATS_POR_EMPRESA . ' ORDER BY ultimo DESC LIMIT ' . self::CHATS_POR_CORRIDA);
         $st->execute([max($desde, $hace12)->format('c'), $ahora->modify('-5 minutes')->format('c')]);
-        $mensajes = $st->fetchAll();
-        if (!$mensajes) {
+        $chats = $st->fetchAll();
+        if (!$chats) {
             return $r;
         }
-        $ya = $db->prepare('SELECT destino FROM avisos_correo WHERE mensaje_id = ?');
-        $empresas = $equipos = $contactos = [];
-        $grupos = [];   // destino => ['para', 'idioma', 'nombre', 'usuario_id'|null, 'empresa_id', 'mensajes' => []]
-        foreach ($mensajes as $m) {
-            $eid = (int) $m['empresa_id'];
+        foreach ($chats as $i => $ch) {
+            $chats[$i]['mensajes'] = json_decode((string) $ch['mensajes'], true) ?: [];
+        }
+        // Qué ya se avisó a quién (una sola consulta para todos los mensajes de esta corrida)
+        $ids = array_merge(...array_map(fn ($ch) => array_map(fn ($m) => (int) $m['id'], $ch['mensajes']), $chats));
+        $avisados = [];   // mensaje_id => [destino => true]
+        foreach (array_chunk($ids, 1000) as $parte) {
+            $q = $db->query('SELECT mensaje_id, destino FROM avisos_correo WHERE mensaje_id IN (' . implode(',', $parte) . ')');
+            foreach ($q->fetchAll() as $a) {
+                $avisados[(int) $a['mensaje_id']][$a['destino']] = true;
+            }
+        }
+        $empresas = $equipos = [];
+        $grupos = [];    // clave => ['para', 'idioma', 'usuario_id'|null, 'empresa_id', 'destino', 'mensajes' => []]
+        $destinos = [];  // mensaje_id => lista de destinos que le tocan (para saber cuándo queda 'fin')
+        foreach ($chats as $ch) {
+            $eid = (int) $ch['empresa_id'];
             $empresas[$eid] ??= Empresas::buscar($db, $eid);
             if (!Empresas::alDia($empresas[$eid])) {
                 continue;
             }
             $equipos[$eid] ??= self::equipo($db, $eid);
-            $contactos[(int) $m['contacto_id']] ??= $db->query('SELECT * FROM contactos WHERE id = ' . (int) $m['contacto_id'])->fetch();
-            $m['contacto'] = $contactos[(int) $m['contacto_id']];
-            $minutos = ($ahora->getTimestamp() - (new DateTimeImmutable($m['creado']))->getTimestamp()) / 60;
-            $ya->execute([$m['id']]);
-            $avisados = $ya->fetchAll(PDO::FETCH_COLUMN);
-            foreach (self::quienes($equipos[$eid], $m['contacto']) as $u) {
-                $destino = 'u' . $u['id'];
-                $min = (int) $u['aviso_correo_min'];
-                if ($min <= 0 || $minutos < $min || in_array($destino, $avisados, true)) {
-                    continue;
-                }
-                $grupos[$destino] ??= ['para' => self::correoDe($u), 'idioma' => (string) ($u['idioma'] ?: 'es'), 'usuario_id' => (int) $u['id'],
-                                       'ultimo' => $u['aviso_correo_ultimo'], 'empresa_id' => $eid, 'mensajes' => []];
-                $grupos[$destino]['mensajes'][] = $m;
-            }
+            $contacto = $db->query('SELECT * FROM contactos WHERE id = ' . (int) $ch['contacto_id'])->fetch();
             $copia = trim((string) ($empresas[$eid]['aviso_copia'] ?? ''));
-            $destino = 'copia';
-            if ($copia !== '' && Correo::valido($copia) && $minutos >= (int) $empresas[$eid]['aviso_copia_min'] && !in_array($destino, $avisados, true)) {
-                $grupos["copia$eid"] ??= ['para' => $copia, 'idioma' => 'es', 'usuario_id' => null, 'ultimo' => $empresas[$eid]['aviso_copia_ultimo'],
-                                          'empresa_id' => $eid, 'mensajes' => []];
-                $grupos["copia$eid"]['mensajes'][] = $m;
+            $hayCopia = $copia !== '' && Correo::valido($copia);
+            $quienes = array_values(array_filter(self::quienes($equipos[$eid], $contacto), fn ($u) => (int) $u['aviso_correo_min'] > 0));
+            foreach ($ch['mensajes'] as $m) {
+                $mid = (int) $m['id'];
+                $m += ['contacto_id' => (int) $ch['contacto_id'], 'contacto' => $contacto, 'l_nombre' => $ch['l_nombre']];
+                $minutos = ($ahora->getTimestamp() - (new DateTimeImmutable($m['creado']))->getTimestamp()) / 60;
+                $destinos[$mid] = [];
+                foreach ($quienes as $u) {
+                    $destino = 'u' . $u['id'];
+                    $destinos[$mid][] = $destino;
+                    if ($minutos < (int) $u['aviso_correo_min'] || isset($avisados[$mid][$destino])) {
+                        continue;
+                    }
+                    $grupos[$destino] ??= ['para' => self::correoDe($u), 'idioma' => (string) ($u['idioma'] ?: 'es'), 'usuario_id' => (int) $u['id'],
+                                           'empresa_id' => $eid, 'destino' => $destino, 'mensajes' => []];
+                    $grupos[$destino]['mensajes'][] = $m;
+                }
+                if ($hayCopia) {
+                    $destinos[$mid][] = 'copia';
+                    if ($minutos >= (int) $empresas[$eid]['aviso_copia_min'] && !isset($avisados[$mid]['copia'])) {
+                        $grupos["copia$eid"] ??= ['para' => $copia, 'idioma' => 'es', 'usuario_id' => null, 'empresa_id' => $eid, 'destino' => 'copia', 'mensajes' => []];
+                        $grupos["copia$eid"]['mensajes'][] = $m;
+                    }
+                }
             }
         }
-        $marcar = $db->prepare('INSERT INTO avisos_correo (mensaje_id, destino) VALUES (?, ?) ON CONFLICT DO NOTHING');
-        foreach ($grupos as $clave => $g) {
-            if ($g['ultimo'] !== null && (new DateTimeImmutable($g['ultimo'])) > $ahora->modify('-' . self::ESPERA_ENTRE_CORREOS . ' minutes')) {
+        $limite = $ahora->modify('-' . self::ESPERA_ENTRE_CORREOS . ' minutes')->format('c');
+        $marcar = $db->prepare('INSERT INTO avisos_correo (mensaje_id, destino, creado) VALUES (?, ?, ?) ON CONFLICT DO NOTHING RETURNING mensaje_id');
+        foreach ($grupos as $g) {
+            // 1) Reservar el turno de esa persona (o de la copia) ANTES de mandar: si otra corrida ya lo tomó, no se repite
+            if ($g['usuario_id'] === null) {
+                $res = $db->prepare('UPDATE empresas e SET aviso_copia_ultimo = ? FROM (SELECT id, aviso_copia_ultimo AS antes FROM empresas WHERE id = ? FOR UPDATE) p
+                                     WHERE e.id = p.id AND (p.antes IS NULL OR p.antes <= ?) RETURNING p.id, p.antes');
+                $res->execute([$ahora->format('c'), $g['empresa_id'], $limite]);
+            } else {
+                $res = $db->prepare('UPDATE usuarios u SET aviso_correo_ultimo = ? FROM (SELECT id, aviso_correo_ultimo AS antes FROM usuarios WHERE id = ? FOR UPDATE) p
+                                     WHERE u.id = p.id AND (p.antes IS NULL OR p.antes <= ?) RETURNING p.id, p.antes');
+                $res->execute([$ahora->format('c'), $g['usuario_id'], $limite]);
+            }
+            $turno = $res->fetch();
+            if (!$turno) {
                 continue;   // ya le llegó un correo hace poco: lo pendiente va en el siguiente
             }
-            $destino = $g['usuario_id'] === null ? 'copia' : 'u' . $g['usuario_id'];
-            [$asunto, $texto, $html] = self::armar($g['mensajes'], $g['idioma'], $ahora, $g['usuario_id'] === null);
+            // 2) Reservar cada mensaje para ese destino; solo van en el correo los que esta corrida pudo reservar
+            $mios = [];
+            foreach ($g['mensajes'] as $m) {
+                $marcar->execute([$m['id'], $g['destino'], $ahora->format('c')]);
+                if ($marcar->fetchColumn() !== false) {
+                    $mios[] = $m;
+                    $avisados[(int) $m['id']][$g['destino']] = true;
+                }
+            }
+            $volverTurno = function (?string $valor) use ($db, $g): void {
+                if ($g['usuario_id'] === null) {
+                    $db->prepare('UPDATE empresas SET aviso_copia_ultimo = ? WHERE id = ?')->execute([$valor, $g['empresa_id']]);
+                } else {
+                    $db->prepare('UPDATE usuarios SET aviso_correo_ultimo = ? WHERE id = ?')->execute([$valor, $g['usuario_id']]);
+                }
+            };
+            if (!$mios) {
+                $volverTurno($turno['antes']);
+                continue;
+            }
+            // 3) Mandar
+            [$asunto, $texto, $html] = self::armar($mios, $g['idioma'], $ahora, $g['usuario_id'] === null);
             try {
                 Correo::enviar($g['para'], $asunto, $texto, $html);
-                $ok = true;
-            } catch (\Throwable $e) {
-                $ok = false;
-                error_log('tuwhatsapp aviso por correo a ' . $g['para'] . ': ' . $e->getMessage());
-            }
-            // Si falló, se vuelve a intentar en unos 5 minutos (no cada minuto)
-            $cuando = $ok ? $ahora : $ahora->modify('-' . (self::ESPERA_ENTRE_CORREOS - 5) . ' minutes');
-            if ($g['usuario_id'] === null) {
-                $db->prepare('UPDATE empresas SET aviso_copia_ultimo = ? WHERE id = ?')->execute([$cuando->format('c'), $g['empresa_id']]);
-            } else {
-                $db->prepare('UPDATE usuarios SET aviso_correo_ultimo = ? WHERE id = ?')->execute([$cuando->format('c'), $g['usuario_id']]);
-            }
-            if ($ok) {
-                foreach ($g['mensajes'] as $m) {
-                    $marcar->execute([$m['id'], $destino]);
-                }
                 $r['correos']++;
-            } else {
+            } catch (\Throwable $e) {
+                error_log('tuwhatsapp aviso por correo a ' . $g['para'] . ': ' . $e->getMessage());
                 $r['fallidos']++;
+                // No se pierde: se sueltan los mensajes y se vuelve a intentar en unos 5 minutos (no cada minuto)
+                $soltar = $db->prepare('DELETE FROM avisos_correo WHERE mensaje_id = ? AND destino = ?');
+                foreach ($mios as $m) {
+                    $soltar->execute([$m['id'], $g['destino']]);
+                    unset($avisados[(int) $m['id']][$g['destino']]);
+                }
+                $volverTurno($ahora->modify('-' . (self::ESPERA_ENTRE_CORREOS - 5) . ' minutes')->format('c'));
+            }
+        }
+        // 4) Mensajes ya avisados a todos los que tocaba (o que no le tocan a nadie): 'fin', ya no se vuelven a revisar
+        $fin = $db->prepare("INSERT INTO avisos_correo (mensaje_id, destino, creado) VALUES (?, 'fin', ?) ON CONFLICT DO NOTHING");
+        foreach ($destinos as $mid => $lista) {
+            if (!array_filter($lista, fn ($d) => !isset($avisados[$mid][$d]))) {
+                $fin->execute([$mid, $ahora->format('c')]);
             }
         }
         return $r;
@@ -243,12 +349,33 @@ final class AvisoCorreo
         return Correo::configurado() && self::ajustes($db, $usuarioId)['min'] > 0;
     }
 
-    /** Correo de prueba para la persona. @throws \RuntimeException */
-    public static function prueba(PDO $db, int $usuarioId, string $idioma = 'es'): string
+    public const PRUEBAS_POR_HORA = 3;
+
+    /**
+     * Correo de prueba para la persona: solo a su propio correo (o al de respaldo que guardó) y máximo 3 por hora.
+     * @throws \RuntimeException
+     */
+    public static function prueba(PDO $db, int $usuarioId, string $idioma = 'es', ?DateTimeImmutable $ahora = null): string
     {
-        $st = $db->prepare('SELECT correo, aviso_correo FROM usuarios WHERE id = ?');
-        $st->execute([$usuarioId]);
-        $para = self::correoDe($st->fetch() ?: ['correo' => '', 'aviso_correo' => '']);
+        $ahora ??= new DateTimeImmutable();
+        $st = $db->prepare('SELECT correo, aviso_correo, aviso_pruebas FROM usuarios WHERE id = ? FOR UPDATE');
+        $db->beginTransaction();
+        try {
+            $st->execute([$usuarioId]);
+            $u = $st->fetch() ?: ['correo' => '', 'aviso_correo' => '', 'aviso_pruebas' => '[]'];
+            $hace1h = $ahora->getTimestamp() - 3600;
+            $veces = array_values(array_filter(array_map('intval', json_decode((string) $u['aviso_pruebas'], true) ?: []), fn ($t) => $t > $hace1h));
+            if (count($veces) >= self::PRUEBAS_POR_HORA) {
+                throw new \RuntimeException('Ya mandaste 3 correos de prueba en la última hora. Intenta más tarde.');
+            }
+            $veces[] = $ahora->getTimestamp();
+            $db->prepare('UPDATE usuarios SET aviso_pruebas = ? WHERE id = ?')->execute([json_encode($veces), $usuarioId]);
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
+        $para = self::correoDe($u);
         $t = fn (string $s) => tukan_tr($s, $idioma);
         Correo::enviar($para, '✅ ' . $t('Así te llegarán los avisos de chats sin contestar'),
             $t('Correo de prueba: si nadie lee un mensaje de un cliente, te llegará un correo como este con el enlace para abrir el chat.') . "\n\n" . self::base() . '/?r=bandeja');

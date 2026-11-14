@@ -947,4 +947,6 @@ return [
     'Se activó una huella nueva para entrar a tu cuenta de WhatsApp Tukán' => 'Uma nova digital foi ativada para entrar na sua conta do WhatsApp Tukán',
     'Si fuiste tú, no tienes que hacer nada. Si no fuiste tú, entra a Mi cuenta, quita esa huella y cambia tu contraseña.' => 'Se foi você, não precisa fazer nada. Se não foi você, entre em Minha conta, remova essa digital e troque sua senha.',
     'Huella nueva en tu cuenta de WhatsApp Tukán' => 'Nova digital na sua conta do WhatsApp Tukán',
+    'Ya mandaste 3 correos de prueba en la última hora. Intenta más tarde.' => 'Você já enviou 3 e-mails de teste na última hora. Tente mais tarde.',
+    'El servidor de correo no ofrece conexión cifrada (STARTTLS): no se manda la clave sin cifrar. Usa el puerto 465 o 587.' => 'O servidor de e-mail não oferece conexão criptografada (STARTTLS): a senha não é enviada sem criptografia. Use a porta 465 ou 587.',
 ];

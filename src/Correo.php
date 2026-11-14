@@ -8,7 +8,10 @@ use RuntimeException;
 /**
  * Correos que manda el programa (respaldo de los avisos de mensajes nuevos). Cliente SMTP propio y chico, sin librerías:
  *  - config/.env: SMTP_HOST, SMTP_PORT (465 = SSL, 587 = STARTTLS, 25 = sin cifrar), SMTP_USUARIO, SMTP_CLAVE, SMTP_DE, SMTP_DE_NOMBRE.
- *  - Sin SMTP_HOST usa mail() de PHP solo si el servidor tiene sendmail; si no, no manda nada (el panel lo dice).
+ *  - Sin SMTP_HOST no manda nada (el panel lo dice). mail() de PHP / sendmail solo si config/.env dice SMTP_MODO=sendmail
+ *    (si no, los correos podrían salir sin SPF/DKIM y perderse sin que nadie se entere).
+ *  - Sin SSL directo (465) siempre se cifra con STARTTLS; si el servidor no lo ofrece no se manda la clave en claro
+ *    (solo con SMTP_SEGURIDAD=ninguna, para un servidor de correo en la misma máquina).
  *  - SMTP_SIN_VERIFICAR=1 acepta certificados propios (servidor de correo con certificado autofirmado); no se recomienda.
  */
 final class Correo
@@ -32,7 +35,7 @@ final class Correo
 
     private static function haySendmail(): bool
     {
-        if (getenv('TUWA_SIN_SENDMAIL') === '1') {
+        if (getenv('TUWA_SIN_SENDMAIL') === '1' || strtolower(trim((string) getenv('SMTP_MODO'))) !== 'sendmail') {
             return false;
         }
         $p = (string) ini_get('sendmail_path');
@@ -124,17 +127,19 @@ final class Correo
             self::leer($s, 220);
             $yo = gethostname() ?: 'localhost';
             $ehlo = self::orden($s, "EHLO $yo", 250);
-            // Sin SSL directo: se cifra con STARTTLS (obligatorio salvo en el puerto 25 o con SMTP_SEGURIDAD=ninguna)
-            $conTls = !$ssl && getenv('SMTP_SEGURIDAD') !== 'ninguna' && ($puerto !== 25 || stripos($ehlo, 'STARTTLS') !== false);
-            if ($conTls) {
-                if (stripos($ehlo, 'STARTTLS') === false) {
-                    throw new RuntimeException('El servidor de correo no ofrece conexión cifrada (STARTTLS).');
+            // Sin SSL directo: se cifra con STARTTLS. Si el servidor no lo ofrece, nunca se manda la clave en claro:
+            // solo se sigue sin cifrar en el puerto 25 sin usuario (relevo local) o con SMTP_SEGURIDAD=ninguna.
+            $sinCifrar = getenv('SMTP_SEGURIDAD') === 'ninguna';
+            if (!$ssl && !$sinCifrar) {
+                if (stripos($ehlo, 'STARTTLS') !== false) {
+                    self::orden($s, 'STARTTLS', 220);
+                    if (!stream_socket_enable_crypto($s, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                        throw new RuntimeException('No se pudo cifrar la conexión con el servidor de correo.');
+                    }
+                    $ehlo = self::orden($s, "EHLO $yo", 250);
+                } elseif ($puerto !== 25 || (string) getenv('SMTP_USUARIO') !== '') {
+                    throw new RuntimeException('El servidor de correo no ofrece conexión cifrada (STARTTLS): no se manda la clave sin cifrar. Usa el puerto 465 o 587.');
                 }
-                self::orden($s, 'STARTTLS', 220);
-                if (!stream_socket_enable_crypto($s, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
-                    throw new RuntimeException('No se pudo cifrar la conexión con el servidor de correo.');
-                }
-                $ehlo = self::orden($s, "EHLO $yo", 250);
             }
             $usuario = (string) getenv('SMTP_USUARIO');
             if ($usuario !== '') {
