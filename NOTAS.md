@@ -1,6 +1,19 @@
 # WhatsApp Tukán — Estado y pasos para continuar
 *Actualizado: 14 nov 2026*
 
+## ✈️ Avisos por Telegram (14 nov 2026)
+Pedido de Dimitry: «podemos mandar una notificación a Telegram con el bot».
+- Bot PROPIO de Tukán Mensajes (no el de las alertas internas): `deploy/configurar_telegram.sh` + `bin/telegram.php conectar|estado`; `.env`: TUWA_TELEGRAM_TOKEN,
+  TUWA_TELEGRAM_SECRETO, TUWA_TELEGRAM_BOT (opcional TUWA_TELEGRAM_API_URL para pruebas); el instalador los conserva y muestra la línea 14.
+- `src/Telegram.php`: vincular con código de un solo uso (sha256 en `usuarios.tg_codigo`, 15 min) → `/start <código>` en `public/telegram.php`
+  (secreto en X-Telegram-Bot-Api-Secret-Token, responde en la misma respuesta HTTP); `/parar` desconecta; un chat de Telegram solo en una persona.
+- Modos (`usuarios.tg_modo`): -1 al momento (enganchado en Webhook después de Push, en paralelo con curl_multi, ráfagas en `tg_rafagas`: 1 cada 2 min por chat),
+  5/15/30/60 = si nadie contesta (`Telegram::procesarPendientes` desde `bin/campanias.php`, marcas 't<id>'/'tfin' en `avisos_correo`, candado y reserva de turno
+  con `usuarios.tg_ultimo`, 10 min entre resúmenes), 0 apagado. 403 → se desconecta sola. Texto con parse_mode HTML escapado.
+- Pantalla: App en el celular → 4. Avisos por Telegram. Cuenta para la cinta amarilla. Manual cap. 19 + novedades + pregunta frecuente.
+- Pruebas: Telegram simulado `tests/telegram_simulado.php` (TG_PUERTO 8094); idiomas 43, lógica 961, TuFactura 29, Panel Central 230, pantallas 520, Android 44, iPhone 93.
+- **Al actualizar el servidor:** crear el bot en @BotFather y correr `bash /var/www/tuwhatsapp/deploy/configurar_telegram.sh`. La app de Android no cambia.
+
 ## 🔓 La app se queda abierta como WhatsApp + entrar con huella (14 nov 2026)
 Pedido de Dimitry: «debo ingresar a cada rato; debería ingresar una vez y que quede ahí abierta, por último con huella; si me olvidé de loguearme se pierde».
 - Causa: en Ubuntu el cron `sessionclean` borraba las sesiones de `/var/lib/php/sessions` a los **24 minutos** (php.ini), aunque el programa pedía 30 días.

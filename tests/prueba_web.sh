@@ -928,6 +928,47 @@ get "/?r=app"
 post "/?r=app" --data-urlencode "accion=quitar_dispositivo" --data-urlencode "id=$ID_DISP"
 ok 'tiene "ya no recibe avisos" && [ "$(SQL "SELECT count(*) FROM push_suscripciones WHERE id = 0$ID_DISP")" = 0 ]' "quitar un dispositivo de la lista"
 
+echo "== Avisos por Telegram (bot propio, Telegram SIMULADO)"
+get "/?r=app"
+ok 'tiene "4. Avisos por Telegram" && tiene "Conectar mi Telegram" && tiene "@TukanMensajesBot"' "App en el celular: sección de Telegram con el botón para conectar"
+LOC=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J" -c "$J" --data-urlencode "csrf=$(csrf)" --data-urlencode "accion=tg_conectar" "$W/?r=app")
+ok '[[ "$LOC" =~ ^https://t\.me/TukanMensajesBot\?start=[0-9a-f]{32}$ ]]' "Conectar mi Telegram abre el bot con un código de un solo uso"
+COD="${LOC##*start=}"
+UID_TG=$(SQL "SELECT id FROM usuarios WHERE tg_codigo = encode(sha256('$COD'::bytea), 'hex')")
+tg() { curl -s -o "$P" -w '%{http_code}' -H "Content-Type: application/json" -H "X-Telegram-Bot-Api-Secret-Token: $1" --data-binary "$2" "$W/telegram.php"; }
+TGS=secreto_telegram_de_prueba_0123456789
+START='{"update_id":1,"message":{"message_id":1,"from":{"id":880001,"username":"yo_tg"},"chat":{"id":880001,"type":"private"},"text":"/start '"$COD"'"}}'
+CODIGO=$(tg "secreto-malo" "$START"); ok '[ "$CODIGO" = 403 ] && [ "$(SQL "SELECT count(*) FROM usuarios WHERE tg_chat_id = 880001")" = 0 ]' "webhook de Telegram con secreto malo: 403 y no conecta nada"
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -H "Content-Type: application/json" --data-binary "$START" "$W/telegram.php"); ok '[ "$CODIGO" = 403 ]' "webhook de Telegram sin secreto: 403"
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' "$W/telegram.php"); ok '[ "$CODIGO" = 405 ]' "webhook de Telegram por GET: 405"
+CODIGO=$(tg "$TGS" "$START")
+ok '[ "$CODIGO" = 200 ] && tiene "\"method\":\"sendMessage\"" && tiene "Listo" && [ -n "$UID_TG" ] && [ "$(SQL "SELECT id FROM usuarios WHERE tg_chat_id = 880001")" = "$UID_TG" ]' "/start con el código: conecta y el bot contesta «Listo»"
+CODIGO=$(tg "$TGS" "$START"); ok '[ "$CODIGO" = 200 ] && tiene "ya no sirve"' "el mismo código no sirve dos veces"
+CODIGO=$(tg "$TGS" '{"update_id":2,"edited_message":{"chat":{"id":880001,"type":"private"}}}'); ok '[ "$CODIGO" = 200 ] && [ "$(cat "$P")" = ok ]' "otras cosas de Telegram: 200 sin hacer nada"
+get "/?r=app"; ok 'tiene "Conectado ✅" && tiene "@yo_tg" && tiene "Cada mensaje nuevo al momento" && tiene "Desconectar" && ! tiene "id=\"conectar-telegram\""' "la pantalla dice Conectado"
+: > "$TG_LOG"
+post "/?r=app" --data-urlencode "accion=tg_prueba"
+ok 'tiene "Aviso de prueba enviado a tu Telegram" && grep -q "\"chat_id\":880001" "$TG_LOG"' "aviso de prueba a Telegram"
+NPUSH=$(SQL "SELECT count(*) FROM push_suscripciones WHERE usuario_id = $UID_TG")
+get "/?r=bandeja"; ok '[ "$NPUSH" != 0 ] || ! tiene "cinta-avisos"' "con Telegram conectado no sale la cinta amarilla"
+get "/?r=app"; post "/?r=app" --data-urlencode "accion=tg_modo" --data-urlencode "modo=0"
+get "/?r=bandeja"; ok '[ "$NPUSH" != 0 ] || tiene "cinta-avisos"' "Telegram apagado (y sin otros avisos): vuelve la cinta"
+get "/?r=app"; post "/?r=app" --data-urlencode "accion=tg_modo" --data-urlencode "modo=15"
+ok 'tiene "Guardado" && [ "$(SQL "SELECT tg_modo FROM usuarios WHERE id = $UID_TG")" = 15 ]' "elegir «solo si nadie contesta en 15 minutos»"
+get "/?r=app"; post "/?r=app" --data-urlencode "accion=tg_modo" --data-urlencode "modo=-1"
+# Un cliente escribe por WhatsApp (webhook de Meta) a un chat que atiende esta persona → aviso al momento a su Telegram
+LID_TG=$(SQL "SELECT id FROM lineas WHERE empresa_id = (SELECT empresa_id FROM usuarios WHERE id = $UID_TG) ORDER BY id LIMIT 1")
+PNI_TG=$(SQL "SELECT phone_number_id FROM lineas WHERE id = 0$LID_TG")
+L="$LID_TG" U="$UID_TG" php -r 'require "app/bootstrap.php"; $c = \TuWhatsApp\Contactos::guardar(db(), (int) getenv("L"), "593995550123", "Cliente <Telegram>", "cliente");
+  db()->exec("UPDATE contactos SET asignado_a = " . (int) getenv("U") . " WHERE id = " . (int) $c["id"]);'
+: > "$TG_LOG"
+MSG_TG='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593983662181","phone_number_id":"'"$PNI_TG"'"},"contacts":[{"profile":{"name":"Cliente Telegram"},"wa_id":"593995550123"}],"messages":[{"from":"593995550123","id":"wamid.TG1","timestamp":"'$(date +%s)'","type":"text","text":{"body":"Quiero <precios> & envío"}}]}}]}]}'
+CODIGO=$(webhook "$MSG_TG")
+ok '[ "$CODIGO" = 200 ] && grep -q "\"chat_id\":880001" "$TG_LOG" && grep -q "Cliente &lt;Telegram&gt;" "$TG_LOG" && grep -q "&lt;precios&gt; &amp; envío" "$TG_LOG"' "mensaje de un cliente por WhatsApp: le llega al momento a su Telegram (escapado)"
+CODIGO=$(tg "$TGS" '{"update_id":3,"message":{"message_id":3,"from":{"id":880001},"chat":{"id":880001,"type":"private"},"text":"/parar"}}')
+ok 'tiene "ya no te llegarán" && [ "$(SQL "SELECT count(*) FROM usuarios WHERE tg_chat_id = 880001")" = 0 ]' "/parar en Telegram desconecta"
+get "/?r=app"; ok 'tiene "id=\"conectar-telegram\""' "después de /parar vuelve el botón para conectar"
+
 echo "== Llamadas de WhatsApp"
 SQLW() { PGPASSWORD="${PGPASSWORD:-}" psql -tAc "$1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}"; }
 get "/?r=llamadas"

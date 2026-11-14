@@ -799,3 +799,27 @@ CREATE INDEX IF NOT EXISTS mensajes_entra_sin_leer ON mensajes (creado) WHERE NO
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS aviso_pruebas jsonb NOT NULL DEFAULT '[]';
 -- Mensajes avisados a todos los que tocaba: destino 'fin' (ya no se vuelven a revisar en cada corrida).
 CREATE INDEX IF NOT EXISTS avisos_correo_creado ON avisos_correo (creado);
+
+-- =====================================================================
+-- (14 nov 2026) Avisos por Telegram: cada persona conecta su Telegram con el bot propio de Tukán Mensajes (src/Telegram.php).
+--  tg_modo: -1 = cada mensaje nuevo al momento · 0 = apagado · 5, 15, 30 o 60 = solo si nadie contesta en esos minutos.
+--  tg_codigo: sha256 del código de un solo uso para conectar (vence en 15 minutos). Un chat de Telegram solo en una persona.
+-- =====================================================================
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tg_chat_id      bigint;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tg_nombre       text NOT NULL DEFAULT '';
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tg_modo         integer NOT NULL DEFAULT -1;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tg_ultimo       timestamptz;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tg_codigo       text;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tg_codigo_vence timestamptz;
+DO $$ BEGIN
+    ALTER TABLE usuarios ADD CONSTRAINT usuarios_tg_modo CHECK (tg_modo IN (-1, 0, 5, 15, 30, 60));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS usuarios_tg_chat ON usuarios (tg_chat_id) WHERE tg_chat_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS usuarios_tg_codigo ON usuarios (tg_codigo) WHERE tg_codigo IS NOT NULL;
+-- Ráfagas: máximo 1 aviso al momento por chat cada 2 minutos por persona
+CREATE TABLE IF NOT EXISTS tg_rafagas (
+    usuario_id  integer NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    contacto_id integer NOT NULL REFERENCES contactos(id) ON DELETE CASCADE,
+    ultimo      timestamptz NOT NULL,
+    PRIMARY KEY (usuario_id, contacto_id)
+);

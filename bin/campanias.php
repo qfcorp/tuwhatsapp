@@ -31,5 +31,11 @@ if ($c['correos'] + $c['fallidos'] > 0) {
     echo date('Y-m-d H:i') . " avisos por correo: enviados {$c['correos']}, fallidos {$c['fallidos']}\n";
 }
 
+// (14 nov 2026) Avisos por Telegram de quien eligió "solo si nadie contesta en N minutos" (src/Telegram.php)
+$tg = \TuWhatsApp\Telegram::procesarPendientes(db());
+if ($tg['mensajes'] + $tg['fallidos'] > 0) {
+    echo date('Y-m-d H:i') . " avisos por Telegram: enviados {$tg['mensajes']}, fallidos {$tg['fallidos']}\n";
+}
+
 // (14 nov 2026) Una vez al día: borrar los «Recordar este celular» vencidos (src/Sesiones.php)
 \TuWhatsApp\Sesiones::limpiarAlDia(db());

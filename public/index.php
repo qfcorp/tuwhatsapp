@@ -1360,6 +1360,19 @@ try {
                 } elseif ($accion === 'quitar_dispositivo') {
                     \TuWhatsApp\Push::quitarId(db(), $uidApp, (int) ($_POST['id'] ?? 0));
                     aviso('Ese dispositivo ya no recibe avisos.');
+                } elseif ($accion === 'tg_conectar') {   // avisos por Telegram: abre el bot con un código de un solo uso
+                    $enlaceTg = \TuWhatsApp\Telegram::crearCodigo(db(), $uidApp);
+                    header('Location: ' . $enlaceTg, true, 302);
+                    exit;
+                } elseif ($accion === 'tg_modo') {
+                    \TuWhatsApp\Telegram::guardarModo(db(), $uidApp, (int) ($_POST['modo'] ?? -1));
+                    aviso('Guardado.');
+                } elseif ($accion === 'tg_prueba') {
+                    $okTg = \TuWhatsApp\Telegram::prueba(db(), $uidApp, tukan_idioma_actual());
+                    aviso($okTg ? 'Aviso de prueba enviado a tu Telegram.' : 'No se pudo mandar el aviso a tu Telegram. Vuelve a conectarlo.', $okTg ? 'ok' : 'error');
+                } elseif ($accion === 'tg_desconectar') {
+                    \TuWhatsApp\Telegram::desvincular(db(), $uidApp);
+                    aviso('Tu Telegram ya no recibe avisos.');
                 }
             } catch (\RuntimeException $ex) {
                 aviso(tukan_tr($ex->getMessage()), 'error');
@@ -1368,7 +1381,8 @@ try {
         }
         vista('app', 'App en el celular', ['vapid' => \TuWhatsApp\Push::clavePublica(db()), 'suscripciones' => \TuWhatsApp\Push::cuantas(db(), $uidApp),
                                            'dispositivos' => \TuWhatsApp\Push::dispositivos(db(), $uidApp), 'ajustesCorreo' => \TuWhatsApp\AvisoCorreo::ajustes(db(), $uidApp),
-                                           'correoModo' => \TuWhatsApp\Correo::modo(), 'empresaApp' => empresa_actual()]);
+                                           'correoModo' => \TuWhatsApp\Correo::modo(), 'empresaApp' => empresa_actual(),
+                                           'telegram' => \TuWhatsApp\Telegram::estado(db(), $uidApp)]);
 
     case 'push':   // el navegador activa, quita o prueba los avisos (JSON)
         header('Content-Type: application/json; charset=utf-8');

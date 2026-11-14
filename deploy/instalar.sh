@@ -62,7 +62,7 @@ LLAVE="$(viejo TUWA_LLAVE)";        [ -n "$LLAVE" ]  || LLAVE="$(openssl rand -h
 VERIFY="$(viejo META_VERIFY_TOKEN)"; [ -n "$VERIFY" ] || VERIFY="tukan$(openssl rand -hex 12)"
 API="$(viejo TUWA_API_TOKEN)";       [ -n "$API" ]    || API="$(openssl rand -hex 24)"
 EXTRA=""
-[ -f "$ENVF" ] && EXTRA="$(grep -E '^(TUKAN_CENTRAL_ID|TUKAN_CENTRAL_SECRET|TUKAN_CENTRAL_URL|TUKAN_SOLO_CENTRAL|META_APP_SECRET|META_APP_ID|META_ES_CONFIG_ID|META_GRAPH_VERSION|META_GRAPH_URL|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID|TUWA_GOOGLE_PLAY_COBRO|SMTP_HOST|SMTP_PORT|SMTP_USUARIO|SMTP_CLAVE|SMTP_DE|SMTP_DE_NOMBRE|SMTP_SEGURIDAD|SMTP_SIN_VERIFICAR|SMTP_MODO)=' "$ENVF" || true)"
+[ -f "$ENVF" ] && EXTRA="$(grep -E '^(TUKAN_CENTRAL_ID|TUKAN_CENTRAL_SECRET|TUKAN_CENTRAL_URL|TUKAN_SOLO_CENTRAL|META_APP_SECRET|META_APP_ID|META_ES_CONFIG_ID|META_GRAPH_VERSION|META_GRAPH_URL|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID|TUWA_GOOGLE_PLAY_COBRO|SMTP_HOST|SMTP_PORT|SMTP_USUARIO|SMTP_CLAVE|SMTP_DE|SMTP_DE_NOMBRE|SMTP_SEGURIDAD|SMTP_SIN_VERIFICAR|SMTP_MODO|TUWA_TELEGRAM_TOKEN|TUWA_TELEGRAM_SECRETO|TUWA_TELEGRAM_BOT|TUWA_TELEGRAM_API_URL)=' "$ENVF" || true)"
 {
   echo "TUWA_DB_HOST=127.0.0.1"
   echo "TUWA_DB_NAME=tuwhatsapp"
@@ -135,6 +135,7 @@ curl -s -o /dev/null -w "10) Pagina de pago con tarjeta (Plux): %{http_code} (de
 curl -s -o /dev/null -w "11) App de Android (assetlinks.json): %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/.well-known/assetlinks.json"
 curl -s -o /dev/null -w "12) Politica de privacidad: %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/privacidad.php"
 echo "13) Carpeta de sesiones (no pide entrar a cada rato): $(sudo -u www-data test -w /var/lib/tuwhatsapp/sesiones && echo lista || echo FALTA)"
+grep -q '^TUWA_TELEGRAM_BOT=.' "$ENVF" && echo "14) Avisos por Telegram: bot conectado" || echo "14) Avisos por Telegram: apagado (se activa con bash $APP/deploy/configurar_telegram.sh)"
 echo "================================="
 echo "Crear tu usuario:          php $APP/bin/crear_usuario.php"
 echo "Guardar la clave de Meta:  bash $APP/deploy/clave_meta.sh"

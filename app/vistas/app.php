@@ -1,5 +1,5 @@
 <?php
-/** @var string $vapid @var int $suscripciones @var list<array> $dispositivos @var array $ajustesCorreo @var string $correoModo @var array $empresaApp */
+/** @var string $vapid @var int $suscripciones @var list<array> $dispositivos @var array $ajustesCorreo @var string $correoModo @var array $empresaApp @var array $telegram */
 $fechaCorta = function (?string $f): string {
     if ($f === null || $f === '') {
         return '—';
@@ -96,5 +96,42 @@ $minCorreo = (int) $ajustesCorreo['min'];
             </select></label>
         <button class="boton tk-boton">Guardar copia</button>
     </form>
+    <?php endif; ?>
+</section>
+
+<section class="tarjeta tk-tarjeta" id="avisos-telegram">
+    <h2>4. Avisos por Telegram</h2>
+    <p>Recibe en tu <b>Telegram</b> los mensajes de tus clientes, con un botón para abrir el chat. Telegram avisa siempre, aunque esta app esté cerrada.</p>
+    <?php if (!$telegram['configurado']): ?>
+    <p class="tk-aviso aviso aviso-info pequeno">Tukán todavía no activó los avisos por Telegram en este servidor. <?= es_super() ? 'Actívalo con deploy/configurar_telegram.sh.' : 'Pronto vas a poder conectarlo aquí.' ?></p>
+    <?php elseif (!$telegram['conectado']): ?>
+    <ol class="pasos-cortos">
+        <li>Instala <b>Telegram</b> en tu celular (si no lo tienes) y entra con tu número.</li>
+        <li>Toca <b>Conectar mi Telegram</b>: se abre el bot <b>@<?= e($telegram['bot']) ?></b>.</li>
+        <li>En Telegram toca <b>Iniciar</b> (o <b>Start</b>). El bot te contesta «Listo».</li>
+        <li>Vuelve aquí: debe decir <b>Conectado ✅</b>.</li>
+    </ol>
+    <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="tg_conectar">
+        <button class="boton tk-boton" id="conectar-telegram">✈️ Conectar mi Telegram</button></form>
+    <p class="suave pequeno">El enlace sirve 15 minutos y una sola vez. Si ya pasó, vuelve a tocar el botón.</p>
+    <?php else: ?>
+    <p><b>Conectado ✅</b><?= $telegram['nombre'] !== '' ? ' <span class="suave">(@' . e($telegram['nombre']) . ')</span>' : '' ?></p>
+    <form method="post" class="formulario">
+        <?= csrf_campo() ?><input type="hidden" name="accion" value="tg_modo">
+        <label>¿Cuándo te aviso por Telegram?
+            <select name="modo">
+                <?php foreach ([-1 => 'Cada mensaje nuevo al momento', 5 => 'Solo si nadie contesta en 5 minutos', 15 => 'Solo si nadie contesta en 15 minutos',
+                                30 => 'Solo si nadie contesta en 30 minutos', 60 => 'Solo si nadie contesta en 1 hora', 0 => 'Apagado (no mandarme nada)'] as $v => $t): ?>
+                <option value="<?= $v ?>" <?= (int) $telegram['modo'] === $v ? 'selected' : '' ?>><?= e($t) ?></option>
+                <?php endforeach; ?>
+            </select></label>
+        <button class="boton tk-boton">Guardar</button>
+    </form>
+    <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="tg_prueba">
+        <button class="boton boton-claro tk-boton secundario">Mandarme un aviso de prueba</button></form>
+    <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="tg_desconectar">
+        <button class="enlace">Desconectar</button></form>
+    <p class="suave pequeno">Te llega lo de los chats que atiendes (o de todos, si el chat no tiene a nadie). Nunca de los contactos personales.
+    Si muchos mensajes llegan seguidos del mismo cliente, te llega un aviso cada 2 minutos como máximo. En Telegram también puedes escribir <b>/parar</b>.</p>
     <?php endif; ?>
 </section>

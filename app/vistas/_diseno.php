@@ -36,10 +36,11 @@ if ($u && $linea) {
 if ($u && es_super()) $gruposMenu['Tukán'] = ['clientes' => 'Clientes de Tukán'];
 $avisos = tomar_avisos();
 // (14 nov 2026) ¿Le van a llegar avisos de mensajes nuevos? En Inicio y Bandeja: cinta amarilla si no tiene ningún dispositivo con avisos
-// ni el respaldo por correo; dentro de la app de Android, tarjeta para activar los avisos en ESE celular (si no lo está; se ve en JavaScript).
+// ni el respaldo por correo ni Telegram; dentro de la app de Android, tarjeta para activar los avisos en ESE celular (si no lo está; se ve en JavaScript).
 $avisosApagados = $tarjetaAvisosApp = false;
 if ($u && in_array($rutaActual, ['inicio', 'bandeja'], true)) {
-    $avisosApagados = \TuWhatsApp\Push::funcionando(db(), (int) $u['id']) === 0 && !\TuWhatsApp\AvisoCorreo::activoPara(db(), (int) $u['id']);
+    $avisosApagados = \TuWhatsApp\Push::funcionando(db(), (int) $u['id']) === 0 && !\TuWhatsApp\AvisoCorreo::activoPara(db(), (int) $u['id'])
+        && !\TuWhatsApp\Telegram::activoPara(db(), (int) $u['id']);
     $tarjetaAvisosApp = en_app_android();
 }
 $empresaVista = $u ? empresa_actual() : null;

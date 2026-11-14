@@ -111,6 +111,17 @@ Como WhatsApp: se entra una vez y no vuelve a pedir la contraseña.
   el de la página (whatsapp.tukanec.com); la huella nunca sale del celular.
 - El personal de Tukán con `TUKAN_SOLO_CENTRAL=1` no entra por cookie ni por huella (solo desde el Panel Tukán Central).
 
+## Avisos por Telegram (bot propio de Tukán Mensajes) — 14 nov 2026
+Cada persona del equipo conecta su Telegram y le llegan los mensajes de sus clientes con el botón **Abrir el chat** (`src/Telegram.php`, webhook `public/telegram.php`).
+- **Activarlo en el servidor (una vez):** en Telegram, `@BotFather` → `/newbot` → nombre "Tukán Mensajes" → usuario que termine en `bot` → copiar el token. Luego:
+  `bash /var/www/tuwhatsapp/deploy/configurar_telegram.sh` (pide el token; o `TELEGRAM_TOKEN_NUEVO=... bash ...`). Revisa el token con Telegram, crea el
+  secreto, registra el webhook `https://<dominio>/telegram.php` y guarda `TUWA_TELEGRAM_TOKEN`, `TUWA_TELEGRAM_SECRETO` y `TUWA_TELEGRAM_BOT` en `config/.env`
+  (el instalador los conserva). Es otro bot distinto del de las alertas internas (`TELEGRAM_BOT_TOKEN`). Estado: `php bin/telegram.php estado`.
+- **Cada persona:** Menú → App en el celular → **4. Avisos por Telegram** → **Conectar mi Telegram** (código de un solo uso, 15 min) → **Iniciar** en el bot.
+  Elige: cada mensaje nuevo al momento (por defecto; máximo 1 aviso por chat cada 2 min) · solo si nadie contesta en 5/15/30/60 min (un resumen, mismas reglas
+  que el respaldo por correo) · apagado. `/parar` en el bot o **Desconectar** lo quita; si bloquea el bot (403) se desconecta solo.
+- Con Telegram conectado no sale la cinta amarilla de "no te van a llegar avisos".
+
 ## Idiomas (botón 🌐)
 
 Arriba a la derecha está el botón **🌐**: el programa se usa en **español, inglés, francés, portugués o italiano**.
@@ -279,7 +290,7 @@ PGPORT=5432 PGUSER=postgres bash tests/correr.sh
 ```
 En paralelo con otras pruebas: `TUWA_DB_PRUEBA=otra_base SIM_PUERTO=… WEB_PUERTO=… PLUX_PUERTO=… bash tests/correr.sh`.
 Al final corre `tests/prueba_app_android.sh` (assetlinks, privacidad, modo app y la cuenta de muestra del revisor de Google).
-Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`); el correo va a un servidor SMTP falso (`tests/smtp_falso.php`, puerto `SMTP_PUERTO`, 8099 por defecto). Idiomas 43, lógica 833, Panel Tukán Central v2 230 y pantallas 462 (14 nov 2026): deben terminar en `TODO BIEN`.
+Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/meta_simulado.php`); el correo va a un servidor SMTP falso (`tests/smtp_falso.php`, puerto `SMTP_PUERTO`, 8099 por defecto) y Telegram a una API simulada (`tests/telegram_simulado.php`, puerto `TG_PUERTO`, 8094 por defecto). Idiomas 43, lógica 961, Panel Tukán Central v2 230 y pantallas 520 (14 nov 2026): deben terminar en `TODO BIEN`.
 
 ## Archivos
 - `public/index.php` panel · `public/webhook.php` lo que avisa Meta · `public/api.php` API

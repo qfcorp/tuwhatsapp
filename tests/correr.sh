@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Corre todas las pruebas con Meta simulado. Necesita PostgreSQL.
-# Variables: PGHOST (127.0.0.1) PGPORT (5432) PGUSER (postgres) PGPASSWORD, SIM_PUERTO (8097), WEB_PUERTO (8096), PLUX_PUERTO (8098), PANEL_PUERTO (8095), SMTP_PUERTO (8099)
+# Variables: PGHOST (127.0.0.1) PGPORT (5432) PGUSER (postgres) PGPASSWORD, SIM_PUERTO (8097), WEB_PUERTO (8096), PLUX_PUERTO (8098), PANEL_PUERTO (8095), SMTP_PUERTO (8099), TG_PUERTO (8094)
 set -u
 cd "$(dirname "$0")/.."
 export PGHOST="${PGHOST:-127.0.0.1}" PGPORT="${PGPORT:-5432}" PGUSER="${PGUSER:-postgres}"
@@ -11,6 +11,7 @@ WEB_PUERTO="${WEB_PUERTO:-8096}"
 PLUX_PUERTO="${PLUX_PUERTO:-8098}"
 PANEL_PUERTO="${PANEL_PUERTO:-8095}"
 SMTP_PUERTO="${SMTP_PUERTO:-8099}"
+TG_PUERTO="${TG_PUERTO:-8094}"
 export SIM_LOG="$(mktemp)"
 export SIM_URL="http://127.0.0.1:$SIM_PUERTO"
 export TUWA_ARCHIVOS="$(mktemp -d)"
@@ -40,7 +41,12 @@ export SMTP_LOG="$PLUX_DIR/correos.log" SMTP_PUERTO
 : > "$SMTP_LOG"
 php tests/smtp_falso.php "$SMTP_PUERTO" > /dev/null 2>&1 &
 SMTPF=$!
-trap 'kill $SIM $PLUXF $PANELF $SMTPF ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS" "$PLUX_DIR"' EXIT
+# Telegram SIMULADO (avisos por Telegram): nunca se habla con Telegram de verdad
+export TG_LOG="$PLUX_DIR/telegram.log" TG_URL="http://127.0.0.1:$TG_PUERTO"
+: > "$TG_LOG"
+php -S "127.0.0.1:$TG_PUERTO" tests/telegram_simulado.php > /dev/null 2>&1 &
+TGF=$!
+trap 'kill $SIM $PLUXF $PANELF $SMTPF $TGF ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS" "$PLUX_DIR"' EXIT
 sleep 0.5
 
 export TUWA_DB_HOST="$PGHOST" TUWA_DB_PORT="$PGPORT" TUWA_DB_NAME="$DB" TUWA_DB_USER="$PGUSER" TUWA_DB_PASS="${PGPASSWORD:-}"
@@ -79,6 +85,10 @@ TUKAN_IA_ESPERA_MS=0
 TUWA_PUSH_PRUEBA=$SIM_URL/push/
 PAYPHONE_URL=$SIM_URL
 PLUX_API_BASE=$PLUX_URL/intv1/
+TUWA_TELEGRAM_TOKEN=123456:tokenDePruebaDelBotTukanMensajes0123456789
+TUWA_TELEGRAM_SECRETO=secreto_telegram_de_prueba_0123456789
+TUWA_TELEGRAM_BOT=TukanMensajesBot
+TUWA_TELEGRAM_API_URL=$TG_URL
 EOF
 TUWA_ENV="$ENVF" php -d display_errors=0 -d log_errors=1 -d error_log="$ENVF.log" -S "127.0.0.1:$WEB_PUERTO" -t public > /dev/null 2>&1 &
 WEB=$!

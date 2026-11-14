@@ -2567,6 +2567,169 @@ ok(AvisoCorreo::limpiar($db, new DateTimeImmutable('2030-01-03 10:00:00')) > 0, 
 igual(AvisoCorreo::limpiar($db, new DateTimeImmutable('2030-01-03 11:00:00')), 0, 'y solo una vez al día');
 foreach (['SMTP_HOST', 'SMTP_PORT', 'SMTP_USUARIO', 'SMTP_CLAVE', 'SMTP_DE', 'SMTP_SEGURIDAD', 'TUWA_URL'] as $k) putenv("$k=");
 
+
+// ===================================================================================================
+use TuWhatsApp\Telegram;
+echo "== Avisos por Telegram (bot propio de Tukán Mensajes, Telegram SIMULADO)\n";
+$tgLog = (string) getenv('TG_LOG');
+$tgLlamadas = fn () => array_values(array_filter(array_map(fn ($l) => json_decode($l, true), file($tgLog) ?: [])));
+$tgEnvios = fn () => array_values(array_filter($tgLlamadas(), fn ($c) => $c['metodo'] === 'sendMessage'));
+$tgLimpiar = fn () => file_put_contents($tgLog, '');
+foreach (['TUWA_TELEGRAM_TOKEN', 'TUWA_TELEGRAM_SECRETO', 'TUWA_TELEGRAM_BOT', 'TUWA_TELEGRAM_API_URL'] as $k) putenv("$k=");
+$eT = Empresas::crear($db, ['nombre' => 'Telegram SA', 'estado' => 'activa', 'admin_correo' => 'dueno@telegram.ec', 'admin_nombre' => 'Dueño T', 'max_usuarios' => 10])['empresa_id'];
+$lT = Lineas::guardarConexion($db, null, ['nombre' => 'Ventas Telegram', 'telefono' => '0996409922', 'phone_number_id' => '929220', 'waba_id' => '929221', 'token' => 'EAAGtokenTelegram1234567890'], $eT);
+$lineaT = Lineas::buscar($db, $lT, $eT);
+Empresas::agregarUsuario($db, $eT, 'ana@telegram.ec', 'Ana T', 'agente');
+Empresas::agregarUsuario($db, $eT, 'beto@telegram.ec', 'Beto T', 'agente');
+[$tDueno, $tAna, $tBeto] = [$uidN('dueno@telegram.ec'), $uidN('ana@telegram.ec'), $uidN('beto@telegram.ec')];
+$c1 = Contactos::guardar($db, $lT, '0981888001', 'Lucía <Tele> & Cía', 'cliente');
+$c2 = Contactos::guardar($db, $lT, '0981888002', 'Pedro Tele', 'cliente');
+$c3 = Contactos::guardar($db, $lT, '0981888003', 'Mamá', 'personal');
+$db->exec('UPDATE contactos SET asignado_a = ' . $tAna . ' WHERE id = ' . (int) $c1['id']);
+$recargar = fn (array $c) => Contactos::buscar($db, $lT, (int) $c['id']);
+
+ok(!Telegram::configurado(), 'sin bot en config/.env: los avisos por Telegram están apagados');
+igual(Telegram::estado($db, $tAna)['configurado'], false, 'la pantalla sabe que el bot no está (no muestra botones)');
+try { Telegram::crearCodigo($db, $tAna); ok(false, 'sin bot no hay código'); } catch (RuntimeException $e) { ok(true, 'sin bot no se puede conectar'); }
+igual(Telegram::mensajeNuevo($db, $lineaT, $recargar($c1), 'hola', 1), 0, 'sin bot no manda nada');
+igual(Telegram::procesarPendientes($db), ['mensajes' => 0, 'fallidos' => 0], 'sin bot: nada de "si nadie contesta"');
+
+putenv('TUWA_TELEGRAM_TOKEN=123456:tokenDePruebaDelBotTukanMensajes0123456789');
+putenv('TUWA_TELEGRAM_SECRETO=secreto_telegram_de_prueba_0123456789');
+putenv('TUWA_TELEGRAM_BOT=TukanMensajesBot');
+putenv('TUWA_TELEGRAM_API_URL=' . getenv('TG_URL'));
+ok(Telegram::configurado(), 'con el bot configurado');
+
+// Conectar el bot (lo que hace deploy/configurar_telegram.sh)
+$tgLimpiar();
+try { Telegram::conectarBot('esto-no-es-token', 'secreto_telegram_de_prueba_0123456789', 'https://whatsapp.ejemplo.com'); ok(false, 'token malo'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'no parece'), 'token con forma mala: se rechaza sin llamar a Telegram'); }
+try { Telegram::conectarBot('999999:tokenQueTelegramNoConoce0123456789abc', 'secreto_telegram_de_prueba_0123456789', 'https://whatsapp.ejemplo.com'); ok(false, 'token desconocido'); }
+catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'no aceptó ese token'), 'token que Telegram no acepta: lo dice'); }
+igual(Telegram::conectarBot('123456:tokenDePruebaDelBotTukanMensajes0123456789', 'secreto_telegram_de_prueba_0123456789', 'https://whatsapp.ejemplo.com/'), 'TukanMensajesBot', 'token bueno: devuelve el nombre del bot');
+$wh = array_values(array_filter($tgLlamadas(), fn ($c) => $c['metodo'] === 'setWebhook'))[0] ?? [];
+igual([$wh['datos']['url'] ?? null, $wh['datos']['secret_token'] ?? null, $wh['datos']['allowed_updates'] ?? null],
+      ['https://whatsapp.ejemplo.com/telegram.php', 'secreto_telegram_de_prueba_0123456789', ['message']], 'registra el webhook con el secreto y solo mensajes');
+
+// Vincular con /start <código>
+$t0 = new DateTimeImmutable('2030-02-01 10:00:00');
+$enlace = Telegram::crearCodigo($db, $tAna, $t0);
+ok((bool) preg_match('#^https://t\.me/TukanMensajesBot\?start=([0-9a-f]{32})$#', $enlace, $mm), 'enlace t.me con un código');
+$codAna = $mm[1] ?? '';
+ok((string) $db->query("SELECT tg_codigo FROM usuarios WHERE id = $tAna")->fetchColumn() === hash('sha256', $codAna), 'en la base solo queda el sha256 del código');
+$upd = fn (int $chat, string $texto, string $tipo = 'private', string $usuario = '') => ['update_id' => random_int(1, 1 << 30),
+    'message' => ['message_id' => 1, 'from' => ['id' => $chat, 'username' => $usuario], 'chat' => ['id' => $chat, 'type' => $tipo], 'text' => $texto]];
+$r = Telegram::procesarUpdate($db, $upd(7001, "/start $codAna", 'private', 'ana_tg'), $t0->modify('+1 minute'));
+ok(($r['method'] ?? '') === 'sendMessage' && $r['chat_id'] === 7001 && str_contains($r['text'], 'Listo') && str_contains($r['text'], 'Ana T'), 'el bot contesta «Listo, Ana»');
+igual((int) $db->query("SELECT tg_chat_id FROM usuarios WHERE id = $tAna")->fetchColumn(), 7001, 'Ana quedó conectada');
+igual(Telegram::estado($db, $tAna), ['configurado' => true, 'bot' => 'TukanMensajesBot', 'conectado' => true, 'nombre' => 'ana_tg', 'modo' => -1], 'estado: conectado, al momento');
+$r = Telegram::procesarUpdate($db, $upd(7999, "/start $codAna"), $t0->modify('+2 minutes'));
+ok(str_contains($r['text'], 'ya no sirve') && (int) $db->query('SELECT count(*) FROM usuarios WHERE tg_chat_id = 7999')->fetchColumn() === 0, 'el mismo código no sirve dos veces');
+$enlaceB = Telegram::crearCodigo($db, $tBeto, $t0);
+preg_match('#start=([0-9a-f]{32})#', $enlaceB, $mb);
+$r = Telegram::procesarUpdate($db, $upd(7002, '/start ' . $mb[1]), $t0->modify('+20 minutes'));
+ok(str_contains($r['text'], 'ya no sirve') && Telegram::estado($db, $tBeto)['conectado'] === false, 'código vencido (más de 15 minutos): no conecta');
+igual(Telegram::procesarUpdate($db, $upd(7002, '/start ' . str_repeat('a', 32)), $t0)['text'] === $r['text'], true, 'código inventado: no conecta');
+igual(Telegram::procesarUpdate($db, $upd(-1007002, "/start $codAna", 'group'), $t0), null, 'en grupos el bot no hace nada');
+preg_match('#start=([0-9a-f]{32})#', Telegram::crearCodigo($db, $tBeto, $t0), $mb);
+Telegram::procesarUpdate($db, $upd(7002, '/start ' . $mb[1]), $t0);
+preg_match('#start=([0-9a-f]{32})#', Telegram::crearCodigo($db, $tDueno, $t0), $md);
+Telegram::procesarUpdate($db, $upd(7002, '/start ' . $md[1]), $t0);
+ok(Telegram::estado($db, $tDueno)['conectado'] && !Telegram::estado($db, $tBeto)['conectado'], 'un Telegram solo en una persona: si se conecta a otra, se quita de la anterior');
+preg_match('#start=([0-9a-f]{32})#', Telegram::crearCodigo($db, $tBeto, $t0), $mb);
+Telegram::procesarUpdate($db, $upd(7003, '/start ' . $mb[1]), $t0);
+$r = Telegram::procesarUpdate($db, $upd(7003, '/parar'), $t0);
+ok(str_contains($r['text'], 'ya no te llegarán') && !Telegram::estado($db, $tBeto)['conectado'], '/parar desconecta');
+ok(str_contains(Telegram::procesarUpdate($db, $upd(7003, '/parar'), $t0)['text'], 'no estaba conectado'), '/parar sin estar conectado: lo dice');
+ok(str_contains(Telegram::procesarUpdate($db, $upd(7003, 'hola'), $t0)['text'], 'App en el celular'), 'otro texto: ayuda corta');
+preg_match('#start=([0-9a-f]{32})#', Telegram::crearCodigo($db, $tBeto, $t0), $mb);
+Telegram::procesarUpdate($db, $upd(7003, '/start ' . $mb[1]), $t0);
+ok(Telegram::activoPara($db, $tBeto), 'Beto conectado de nuevo: cuenta como "avisos funcionando" (no sale la cinta)');
+
+// Al momento
+Telegram::guardarModo($db, $tDueno, 0);
+ok(!Telegram::activoPara($db, $tDueno), 'apagado: no cuenta como avisos funcionando');
+$tgLimpiar();
+$ahoraT = new DateTimeImmutable('2030-02-01 11:00:00');
+igual(Telegram::mensajeNuevo($db, $lineaT, $recargar($c1), 'Hola <b>precio</b> & envío', 101, $ahoraT), 1, 'chat de Ana: el aviso le llega solo a Ana');
+$env = $tgEnvios();
+igual(array_map(fn ($c) => $c['datos']['chat_id'], $env), [7001], '…a su Telegram');
+$txt = $env[0]['datos']['text'] ?? '';
+ok(str_contains($txt, 'Lucía &lt;Tele&gt; &amp; Cía') && str_contains($txt, '&lt;b&gt;precio&lt;/b&gt; &amp; envío') && ($env[0]['datos']['parse_mode'] ?? '') === 'HTML', 'texto con < > & bien escapado');
+igual($env[0]['datos']['reply_markup']['inline_keyboard'][0][0]['url'] ?? '', Telegram::base() . '/?r=chat&c=' . (int) $c1['id'], 'botón «Abrir el chat» con el enlace del chat');
+ok(str_contains($txt, 'Ventas Telegram'), 'dice de qué número es');
+igual(Telegram::mensajeNuevo($db, $lineaT, $recargar($c1), 'otro', 102, $ahoraT->modify('+1 minute')), 0, 'ráfaga: otro mensaje del mismo chat al minuto no avisa de nuevo');
+igual(Telegram::mensajeNuevo($db, $lineaT, $recargar($c1), 'otro más', 103, $ahoraT->modify('+3 minutes')), 1, 'pasados 2 minutos sí avisa');
+$tgLimpiar();
+igual(Telegram::mensajeNuevo($db, $lineaT, $recargar($c2), 'sin asignar', 104, $ahoraT), 2, 'chat sin asignar: al equipo que recibe chats con Telegram al momento (el dueño lo apagó)');
+igual(Telegram::mensajeNuevo($db, $lineaT, $recargar($c3), 'hola hijo', 105, $ahoraT), 0, 'contactos personales: nunca');
+Telegram::guardarModo($db, $tBeto, 15);
+$c4 = Contactos::guardar($db, $lT, '0981888004', 'Nuevo Tele', 'cliente');
+$tgLimpiar();
+igual(Telegram::mensajeNuevo($db, $lineaT, $recargar($c4), 'hola', 106, $ahoraT), 1, 'Beto eligió "si nadie contesta": no recibe el aviso al momento');
+Telegram::guardarModo($db, $tAna, 99);
+igual(Telegram::estado($db, $tAna)['modo'], -1, 'modo raro: queda "al momento"');
+$db->exec("UPDATE usuarios SET tg_chat_id = 403403 WHERE id = $tAna");
+$c5 = Contactos::guardar($db, $lT, '0981888005', 'Bloqueo Tele', 'cliente');
+$db->exec('UPDATE contactos SET asignado_a = ' . $tAna . ' WHERE id = ' . (int) $c5['id']);
+igual(Telegram::mensajeNuevo($db, $lineaT, $recargar($c5), 'hola', 107, $ahoraT), 0, 'bloqueó el bot (403): no llega…');
+ok(!Telegram::estado($db, $tAna)['conectado'], '…y se desconecta sola, no se reintenta');
+preg_match('#start=([0-9a-f]{32})#', Telegram::crearCodigo($db, $tAna, $t0), $ma);
+Telegram::procesarUpdate($db, $upd(7001, '/start ' . $ma[1]), $t0);
+$tgLimpiar();
+ok(Telegram::prueba($db, $tAna) && ($tgEnvios()[0]['datos']['chat_id'] ?? 0) === 7001, 'aviso de prueba a su propio Telegram');
+try { Telegram::prueba($db, $tDueno); ok(true, 'el dueño tiene Telegram (apagado) y puede probar'); } catch (RuntimeException $e) { ok(false, 'prueba del dueño'); }
+Telegram::desvincular($db, $tDueno);
+try { Telegram::prueba($db, $tDueno); ok(false, 'prueba sin Telegram'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'Primero conecta'), 'aviso de prueba sin Telegram conectado: lo dice'); }
+
+// Solo si nadie contesta (Ana a los 5 minutos, Beto a los 15)
+Telegram::guardarModo($db, $tAna, 5);
+$tgM = function (array $c, string $texto, string $cuando, string $dir = 'entra', string $origen = 'cliente') use ($db, $lT): int {
+    $st = $db->prepare('INSERT INTO mensajes (linea_id, contacto_id, direccion, origen, texto, leido, creado) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id');
+    $st->execute([$lT, $c['id'], $dir, $origen, $texto, $dir === 'entra' ? 'false' : 'true', $cuando]);
+    return (int) $st->fetchColumn();
+};
+$tt = fn (string $h) => new DateTimeImmutable("2030-02-02 $h:00");
+$db->exec("DELETE FROM ajustes WHERE clave = 'aviso_tg_desde'");
+$tgM($c2, 'viejo de antes de instalar', '2030-02-02 07:50:00');
+igual(Telegram::procesarPendientes($db, $tt('08:00')), ['mensajes' => 0, 'fallidos' => 0], 'al instalar: no avisa de mensajes viejos');
+$tgLimpiar();
+$tgM($c2, '¿Tienen <envío> a Quito?', '2030-02-02 11:57:00');
+igual(Telegram::procesarPendientes($db, $tt('12:00'))['mensajes'], 0, 'a los 3 minutos todavía no');
+igual(Telegram::procesarPendientes($db, $tt('12:03'))['mensajes'], 1, 'a los 6 minutos: un mensaje a Ana (5 min)');
+$e1 = $tgEnvios();
+ok(($e1[0]['datos']['chat_id'] ?? 0) === 7001 && str_contains($e1[0]['datos']['text'], 'nadie ha contestado') && str_contains($e1[0]['datos']['text'], '&lt;envío&gt;'), 'resumen con el chat pendiente, escapado');
+igual(Telegram::procesarPendientes($db, $tt('12:04'))['mensajes'], 0, 'no se repite');
+igual(Telegram::procesarPendientes($db, $tt('12:13'))['mensajes'], 1, 'a los 16 minutos: a Beto (15 min)');
+igual(($tgEnvios()[1]['datos']['chat_id'] ?? 0), 7003, '…a su Telegram');
+igual(Telegram::procesarPendientes($db, $tt('12:30'))['mensajes'], 0, 'ya se avisó a todos: nada más');
+Telegram::guardarModo($db, $tBeto, -1);   // desde aquí solo Ana usa "si nadie contesta"
+$tgM($c2, 'otra pregunta', '2030-02-02 13:00:00');
+$tgM($c2, 'Sí, enviamos', '2030-02-02 13:02:00', 'sale', 'panel');
+igual(Telegram::procesarPendientes($db, $tt('13:30'))['mensajes'], 0, 'ya le contestaron: no avisa');
+$tgM($c3, 'mamá escribe', '2030-02-02 14:00:00');
+igual(Telegram::procesarPendientes($db, $tt('14:30'))['mensajes'], 0, 'contactos personales: tampoco');
+$db->exec("UPDATE usuarios SET tg_chat_id = 500500 WHERE id = $tAna");
+$tgM($c2, 'falla temporal', '2030-02-02 15:00:00');
+igual(Telegram::procesarPendientes($db, $tt('15:06'))['fallidos'], 1, 'Telegram con falla temporal: falla…');
+ok(Telegram::estado($db, $tAna)['conectado'], '…sin desconectar a Ana');
+$db->exec("UPDATE usuarios SET tg_chat_id = 7001 WHERE id = $tAna");
+igual(Telegram::procesarPendientes($db, $tt('15:08'))['mensajes'], 0, 'no reintenta cada minuto');
+igual(Telegram::procesarPendientes($db, $tt('15:12'))['mensajes'], 1, 'a los 5 minutos se vuelve a intentar y llega');
+// Dos corridas a la vez no repiten (candado)
+$db->query('SELECT pg_advisory_lock(7720141127)');
+$tgM($c2, 'con candado', '2030-02-02 16:00:00');
+igual(Telegram::procesarPendientes($db, $tt('16:30'))['mensajes'], 1, 'el candado es de esta misma conexión (reentrante): sigue funcionando');
+$db->query('SELECT pg_advisory_unlock(7720141127)');
+$otra = new PDO('pgsql:host=' . getenv('TUWA_DB_HOST') . ';port=' . getenv('TUWA_DB_PORT') . ';dbname=' . getenv('TUWA_DB_NAME'), getenv('TUWA_DB_USER'), getenv('TUWA_DB_PASS') ?: null);
+$otra->query('SELECT pg_advisory_lock(7720141127)');
+$tgM($c2, 'otra corrida', '2030-02-02 17:00:00');
+igual(Telegram::procesarPendientes($db, $tt('17:30'))['mensajes'], 0, 'si otra corrida tiene el candado, esta no manda nada');
+$otra->query('SELECT pg_advisory_unlock(7720141127)');
+$otra = null;
+igual(Telegram::procesarPendientes($db, $tt('17:31'))['mensajes'], 1, 'cuando la otra termina, sale una sola vez');
+foreach (['TUWA_TELEGRAM_TOKEN', 'TUWA_TELEGRAM_SECRETO', 'TUWA_TELEGRAM_BOT', 'TUWA_TELEGRAM_API_URL'] as $k) putenv("$k=");
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

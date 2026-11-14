@@ -221,6 +221,11 @@ final class Webhook
         } catch (\Throwable $e) {
             error_log('tuwhatsapp reparto/aviso: ' . $e->getMessage());
         }
+        try {   // aviso por Telegram a quien lo pidió "al momento" (aparte: si falla Push, igual sale; si falla esto, el mensaje queda guardado)
+            Telegram::mensajeNuevo($this->db, $linea, $contacto, $texto, (int) $id);
+        } catch (\Throwable $e) {
+            error_log('tuwhatsapp telegram: ' . $e->getMessage());
+        }
 
         if (($m['interactive']['type'] ?? '') === 'call_permission_reply') {   // contestó el pedido de permiso para llamar
             $this->motivo((int) $id, Llamadas::permiso($this->db, (int) $contacto['id'], (array) ($m['interactive']['call_permission_reply'] ?? [])) . ': no se contesta solo');
