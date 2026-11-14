@@ -1,5 +1,5 @@
 <?php
-/** @var list<array> $celulares @var ?int $esteCelular @var list<array> $huellas */
+/** @var list<array> $celulares @var ?int $esteCelular @var list<array> $huellas @var bool $claveReciente */
 /** @var array $empresa @var list<array> $usuarios @var ?array $claveNueva @var ?string $tokenNuevo @var int $numeros @var array $plan
  *  @var ?array $pago pagar el plan con tarjeta (null = no se muestra: como antes) */
 use TuWhatsApp\Empresas;
@@ -99,7 +99,12 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
     <p class="suave pequeno">Todavía no tienes huella activada.</p>
     <?php endif; ?>
     <div data-huella hidden>
-        <button type="button" class="boton tk-boton" data-huella-activar="huella-estado" data-recargar>👆 Activar huella en este celular</button>
+        <?php if (empty($claveReciente)): ?>
+        <label class="campo">Tu contraseña (para activar la huella)
+            <input type="password" id="huella-clave" autocomplete="current-password" maxlength="200">
+        </label>
+        <?php endif; ?>
+        <button type="button" class="boton tk-boton" data-huella-activar="huella-estado" data-huella-clave="huella-clave" data-recargar>👆 Activar huella en este celular</button>
     </div>
     <div id="huella-estado" role="status" aria-live="polite" hidden></div>
     <p class="suave pequeno">Funciona en celulares con huella o reconocimiento de cara y bloqueo de pantalla activado. La huella nunca sale de tu celular.</p>

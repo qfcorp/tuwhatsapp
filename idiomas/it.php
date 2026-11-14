@@ -941,7 +941,6 @@ return [
     '👆 Activar huella en este celular' => '👆 Attiva l\'impronta su questo telefono',
     'Funciona en celulares con huella o reconocimiento de cara y bloqueo de pantalla activado. La huella nunca sale de tu celular.' => 'Funziona sui telefoni con impronta o riconoscimento del volto e blocco schermo attivo. L\'impronta non lascia mai il telefono.',
     'Quitar' => 'Rimuovi',
-    'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares.' => 'La password è stata cambiata. Sei uscito dagli altri telefoni.',
     'Listo: ese celular tendrá que entrar de nuevo.' => 'Fatto: quel telefono dovrà entrare di nuovo.',
     'Listo: se cerró la sesión en tus otros celulares y computadoras.' => 'Fatto: sei uscito dagli altri telefoni e computer.',
     'No tenías la sesión abierta en otros celulares.' => 'Non avevi sessioni aperte su altri telefoni.',
@@ -990,4 +989,13 @@ return [
     'Te llega este correo porque nadie leyó estos mensajes. Para cambiar cuándo te llega (o apagarlo): App en el celular → Respaldo por correo.' => 'Ricevi questa e-mail perché nessuno ha letto questi messaggi. Per cambiare quando arriva (o spegnerla): App sul telefono → Riserva via e-mail.',
     'Así te llegarán los avisos de chats sin contestar' => 'Così ti arriveranno gli avvisi delle chat senza risposta',
     'Correo de prueba: si nadie lee un mensaje de un cliente, te llegará un correo como este con el enlace para abrir el chat.' => 'E-mail di prova: se nessuno legge il messaggio di un cliente, riceverai un\'e-mail come questa con il link per aprire la chat.',
+    // (14 nov 2026, revisión) huella con contraseña y aviso por correo
+    'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares y se quitaron tus huellas (actívala de nuevo si quieres).' => 'La password è stata cambiata. Sei uscito dagli altri telefoni e le tue impronte sono state rimosse (riattivala se vuoi).',
+    'Escribe tu contraseña para activar la huella.' => 'Scrivi la tua password per attivare l\'impronta.',
+    'La contraseña no es correcta.' => 'La password non è corretta.',
+    'Tu contraseña (para activar la huella)' => 'La tua password (per attivare l\'impronta)',
+    'Hola' => 'Ciao',
+    'Se activó una huella nueva para entrar a tu cuenta de WhatsApp Tukán' => 'È stata attivata una nuova impronta per entrare nel tuo account WhatsApp Tukán',
+    'Si fuiste tú, no tienes que hacer nada. Si no fuiste tú, entra a Mi cuenta, quita esa huella y cambia tu contraseña.' => 'Se sei stato tu, non devi fare nulla. Altrimenti entra in Il mio account, rimuovi quell\'impronta e cambia la password.',
+    'Huella nueva en tu cuenta de WhatsApp Tukán' => 'Nuova impronta nel tuo account WhatsApp Tukán',
 ];

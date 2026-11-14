@@ -156,10 +156,10 @@ function huella_json(): never
                     $responder(403, ['ok' => false, 'error' => 'El personal de Tukán entra solo desde el Panel Tukán Central.']);
                 }
                 session_regenerate_id(true);
-                $_SESSION['usuario_id'] = $id;
                 if (($_POST['recordar'] ?? '1') !== '0') {
                     recordar_este_celular($id);
                 }
+                sellar_sesion($id, este_celular());
                 $responder(200, ['ok' => true, 'ir' => url('inicio')]);
             case 'opciones_registro':
             case 'registrar':
@@ -170,6 +170,27 @@ function huella_json(): never
                 if (!es_super() && cuenta_muestra(empresa_actual())) {
                     $responder(403, ['ok' => false, 'error' => 'Cuenta de demostración: esto se puede ver, pero no se cambia.']);
                 }
+                // (14 nov 2026, revisión) Activar una huella pide la contraseña: escrita aquí o al entrar hace menos de 5 minutos.
+                // Así quien tenga el celular desbloqueado un momento (o la cookie) no puede dejar su propia huella guardada.
+                if (!clave_reciente()) {
+                    $claveEscrita = (string) ($_POST['clave'] ?? '');
+                    if ($accion !== 'opciones_registro' || $claveEscrita === '') {
+                        $responder(403, ['ok' => false, 'pedir_clave' => true, 'error' => tukan_tr('Escribe tu contraseña para activar la huella.')]);
+                    }
+                    $ip = ip_cliente();
+                    $st = db()->prepare("SELECT count(*) FROM intentos_login WHERE ip = ? AND creado > now() - interval '15 minutes'");
+                    $st->execute([$ip]);
+                    if ((int) $st->fetchColumn() >= 10) {
+                        $responder(429, ['ok' => false, 'error' => 'Demasiados intentos. Espera 15 minutos.']);
+                    }
+                    $st = db()->prepare('SELECT clave FROM usuarios WHERE id = ?');
+                    $st->execute([(int) $u['id']]);
+                    if (!password_verify($claveEscrita, (string) $st->fetchColumn())) {
+                        db()->prepare('INSERT INTO intentos_login (ip) VALUES (?)')->execute([$ip]);
+                        $responder(403, ['ok' => false, 'pedir_clave' => true, 'error' => tukan_tr('La contraseña no es correcta.')]);
+                    }
+                    $_SESSION['clave_ok'] = time();
+                }
                 if ($accion === 'opciones_registro') {
                     $responder(200, ['ok' => true, 'opciones' => \TuWhatsApp\Huella::opcionesRegistro(db(), $u, huella_rp_id(), \TuWhatsApp\Huella::nuevoDesafio('registro:' . $u['id']))]);
                 }
@@ -177,6 +198,7 @@ function huella_json(): never
                 \TuWhatsApp\Huella::registrar(db(), (int) $u['id'], $datos, \TuWhatsApp\Huella::tomarDesafio('registro:' . $u['id']), huella_rp_id(), huella_origen(),
                     en_app_android() ? 'App Tukán Mensajes · Android' : $nombre);
                 unset($_SESSION['ofrecer_huella']);
+                avisar_huella_nueva($u, en_app_android() ? 'App Tukán Mensajes · Android' : $nombre);
                 $responder(200, ['ok' => true, 'mensaje' => tukan_tr('Listo: la próxima vez entras con tu huella.')]);
         }
         $responder(400, ['ok' => false, 'error' => 'Acción no válida.']);
@@ -327,11 +349,11 @@ try {
                 }
                 if ($f && password_verify((string) ($_POST['clave'] ?? ''), $f['clave'])) {
                     session_regenerate_id(true);
-                    $_SESSION['usuario_id'] = (int) $f['id'];
                     // (14 nov 2026) «Recordar este celular» (marcado por defecto): no vuelve a pedir la contraseña, como WhatsApp
                     if (!empty($_POST['recordar'])) {
                         recordar_este_celular((int) $f['id']);
                     }
+                    sellar_sesion((int) $f['id'], !empty($_POST['recordar']) ? este_celular() : null, true);
                     $_SESSION['ofrecer_huella'] = true;   // en el Inicio: «¿Entrar con tu huella la próxima vez?» (si el celular puede)
                     redirigir('inicio');
                 }
@@ -659,8 +681,10 @@ try {
         if ($post) {
             $accion = (string) ($_POST['accion'] ?? '');
             if ($accion === 'mi_clave') {
-                Empresas::cambiarMiClave(db(), (int) usuario()['id'], (string) ($_POST['actual'] ?? ''), (string) ($_POST['nueva'] ?? ''), (string) ($_POST['repetir'] ?? ''), este_celular());
-                aviso('Tu contraseña se cambió. Se cerró la sesión en tus otros celulares.');
+                $esteId = este_celular();
+                Empresas::cambiarMiClave(db(), (int) usuario()['id'], (string) ($_POST['actual'] ?? ''), (string) ($_POST['nueva'] ?? ''), (string) ($_POST['repetir'] ?? ''), $esteId);
+                sellar_sesion((int) usuario()['id'], $esteId, true);   // este aparato sigue dentro; los demás se salen en su próximo clic
+                aviso('Tu contraseña se cambió. Se cerró la sesión en tus otros celulares y se quitaron tus huellas (actívala de nuevo si quieres).');
             } elseif ($accion === 'cerrar_celular') {   // (14 nov 2026) Dispositivos con sesión abierta
                 $id = (int) ($_POST['id'] ?? 0);
                 $esEste = $id === este_celular();
@@ -674,7 +698,9 @@ try {
                     aviso('Listo: ese celular tendrá que entrar de nuevo.');
                 }
             } elseif ($accion === 'cerrar_otros') {
-                $n = \TuWhatsApp\Sesiones::olvidarUsuario(db(), (int) usuario()['id'], este_celular());
+                $esteId = este_celular();
+                $n = \TuWhatsApp\Sesiones::olvidarUsuario(db(), (int) usuario()['id'], $esteId);
+                sellar_sesion((int) usuario()['id'], $esteId);   // este aparato sigue dentro; los demás se salen en su próximo clic
                 aviso($n > 0 ? 'Listo: se cerró la sesión en tus otros celulares y computadoras.' : 'No tenías la sesión abierta en otros celulares.');
             } elseif ($accion === 'quitar_huella') {
                 if (\TuWhatsApp\Huella::quitar(db(), (int) usuario()['id'], (int) ($_POST['id'] ?? 0))) {
@@ -726,7 +752,7 @@ try {
         $token = $_SESSION['token_mostrar'] ?? null;
         unset($_SESSION['clave_mostrar'], $_SESSION['token_mostrar']);
         vista('cuenta', 'Mi cuenta', ['celulares' => \TuWhatsApp\Sesiones::lista(db(), (int) usuario()['id']), 'esteCelular' => este_celular(),
-            'huellas' => \TuWhatsApp\Huella::lista(db(), (int) usuario()['id']), 'empresa' => $e, 'usuarios' => Empresas::usuarios(db(), (int) $e['id']), 'plan' => \TuWhatsApp\Modulos::detalle($e), 'pago' => pago_tarjeta($e),
+            'huellas' => \TuWhatsApp\Huella::lista(db(), (int) usuario()['id']), 'claveReciente' => clave_reciente(), 'empresa' => $e, 'usuarios' => Empresas::usuarios(db(), (int) $e['id']), 'plan' => \TuWhatsApp\Modulos::detalle($e), 'pago' => pago_tarjeta($e),
             'claveNueva' => $clave, 'tokenNuevo' => $token, 'numeros' => count(Lineas::todas(db(), (int) $e['id']))]);
 
     case 'clientes':

@@ -891,7 +891,6 @@ return [
     '👆 Activar huella en este celular' => '👆 Ativar a digital neste celular',
     'Funciona en celulares con huella o reconocimiento de cara y bloqueo de pantalla activado. La huella nunca sale de tu celular.' => 'Funciona em celulares com digital ou reconhecimento facial e bloqueio de tela ativado. Sua digital nunca sai do seu celular.',
     'Quitar' => 'Remover',
-    'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares.' => 'Sua senha foi alterada. A sessão foi fechada nos seus outros celulares.',
     'Listo: ese celular tendrá que entrar de nuevo.' => 'Pronto: esse celular terá que entrar de novo.',
     'Listo: se cerró la sesión en tus otros celulares y computadoras.' => 'Pronto: a sessão foi fechada nos seus outros celulares e computadores.',
     'No tenías la sesión abierta en otros celulares.' => 'Você não tinha sessão aberta em outros celulares.',
@@ -939,4 +938,13 @@ return [
     'Te llega este correo porque nadie leyó estos mensajes. Para cambiar cuándo te llega (o apagarlo): App en el celular → Respaldo por correo.' => 'Você recebe este e-mail porque ninguém leu estas mensagens. Para mudar quando chega (ou desligar): App no celular → Reserva por e-mail.',
     'Así te llegarán los avisos de chats sin contestar' => 'É assim que chegarão os avisos de chats sem resposta',
     'Correo de prueba: si nadie lee un mensaje de un cliente, te llegará un correo como este con el enlace para abrir el chat.' => 'E-mail de teste: se ninguém ler a mensagem de um cliente, você vai receber um e-mail como este com o link para abrir o chat.',
+    // (14 nov 2026, revisión) huella con contraseña y aviso por correo
+    'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares y se quitaron tus huellas (actívala de nuevo si quieres).' => 'Sua senha foi alterada. A sessão foi encerrada nos seus outros celulares e suas digitais foram removidas (ative de novo se quiser).',
+    'Escribe tu contraseña para activar la huella.' => 'Digite sua senha para ativar a digital.',
+    'La contraseña no es correcta.' => 'A senha não está correta.',
+    'Tu contraseña (para activar la huella)' => 'Sua senha (para ativar a digital)',
+    'Hola' => 'Olá',
+    'Se activó una huella nueva para entrar a tu cuenta de WhatsApp Tukán' => 'Uma nova digital foi ativada para entrar na sua conta do WhatsApp Tukán',
+    'Si fuiste tú, no tienes que hacer nada. Si no fuiste tú, entra a Mi cuenta, quita esa huella y cambia tu contraseña.' => 'Se foi você, não precisa fazer nada. Se não foi você, entre em Minha conta, remova essa digital e troque sua senha.',
+    'Huella nueva en tu cuenta de WhatsApp Tukán' => 'Nova digital na sua conta do WhatsApp Tukán',
 ];

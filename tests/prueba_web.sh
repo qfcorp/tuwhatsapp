@@ -279,8 +279,15 @@ get "/?r=bandeja"; ok '! tiene "id=\"ofrecer-huella\""' "la oferta de la huella 
 get "/?r=cuenta"
 ok 'tiene "Dispositivos con sesión abierta" && tiene "Este celular" && tiene "Activar huella en este celular"' "Mi cuenta: celulares con la sesión abierta y activar la huella"
 # Activar la huella en este celular (celular simulado: tests/huella_celular.php)
+ok 'tiene "id=\"huella-clave\""' "entró por la cookie (sin contraseña reciente): Mi cuenta pide la contraseña para activar la huella"
 hpost "/?r=cuenta" opciones_registro ""
-ok '[ "$CODIGO" = 200 ] && grep -q "\"userVerification\":\"required\"" "$P" && grep -q "\"rp\":{\"id\":\"127.0.0.1\"" "$P"' "opciones para activar la huella"
+ok '[ "$CODIGO" = 403 ] && grep -q "pedir_clave" "$P"' "sin contraseña reciente no deja activar una huella (celular prestado o cookie robada)"
+hpost "/?r=cuenta" registrar "{}"
+ok '[ "$CODIGO" = 403 ]' "…ni registrarla directo"
+hpost "/?r=cuenta" opciones_registro "" --data-urlencode "clave=claveMala99"
+ok '[ "$CODIGO" = 403 ] && grep -q "no es correcta" "$P"' "contraseña equivocada: no deja activar la huella"
+hpost "/?r=cuenta" opciones_registro "" --data-urlencode "clave=claveSegura1"
+ok '[ "$CODIGO" = 200 ] && grep -q "\"userVerification\":\"required\"" "$P" && grep -q "\"rp\":{\"id\":\"127.0.0.1\"" "$P"' "con la contraseña: opciones para activar la huella"
 DES=$(desafio)
 hpost "/?r=cuenta" registrar "$(php tests/huella_celular.php registro "$HDIR" "$DES" "$RP_H" "$ORIGEN_H")"
 ok '[ "$CODIGO" = 200 ] && grep -q "\"ok\":true" "$P"' "huella activada"
@@ -309,13 +316,47 @@ get "/?r=bandeja"; ok '[ "$CODIGO" = 200 ]' "con sesión después de la huella"
 hpost "/?r=login" entrar "$(php tests/huella_celular.php entrar "$HDIR" "$DES" "$RP_H" "$ORIGEN_H" 6)"
 ok '[ "$CODIGO" = 400 ]' "el desafío de entrar no se puede reusar"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" -d "accion=opciones_entrar" "$W/?r=huella"); ok '[ "$CODIGO" = 400 ]' "sin csrf se rechaza"
-# Cerrar la sesión en los otros celulares desde Mi cuenta
-J_OTRO="$(mktemp)"; cp "$J" "$J_OTRO.base"; J="$J_OTRO"; get "/?r=login"
-post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=claveSegura1" --data-urlencode "recordar=1"
-J="$(mktemp)"; cp "$J_OTRO.base" "$J"
-get "/?r=cuenta"; post "/?r=cuenta" --data-urlencode "accion=cerrar_otros"
+# (revisión) Cerrar la sesión en los otros celulares: también se corta la sesión de PHP que sigue viva en ese aparato
+J_YO="$J"
+nuevo_aparato() {   # nuevo_aparato <archivo de cookies> [recordar=1]: entra con contraseña en otro aparato
+  J="$1"; : > "$J"; get "/?r=login"
+  post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=${CLAVE_DIMI:-claveSegura1}" ${2:+--data-urlencode "recordar=1"}
+}
+J_OTRO="$(mktemp)"; nuevo_aparato "$J_OTRO" 1
+J_SINREC="$(mktemp)"; nuevo_aparato "$J_SINREC"
+J="$J_OTRO"; get "/?r=bandeja"; ok '[ "$CODIGO" = 200 ]' "el otro celular está dentro"
+J="$J_YO"; get "/?r=cuenta"; post "/?r=cuenta" --data-urlencode "accion=cerrar_otros"
 ok 'tiene "se cerró la sesión en tus otros celulares"' "cerrar en todos los demás"
-J="$J_OTRO"; sed -i '/[[:space:]]tuwhatsapp[[:space:]]/d' "$J"; get "/?r=bandeja"; ok '[ "$CODIGO" = 302 ]' "el otro celular tiene que entrar de nuevo"
+J="$J_OTRO"; get "/?r=bandeja"; ok '[ "$CODIGO" = 302 ]' "el otro celular se sale aunque su sesión de PHP siga viva (sin borrar su cookie)"
+get "/?r=bandeja"; ok '[ "$CODIGO" = 302 ]' "…y no vuelve a entrar con su cookie de recordar"
+J="$J_SINREC"; get "/?r=bandeja"; ok '[ "$CODIGO" = 302 ]' "la computadora que entró sin «Recordar» también se sale"
+J="$J_YO"; get "/?r=bandeja"; ok '[ "$CODIGO" = 200 ]' "el aparato que cerró los demás sigue dentro"
+# Cerrar UN celular desde Mi cuenta
+J_OTRO="$(mktemp)"; nuevo_aparato "$J_OTRO" 1
+ID_OTRO=$(psql -tA -d "$DBH" -c "SELECT max(id) FROM sesiones_recordadas")
+J="$J_YO"; get "/?r=cuenta"; post "/?r=cuenta" --data-urlencode "accion=cerrar_celular" --data-urlencode "id=$ID_OTRO"
+ok 'tiene "ese celular tendrá que entrar de nuevo"' "cerrar un celular desde Mi cuenta"
+J="$J_OTRO"; get "/?r=bandeja"; ok '[ "$CODIGO" = 302 ]' "ese celular se sale al momento (sesión viva incluida)"
+J="$J_YO"; get "/?r=bandeja"; ok '[ "$CODIGO" = 200 ]' "…y este sigue dentro"
+# Cambiar mi contraseña: los demás aparatos se salen, este sigue y las huellas se borran
+J_OTRO="$(mktemp)"; nuevo_aparato "$J_OTRO" 1
+J="$J_YO"; get "/?r=cuenta"
+post "/?r=cuenta" --data-urlencode "accion=mi_clave" --data-urlencode "actual=claveSegura1" --data-urlencode "nueva=claveTemporal9" --data-urlencode "repetir=claveTemporal9"
+ok 'tiene "Tu contraseña se cambió" && tiene "se quitaron tus huellas"' "cambiar mi contraseña (avisa que se quitaron las huellas)"
+get "/?r=bandeja"; ok '[ "$CODIGO" = 200 ]' "el aparato que cambió la contraseña sigue dentro"
+J="$J_OTRO"; get "/?r=bandeja"; ok '[ "$CODIGO" = 302 ]' "con la contraseña cambiada el otro celular se sale (sesión viva incluida)"
+ok '[ "$(psql -tA -d "$DBH" -c "SELECT count(*) FROM huellas")" = 0 ]' "al cambiar la contraseña se borran las huellas"
+J="$(mktemp)"; hpost "/?r=login" opciones_entrar ""; DES=$(desafio)
+hpost "/?r=login" entrar "$(php tests/huella_celular.php entrar "$HDIR" "$DES" "$RP_H" "$ORIGEN_H" 7)"
+ok '[ "$CODIGO" = 400 ]' "la huella de antes ya no entra después de cambiar la contraseña"
+# Entrar con contraseña: sirve 5 minutos para activar la huella sin volver a escribirla
+CLAVE_DIMI=claveTemporal9; J_NUEVO="$(mktemp)"; nuevo_aparato "$J_NUEVO" 1
+get "/?r=cuenta"; ok '! tiene "id=\"huella-clave\""' "recién entrado con contraseña: no la vuelve a pedir"
+hpost "/?r=cuenta" opciones_registro ""; ok '[ "$CODIGO" = 200 ]' "recién entrado con contraseña: deja activar la huella"
+J="$J_YO"; get "/?r=cuenta"
+post "/?r=cuenta" --data-urlencode "accion=mi_clave" --data-urlencode "actual=claveTemporal9" --data-urlencode "nueva=claveSegura1" --data-urlencode "repetir=claveSegura1"
+ok 'tiene "Tu contraseña se cambió"' "vuelve a la contraseña de siempre"
+unset CLAVE_DIMI
 get "/?r=salir"; J="$J_ANTES"; rm -rf "$HDIR"
 
 

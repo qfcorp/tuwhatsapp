@@ -345,9 +345,14 @@ final class Huella
         }
         $st = $db->prepare('INSERT INTO huellas (usuario_id, credencial_id, llave_pem, alg, contador, nombre) VALUES (?, ?, ?, ?, ?, ?)
                             ON CONFLICT (credencial_id) DO UPDATE SET llave_pem = EXCLUDED.llave_pem, alg = EXCLUDED.alg, contador = EXCLUDED.contador, nombre = EXCLUDED.nombre
+                            WHERE huellas.usuario_id = EXCLUDED.usuario_id
                             RETURNING id');
         $st->execute([$usuarioId, self::b64u($credId), $pem, $alg, $info['contador'], mb_substr($nombre !== '' ? $nombre : 'Celular', 0, 60)]);
-        return (int) $st->fetchColumn();
+        $id = $st->fetchColumn();
+        if ($id === false) {   // otra cuenta la guardó al mismo tiempo (el WHERE del ON CONFLICT no deja pisarla)
+            throw new RuntimeException('Esa huella ya está guardada en otra cuenta.');
+        }
+        return (int) $id;
     }
 
     // ------------------------------------------------------------------ entrar

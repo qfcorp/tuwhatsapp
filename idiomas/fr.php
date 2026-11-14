@@ -941,7 +941,6 @@ return [
     '👆 Activar huella en este celular' => '👆 Activer l\'empreinte sur ce téléphone',
     'Funciona en celulares con huella o reconocimiento de cara y bloqueo de pantalla activado. La huella nunca sale de tu celular.' => 'Fonctionne sur les téléphones avec empreinte ou reconnaissance faciale et verrouillage d\'écran activé. Votre empreinte ne quitte jamais votre téléphone.',
     'Quitar' => 'Retirer',
-    'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares.' => 'Votre mot de passe a été changé. Vous avez été déconnecté de vos autres téléphones.',
     'Listo: ese celular tendrá que entrar de nuevo.' => 'C\'est fait : ce téléphone devra se reconnecter.',
     'Listo: se cerró la sesión en tus otros celulares y computadoras.' => 'C\'est fait : déconnecté de vos autres téléphones et ordinateurs.',
     'No tenías la sesión abierta en otros celulares.' => 'Vous n\'étiez connecté sur aucun autre téléphone.',
@@ -990,4 +989,13 @@ return [
     'Te llega este correo porque nadie leyó estos mensajes. Para cambiar cuándo te llega (o apagarlo): App en el celular → Respaldo por correo.' => 'Vous recevez cet e-mail car personne n\'a lu ces messages. Pour changer quand il arrive (ou le désactiver) : App sur le téléphone → Secours par e-mail.',
     'Así te llegarán los avisos de chats sin contestar' => 'Voici comment vous recevrez les alertes de conversations sans réponse',
     'Correo de prueba: si nadie lee un mensaje de un cliente, te llegará un correo como este con el enlace para abrir el chat.' => 'E-mail de test : si personne ne lit le message d\'un client, vous recevrez un e-mail comme celui-ci avec le lien pour ouvrir la conversation.',
+    // (14 nov 2026, revisión) huella con contraseña y aviso por correo
+    'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares y se quitaron tus huellas (actívala de nuevo si quieres).' => 'Votre mot de passe a été modifié. Vous avez été déconnecté sur vos autres téléphones et vos empreintes ont été supprimées (réactivez-la si vous voulez).',
+    'Escribe tu contraseña para activar la huella.' => 'Saisissez votre mot de passe pour activer l\'empreinte.',
+    'La contraseña no es correcta.' => 'Le mot de passe n\'est pas correct.',
+    'Tu contraseña (para activar la huella)' => 'Votre mot de passe (pour activer l\'empreinte)',
+    'Hola' => 'Bonjour',
+    'Se activó una huella nueva para entrar a tu cuenta de WhatsApp Tukán' => 'Une nouvelle empreinte a été activée pour vous connecter à votre compte WhatsApp Tukán',
+    'Si fuiste tú, no tienes que hacer nada. Si no fuiste tú, entra a Mi cuenta, quita esa huella y cambia tu contraseña.' => 'Si c\'était vous, il n\'y a rien à faire. Sinon, allez dans Mon compte, supprimez cette empreinte et changez votre mot de passe.',
+    'Huella nueva en tu cuenta de WhatsApp Tukán' => 'Nouvelle empreinte sur votre compte WhatsApp Tukán',
 ];

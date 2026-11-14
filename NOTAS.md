@@ -12,6 +12,10 @@ Pedido de Dimitry: «debo ingresar a cada rato; debería ingresar una vez y que 
 - Pruebas: autenticador simulado en PHP (EC y RSA): firma mala, desafío reusado o vencido, origen y dominio equivocados, sin huella (UV), contador hacia
   atrás, usuario desactivado; cookie válida/robada/vencida/borrada al salir y al cambiar la clave; de punta a punta en pantallas con `tests/huella_celular.php`.
 - Manual: capítulo 21 nuevo (+ novedades). **Falta regenerar el PDF del manual** después de unir con los cambios de avisos.
+- **Arreglos de la revisión (14 nov 2026):** «Cerrar sesión» de un celular, «Cerrar en todos los demás», cambiar la contraseña y el reset o desactivar del
+  administrador cortan también la sesión de PHP que sigue viva en el otro aparato (columna `usuarios.sesion_gen` + id del recuerdo en la sesión; ver
+  `usuario_de_sesion()` y `sellar_sesion()` en `app/bootstrap.php`). Activar una huella pide la contraseña (o haber entrado con ella hace menos de 5 min),
+  cambiar la contraseña borra las huellas, llega un correo al activar una huella, `Huella::registrar` es atómico y `Sesiones::limpiarAlDia()` corre desde el cron.
 - Al actualizar el servidor: correr el instalador (crea la carpeta de sesiones y las 2 tablas nuevas). Los usuarios entran **una vez más** con la casilla marcada.
 ## 🔔 Que no se pierda ningún cliente: avisos más fuertes + respaldo por correo (14 nov 2026)
 Pedido de Dimitry: "hemos perdido muchas notificaciones por estar apagada la app; debería enviar alguna notificación por mail o algo; con eso se pierden clientes".

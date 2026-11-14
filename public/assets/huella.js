@@ -44,7 +44,8 @@
     var caja = document.getElementById(boton.getAttribute('data-huella-activar') || 'huella-estado');
     boton.disabled = true;
     avisar(caja, TR('Pon tu dedo en el sensor del celular…'), false);
-    pedir('opciones_registro').then(function (r) {
+    var campoClave = document.getElementById(boton.getAttribute('data-huella-clave') || '');
+    pedir('opciones_registro', null, campoClave && campoClave.value ? { clave: campoClave.value } : {}).then(function (r) {
       if (!r.ok) { throw new Error(r.error); }
       var o = r.opciones;
       o.challenge = aBuf(o.challenge);

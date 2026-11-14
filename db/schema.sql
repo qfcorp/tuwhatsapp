@@ -762,6 +762,9 @@ CREATE TABLE IF NOT EXISTS huellas (
     ultimo_uso      timestamptz
 );
 CREATE INDEX IF NOT EXISTS huellas_usuario ON huellas (usuario_id);
+-- Generación de sesión: al cambiar la contraseña, «cerrar en todos los demás», reset o desactivar, sube y corta también
+-- las sesiones de PHP que siguen abiertas en otros aparatos (no solo los recuerdos).
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS sesion_gen integer NOT NULL DEFAULT 0;
 
 -- =====================================================================
 -- (14 nov 2026) Que no se pierda ningún mensaje de cliente:

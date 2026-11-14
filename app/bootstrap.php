@@ -192,15 +192,96 @@ function usuario(): ?array
         return $u;
     }
     $id = (int) ($_SESSION['usuario_id'] ?? 0);
-    if ($id <= 0 && PHP_SAPI !== 'cli' && is_string($_COOKIE[\TuWhatsApp\Sesiones::COOKIE] ?? null)) {
+    if ($id > 0) {
+        $f = usuario_de_sesion($id);
+        if ($f) {
+            return $u = $f;
+        }
+        // (14 nov 2026) La sesión ya no vale (contraseña cambiada, «cerrar en todos», celular cerrado desde Mi cuenta, usuario
+        // desactivado): se corta aquí mismo, aunque la sesión de PHP siga viva en este aparato.
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE && !headers_sent()) {
+            session_regenerate_id(true);
+        }
+        $id = 0;
+    }
+    if (PHP_SAPI !== 'cli' && is_string($_COOKIE[\TuWhatsApp\Sesiones::COOKIE] ?? null)) {
         $id = entrar_por_cookie();   // (14 nov 2026) «Recordar este celular»: la sesión se abre sola, como WhatsApp
     }
     if ($id <= 0) {
         return $u = null;
     }
-    $st = db()->prepare('SELECT id, nombre, correo, empresa_id, rol, super, idioma FROM usuarios WHERE id = ? AND activo');
-    $st->execute([$id]);
-    return $u = ($st->fetch() ?: null);
+    return $u = usuario_de_sesion($id);
+}
+
+/**
+ * El usuario de la sesión, solo si la sesión sigue valiendo: usuario activo, misma generación de sesión ($_SESSION['gen'], sube al
+ * cambiar la contraseña o «cerrar en todos») y, si entró con «Recordar este celular», que ese recuerdo siga existiendo.
+ */
+function usuario_de_sesion(int $id): ?array
+{
+    $recuerdo = (int) ($_SESSION['recuerdo'] ?? 0);
+    $st = db()->prepare('SELECT id, nombre, correo, empresa_id, rol, super, idioma, sesion_gen,
+                                EXISTS (SELECT 1 FROM sesiones_recordadas r WHERE r.id = ? AND r.usuario_id = usuarios.id AND r.expira > now()) AS recuerdo_ok
+                         FROM usuarios WHERE id = ? AND activo');
+    $st->execute([$recuerdo, $id]);
+    $f = $st->fetch();
+    if (!$f) {
+        return null;
+    }
+    if (!array_key_exists('gen', $_SESSION)) {
+        $_SESSION['gen'] = (int) $f['sesion_gen'];   // sesión de antes de esta versión (o sin sellar): se sella ahora
+    } elseif ((int) $_SESSION['gen'] !== (int) $f['sesion_gen']) {
+        return null;
+    }
+    if ($recuerdo > 0 && !$f['recuerdo_ok']) {
+        return null;
+    }
+    unset($f['sesion_gen'], $f['recuerdo_ok']);
+    return $f;
+}
+
+/**
+ * Abre (o vuelve a sellar) la sesión de este aparato: usuario, generación de sesión actual y el recuerdo de este celular (si tiene).
+ * $conClave: entró escribiendo la contraseña (sirve 5 minutos para activar la huella sin volver a pedirla).
+ */
+function sellar_sesion(int $id, ?int $recuerdo = null, bool $conClave = false): void
+{
+    $_SESSION['usuario_id'] = $id;
+    $_SESSION['gen'] = \TuWhatsApp\Sesiones::generacion(db(), $id);
+    if ($recuerdo) {
+        $_SESSION['recuerdo'] = $recuerdo;
+    } else {
+        unset($_SESSION['recuerdo']);
+    }
+    if ($conClave) {
+        $_SESSION['clave_ok'] = time();
+    }
+}
+
+/**
+ * (14 nov 2026, revisión) Correo de aviso cuando se activa una huella nueva en la cuenta: si no fue la persona, se entera y la quita.
+ * Si el correo no está configurado en el servidor, no hace nada (nunca rompe la activación).
+ */
+function avisar_huella_nueva(array $u, string $aparato): void
+{
+    try {
+        if (!\TuWhatsApp\Correo::configurado() || !\TuWhatsApp\Correo::valido((string) $u['correo'])) {
+            return;
+        }
+        $texto = tukan_tr('Hola') . ' ' . $u['nombre'] . ":\n\n"
+            . tukan_tr('Se activó una huella nueva para entrar a tu cuenta de WhatsApp Tukán') . ' (' . $aparato . ', ' . date('d/m/Y H:i') . ").\n\n"
+            . tukan_tr('Si fuiste tú, no tienes que hacer nada. Si no fuiste tú, entra a Mi cuenta, quita esa huella y cambia tu contraseña.');
+        \TuWhatsApp\Correo::enviar((string) $u['correo'], tukan_tr('Huella nueva en tu cuenta de WhatsApp Tukán'), $texto);
+    } catch (\Throwable $e) {
+        error_log('tuwhatsapp aviso de huella: ' . $e->getMessage());
+    }
+}
+
+/** ¿Escribió su contraseña hace menos de 5 minutos? (para activar la huella) */
+function clave_reciente(): bool
+{
+    return time() - (int) ($_SESSION['clave_ok'] ?? 0) < 300;
 }
 
 // ---------------------------------------------------------------------
@@ -238,7 +319,7 @@ function entrar_por_cookie(): int
     if (session_status() === PHP_SESSION_ACTIVE && !headers_sent()) {
         session_regenerate_id(true);
     }
-    $_SESSION['usuario_id'] = $id;
+    sellar_sesion($id, \TuWhatsApp\Sesiones::idDeCookie(db(), $cookie));
     return $id;
 }
 

@@ -100,7 +100,8 @@ try {
     // "ir" (enlace directo, §5.3): solo si es una ruta segura de RUTAS_SSO; si no, al inicio (Clientes de Tukán)
     $ir = array_key_exists('ir', $p) && TukanCentral::irValido($p['ir']) ? (string) $p['ir'] : null;
     session_regenerate_id(true);
-    $_SESSION = ['usuario_id' => $id, 'desde_central' => true];
+    $_SESSION = ['desde_central' => true];
+    sellar_sesion($id);
     aviso('Entraste desde el Panel Tukán Central.' . (array_key_exists('ir', $p) && $ir === null ? ' El enlace directo no era válido: se abrió Clientes de Tukán.' : ''), 'info');
     header('Location: ' . ($ir ?? url('clientes')));
     exit;

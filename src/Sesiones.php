@@ -92,12 +92,27 @@ final class Sesiones
         }
     }
 
-    /** Borra todos los recuerdos de esa persona (contraseña cambiada, usuario desactivado, "cerrar en todos"). Puede dejar uno. */
+    /**
+     * Borra todos los recuerdos de esa persona (contraseña cambiada, usuario desactivado, "cerrar en todos"). Puede dejar uno.
+     * Además sube su generación de sesión: las sesiones de PHP que siguen abiertas en otros aparatos se cortan en su próximo clic
+     * (ver usuario() en app/bootstrap.php). El aparato que lo hizo se vuelve a sellar con sellar_sesion().
+     * Devuelve cuántos recuerdos borró.
+     */
     public static function olvidarUsuario(PDO $db, int $usuarioId, ?int $menos = null): int
     {
         $st = $db->prepare('DELETE FROM sesiones_recordadas WHERE usuario_id = ? AND id <> ?');
         $st->execute([$usuarioId, $menos ?? 0]);
-        return $st->rowCount();
+        $n = $st->rowCount();
+        $db->prepare('UPDATE usuarios SET sesion_gen = sesion_gen + 1 WHERE id = ?')->execute([$usuarioId]);
+        return $n;
+    }
+
+    /** Generación de sesión actual de esa persona. */
+    public static function generacion(PDO $db, int $usuarioId): int
+    {
+        $st = $db->prepare('SELECT sesion_gen FROM usuarios WHERE id = ?');
+        $st->execute([$usuarioId]);
+        return (int) $st->fetchColumn();
     }
 
     /** Cerrar la sesión de un celular desde Mi cuenta (solo los propios). */
@@ -140,9 +155,22 @@ final class Sesiones
         return mb_substr(trim($nav . ($so !== '' ? ' · ' . $so : '')), 0, 60);
     }
 
-    /** Borra los recuerdos vencidos (lo corre el cron de cada día). */
+    /** Borra los recuerdos vencidos. */
     public static function limpiar(PDO $db): int
     {
         return $db->exec('DELETE FROM sesiones_recordadas WHERE expira < now()') ?: 0;
+    }
+
+    /**
+     * Limpieza una vez al día (la llama bin/campanias.php cada minuto; solo trabaja la primera vez de cada día).
+     * La marca 'sesiones_limpiadas' en ajustes evita que dos corridas del cron la hagan dos veces. Devuelve cuántos borró, o null si ya se hizo hoy.
+     */
+    public static function limpiarAlDia(PDO $db, ?string $hoy = null): ?int
+    {
+        $hoy ??= date('Y-m-d');
+        $st = $db->prepare("INSERT INTO ajustes (clave, valor) VALUES ('sesiones_limpiadas', ?)
+                            ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor WHERE ajustes.valor <> EXCLUDED.valor RETURNING clave");
+        $st->execute([$hoy]);
+        return $st->fetchColumn() === false ? null : self::limpiar($db);
     }
 }

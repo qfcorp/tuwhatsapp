@@ -945,7 +945,6 @@ return [
     '👆 Activar huella en este celular' => '👆 Turn on fingerprint on this phone',
     'Funciona en celulares con huella o reconocimiento de cara y bloqueo de pantalla activado. La huella nunca sale de tu celular.' => 'Works on phones with fingerprint or face unlock and a screen lock turned on. Your fingerprint never leaves your phone.',
     'Quitar' => 'Remove',
-    'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares.' => 'Your password was changed. You were signed out on your other phones.',
     'Listo: ese celular tendrá que entrar de nuevo.' => 'Done: that phone will have to sign in again.',
     'Listo: se cerró la sesión en tus otros celulares y computadoras.' => 'Done: you were signed out on your other phones and computers.',
     'No tenías la sesión abierta en otros celulares.' => 'You weren\'t signed in on other phones.',
@@ -994,4 +993,13 @@ return [
     'Te llega este correo porque nadie leyó estos mensajes. Para cambiar cuándo te llega (o apagarlo): App en el celular → Respaldo por correo.' => 'You got this email because nobody read these messages. To change when it arrives (or turn it off): Phone app → Email backup.',
     'Así te llegarán los avisos de chats sin contestar' => 'This is how unanswered-chat alerts will reach you',
     'Correo de prueba: si nadie lee un mensaje de un cliente, te llegará un correo como este con el enlace para abrir el chat.' => 'Test email: if nobody reads a client\'s message, you\'ll get an email like this with the link to open the chat.',
+    // (14 nov 2026, revisión) huella con contraseña y aviso por correo
+    'Tu contraseña se cambió. Se cerró la sesión en tus otros celulares y se quitaron tus huellas (actívala de nuevo si quieres).' => 'Your password was changed. You were signed out on your other phones and your fingerprints were removed (turn it on again if you want).',
+    'Escribe tu contraseña para activar la huella.' => 'Type your password to turn on the fingerprint.',
+    'La contraseña no es correcta.' => 'The password is not correct.',
+    'Tu contraseña (para activar la huella)' => 'Your password (to turn on the fingerprint)',
+    'Hola' => 'Hi',
+    'Se activó una huella nueva para entrar a tu cuenta de WhatsApp Tukán' => 'A new fingerprint was turned on to sign in to your WhatsApp Tukán account',
+    'Si fuiste tú, no tienes que hacer nada. Si no fuiste tú, entra a Mi cuenta, quita esa huella y cambia tu contraseña.' => 'If it was you, there\'s nothing to do. If it wasn\'t you, go to My account, remove that fingerprint and change your password.',
+    'Huella nueva en tu cuenta de WhatsApp Tukán' => 'New fingerprint on your WhatsApp Tukán account',
 ];

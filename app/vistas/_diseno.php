@@ -162,7 +162,7 @@ if ($u && $linea) {
 <?php if ($u): ?></div><?php endif; ?>
 <script src="/assets/tukan-ui.js?v=1" defer></script>
 <script src="/assets/app.js?v=12" defer></script>
-<script src="/assets/huella.js?v=1" defer></script>
+<script src="/assets/huella.js?v=2" defer></script>
 <?php if ($u && $linea && !empty($linea['llamadas_activo'])): ?><script src="/assets/llamadas.js?v=1" defer></script><?php endif; ?>
 </body>
 </html>

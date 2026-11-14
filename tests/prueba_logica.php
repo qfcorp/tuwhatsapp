@@ -2152,6 +2152,14 @@ ok(\TuWhatsApp\Sesiones::cerrar($db, $uS, $idX) && \TuWhatsApp\Sesiones::usuario
 for ($i = 0; $i < 25; $i++) { \TuWhatsApp\Sesiones::recordar($db, $uS, 'x'); }
 ok((int) $db->query("SELECT count(*) FROM sesiones_recordadas WHERE usuario_id = $uS")->fetchColumn() <= 20, 'máximo 20 celulares recordados por persona');
 igual(\TuWhatsApp\Sesiones::dispositivo('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) TukanIOS/1.0'), 'App de iPhone · iPhone', 'reconoce la app de iPhone');
+$genAntes = \TuWhatsApp\Sesiones::generacion($db, $uS);
+\TuWhatsApp\Sesiones::olvidarUsuario($db, $uS);
+igual(\TuWhatsApp\Sesiones::generacion($db, $uS), $genAntes + 1, 'cerrar en todos sube la generación (corta también las sesiones de PHP vivas)');
+$db->exec("INSERT INTO sesiones_recordadas (usuario_id, selector, validador_hash, expira) VALUES ($uS, 'vencido000000000000000000', 'x', now() - interval '2 days')");
+$db->exec("DELETE FROM ajustes WHERE clave = 'sesiones_limpiadas'");
+ok((\TuWhatsApp\Sesiones::limpiarAlDia($db, '2026-11-14') ?? 0) >= 1, 'limpieza diaria: borra los recuerdos vencidos');
+igual(\TuWhatsApp\Sesiones::limpiarAlDia($db, '2026-11-14'), null, '…una sola vez por día');
+ok(\TuWhatsApp\Sesiones::limpiarAlDia($db, '2026-11-15') !== null, '…y al día siguiente otra vez');
 
 use TuWhatsApp\Huella;
 echo "== Entrar con huella (WebAuthn simulado)\n";

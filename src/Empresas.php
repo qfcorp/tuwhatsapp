@@ -250,6 +250,8 @@ final class Empresas
         }
         $db->prepare('UPDATE usuarios SET clave = ? WHERE id = ?')->execute([password_hash($nueva, PASSWORD_DEFAULT), $usuarioId]);
         Sesiones::olvidarUsuario($db, $usuarioId, $esteCelular);
+        // (14 nov 2026, revisión) también se borran sus huellas: una huella dejada por otra persona no sobrevive al cambio de contraseña
+        $db->prepare('DELETE FROM huellas WHERE usuario_id = ?')->execute([$usuarioId]);
     }
 
     /** Crea un token de API nuevo para la empresa (se muestra una sola vez; se guarda solo su huella). */
