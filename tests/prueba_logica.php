@@ -2081,6 +2081,150 @@ ok($ec['cancelar_en'] === null && $ec['cancelar_pedido'] === null, 'se arrepinti
 try { Empresas::pedirCancelacion($db, 1, '', []); $okT = false; } catch (RuntimeException $e) { $okT = true; }
 ok($okT, 'la cuenta de Tukán no se cancela');
 
+echo "== Recordar este celular (la app no vuelve a pedir entrar)\n";
+$eS = Empresas::crear($db, ['nombre' => 'Sesiones SA', 'estado' => 'activa', 'admin_correo' => 'dueno@sesiones.ec', 'admin_nombre' => 'Dueña'])['empresa_id'];
+$uS = (int) $db->query("SELECT id FROM usuarios WHERE correo = 'dueno@sesiones.ec'")->fetchColumn();
+$cookieS = \TuWhatsApp\Sesiones::recordar($db, $uS, 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/131.0 Mobile Safari/537.36');
+ok((bool) preg_match('/^[0-9a-f]{24}:[0-9a-f]{64}$/', $cookieS), 'cookie con selector y validador');
+ok(!str_contains((string) $db->query('SELECT validador_hash FROM sesiones_recordadas ORDER BY id DESC LIMIT 1')->fetchColumn(), explode(':', $cookieS)[1]), 'en la base solo queda el hash del validador');
+igual(\TuWhatsApp\Sesiones::usuarioDeCookie($db, $cookieS), $uS, 'la cookie abre la sesión');
+igual(\TuWhatsApp\Sesiones::lista($db, $uS)[0]['dispositivo'], 'Chrome · Android', 'nombre del celular');
+igual(\TuWhatsApp\Sesiones::usuarioDeCookie($db, $cookieS), $uS, 'sirve muchas veces (no cambia en cada uso)');
+[$selS] = explode(':', $cookieS);
+igual(\TuWhatsApp\Sesiones::usuarioDeCookie($db, $selS . ':' . str_repeat('0', 64)), null, 'validador robado/falso no entra');
+igual(\TuWhatsApp\Sesiones::usuarioDeCookie($db, $cookieS), null, '…y ese recuerdo queda borrado por seguridad');
+igual(\TuWhatsApp\Sesiones::usuarioDeCookie($db, 'basura'), null, 'cookie con formato malo');
+$c2 = \TuWhatsApp\Sesiones::recordar($db, $uS, 'x');
+$db->exec("UPDATE sesiones_recordadas SET expira = now() - interval '1 day' WHERE selector = '" . explode(':', $c2)[0] . "'");
+igual(\TuWhatsApp\Sesiones::usuarioDeCookie($db, $c2), null, 'vencido no entra');
+$c3 = \TuWhatsApp\Sesiones::recordar($db, $uS, 'x');
+\TuWhatsApp\Sesiones::olvidar($db, $c3);
+igual(\TuWhatsApp\Sesiones::usuarioDeCookie($db, $c3), null, 'al tocar Salir ya no sirve');
+$db->prepare('UPDATE usuarios SET clave = ? WHERE id = ?')->execute([password_hash('claveVieja1', PASSWORD_DEFAULT), $uS]);
+$c4 = \TuWhatsApp\Sesiones::recordar($db, $uS, 'x');
+$c5 = \TuWhatsApp\Sesiones::recordar($db, $uS, 'Mozilla/5.0 (Windows NT 10.0) Chrome/131.0');
+Empresas::cambiarMiClave($db, $uS, 'claveVieja1', 'claveNueva22', 'claveNueva22', \TuWhatsApp\Sesiones::idDeCookie($db, $c5));
+ok(\TuWhatsApp\Sesiones::usuarioDeCookie($db, $c4) === null && \TuWhatsApp\Sesiones::usuarioDeCookie($db, $c5) === $uS, 'cambiar mi contraseña cierra los otros celulares y deja este');
+$uS2 = (int) $db->query("SELECT id FROM usuarios WHERE empresa_id = $eS LIMIT 1")->fetchColumn();
+Empresas::agregarUsuario($db, $eS, 'agente@sesiones.ec', 'Agente', 'agente');
+$uA = (int) $db->query("SELECT id FROM usuarios WHERE correo = 'agente@sesiones.ec'")->fetchColumn();
+$cA = \TuWhatsApp\Sesiones::recordar($db, $uA, 'x');
+Empresas::cambiarUsuario($db, $eS, $uA, 'clave', $uS);
+igual(\TuWhatsApp\Sesiones::usuarioDeCookie($db, $cA), null, 'el administrador le pone contraseña nueva: se cierra en sus celulares');
+$cA = \TuWhatsApp\Sesiones::recordar($db, $uA, 'x');
+Empresas::cambiarUsuario($db, $eS, $uA, 'desactivar', $uS);
+igual(\TuWhatsApp\Sesiones::usuarioDeCookie($db, $cA), null, 'usuario desactivado: no entra con la cookie');
+$cB = \TuWhatsApp\Sesiones::recordar($db, $uS, 'x');
+$db->exec("UPDATE usuarios SET activo = false WHERE id = $uS");
+igual(\TuWhatsApp\Sesiones::usuarioDeCookie($db, $cB), null, 'usuario inactivo (de cualquier forma): no entra');
+$db->exec("UPDATE usuarios SET activo = true WHERE id = $uS");
+$cX = \TuWhatsApp\Sesiones::recordar($db, $uS, 'x');
+$idX = \TuWhatsApp\Sesiones::idDeCookie($db, $cX);
+ok(!\TuWhatsApp\Sesiones::cerrar($db, $uA, $idX) && \TuWhatsApp\Sesiones::usuarioDeCookie($db, $cX) === $uS, 'nadie cierra el celular de otra persona');
+ok(\TuWhatsApp\Sesiones::cerrar($db, $uS, $idX) && \TuWhatsApp\Sesiones::usuarioDeCookie($db, $cX) === null, 'cerrar un celular desde Mi cuenta');
+for ($i = 0; $i < 25; $i++) { \TuWhatsApp\Sesiones::recordar($db, $uS, 'x'); }
+ok((int) $db->query("SELECT count(*) FROM sesiones_recordadas WHERE usuario_id = $uS")->fetchColumn() <= 20, 'máximo 20 celulares recordados por persona');
+igual(\TuWhatsApp\Sesiones::dispositivo('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) TukanIOS/1.0'), 'App de iPhone · iPhone', 'reconoce la app de iPhone');
+
+use TuWhatsApp\Huella;
+echo "== Entrar con huella (WebAuthn simulado)\n";
+$rp = 'whatsapp.ejemplo.com';
+$origen = 'https://whatsapp.ejemplo.com';
+/** Simula un celular: arma lo que el navegador manda al registrar. */
+function celular_registro(\OpenSSLAsymmetricKey $k, string $credId, string $desafio, string $rp, string $origen, int $flags = 0x45, string $tipo = 'webauthn.create'): array
+{
+    $d = openssl_pkey_get_details($k);
+    if (isset($d['ec'])) {
+        $cose = [1 => 2, 3 => -7, -1 => 1, -2 => str_pad($d['ec']['x'], 32, "\0", STR_PAD_LEFT), -3 => str_pad($d['ec']['y'], 32, "\0", STR_PAD_LEFT)];
+    } else {
+        $cose = [1 => 3, 3 => -257, -1 => $d['rsa']['n'], -2 => $d['rsa']['e']];
+    }
+    $auth = hash('sha256', $rp, true) . chr($flags) . pack('N', 0) . str_repeat("\0", 16) . pack('n', strlen($credId)) . $credId . Huella::cborEscribir($cose);
+    $cd = json_encode(['type' => $tipo, 'challenge' => Huella::b64u($desafio), 'origin' => $origen, 'crossOrigin' => false]);
+    return ['id' => Huella::b64u($credId), 'clientDataJSON' => Huella::b64u($cd),
+            'attestationObject' => Huella::b64u(Huella::cborEscribir(['fmt' => ['t' => 'none'], 'attStmt' => [], 'authData' => $auth]))];
+}
+/** Simula el celular al entrar: firma con su llave. */
+function celular_entrar(\OpenSSLAsymmetricKey $k, string $credId, string $desafio, string $rp, string $origen, int $contador, int $flags = 0x05): array
+{
+    $auth = hash('sha256', $rp, true) . chr($flags) . pack('N', $contador);
+    $cd = json_encode(['type' => 'webauthn.get', 'challenge' => Huella::b64u($desafio), 'origin' => $origen]);
+    openssl_sign($auth . hash('sha256', $cd, true), $firma, $k, OPENSSL_ALGO_SHA256);
+    return ['id' => Huella::b64u($credId), 'clientDataJSON' => Huella::b64u($cd), 'authenticatorData' => Huella::b64u($auth), 'signature' => Huella::b64u($firma), 'userHandle' => ''];
+}
+$kH = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
+$credH = random_bytes(32);
+$des = random_bytes(32);
+// CBOR
+igual(Huella::cbor(Huella::cborEscribir(['a' => ['t' => 'hola'], 1 => -7, -2 => "\x01\x02", 'l' => [1, 2, 300, 70000], 'b' => true])), ['a' => 'hola', 1 => -7, -2 => "\x01\x02", 'l' => [1, 2, 300, 70000], 'b' => true], 'CBOR ida y vuelta');
+try { Huella::cbor("\xa5\x01"); $okC = false; } catch (RuntimeException $e) { $okC = true; }
+ok($okC, 'CBOR cortado se rechaza');
+$op = Huella::opcionesRegistro($db, ['id' => $uS, 'correo' => 'dueno@sesiones.ec', 'nombre' => 'Dueña'], $rp, $des);
+ok($op['rp']['id'] === $rp && $op['authenticatorSelection']['userVerification'] === 'required' && $op['authenticatorSelection']['residentKey'] === 'required'
+   && $op['attestation'] === 'none' && Huella::deB64u($op['challenge']) === $des, 'opciones para activar la huella');
+ok($op['user']['id'] === Huella::b64u(Huella::idUsuario($uS)) && !str_contains(Huella::deB64u($op['user']['id']), (string) $uS), 'identificador de la persona no revela su id');
+$idH = Huella::registrar($db, $uS, celular_registro($kH, $credH, $des, $rp, $origen), $des, $rp, $origen, 'Chrome · Android');
+ok($idH > 0 && Huella::cuantas($db, $uS) === 1, 'huella guardada');
+foreach ([
+    'desafío equivocado' => [celular_registro($kH, random_bytes(32), random_bytes(32), $rp, $origen), $des, $rp, $origen],
+    'origen equivocado' => [celular_registro($kH, random_bytes(32), $des, $rp, 'https://malo.com'), $des, $rp, $origen],
+    'otra página (rpId)' => [celular_registro($kH, random_bytes(32), $des, 'malo.com', $origen), $des, $rp, $origen],
+    'sin comprobar la huella (UV)' => [celular_registro($kH, random_bytes(32), $des, $rp, $origen, 0x41), $des, $rp, $origen],
+    'tipo equivocado' => [celular_registro($kH, random_bytes(32), $des, $rp, $origen, 0x45, 'webauthn.get'), $des, $rp, $origen],
+    'desafío vacío (vencido o usado)' => [celular_registro($kH, random_bytes(32), $des, $rp, $origen), '', $rp, $origen],
+] as $que => [$r, $d, $rr, $oo]) {
+    try { Huella::registrar($db, $uS, $r, $d, $rr, $oo); $okR = false; } catch (RuntimeException $e) { $okR = true; }
+    ok($okR, "registro rechazado: $que");
+}
+try { Huella::registrar($db, $uA, celular_registro($kH, $credH, $des, $rp, $origen), $des, $rp, $origen); $okR = false; } catch (RuntimeException $e) { $okR = str_contains($e->getMessage(), 'otra cuenta'); }
+ok($okR, 'la misma huella no se guarda en otra cuenta');
+// Entrar
+$d2 = random_bytes(32);
+igual(Huella::opcionesEntrar($rp, $d2)['allowCredentials'], [], 'entrar sin escribir el correo (credencial guardada en el celular)');
+igual(Huella::entrar($db, celular_entrar($kH, $credH, $d2, $rp, $origen, 1), $d2, $rp, $origen), $uS, 'entra con la huella');
+ok($db->query("SELECT ultimo_uso IS NOT NULL AND contador = 1 FROM huellas WHERE id = $idH")->fetchColumn(), 'anota el último uso y el contador');
+$kOtro = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
+$d3 = random_bytes(32);
+foreach ([
+    'firma mala (otra llave)' => [celular_entrar($kOtro, $credH, $d3, $rp, $origen, 5), $d3, $rp, $origen],
+    'desafío reusado' => [celular_entrar($kH, $credH, $d2, $rp, $origen, 6), $d3, $rp, $origen],
+    'origen equivocado' => [celular_entrar($kH, $credH, $d3, $rp, 'https://whatsapp.ejemplo.com.malo.com', 7), $d3, $rp, $origen],
+    'otra página (rpId)' => [celular_entrar($kH, $credH, $d3, 'malo.com', $origen, 8), $d3, $rp, $origen],
+    'sin huella (UV)' => [celular_entrar($kH, $credH, $d3, $rp, $origen, 9, 0x01), $d3, $rp, $origen],
+    'huella copiada (contador hacia atrás)' => [celular_entrar($kH, $credH, $d3, $rp, $origen, 1), $d3, $rp, $origen],
+    'huella que no está guardada' => [celular_entrar($kH, random_bytes(32), $d3, $rp, $origen, 10), $d3, $rp, $origen],
+] as $que => [$r, $d, $rr, $oo]) {
+    try { Huella::entrar($db, $r, $d, $rr, $oo); $okE = false; } catch (RuntimeException $e) { $okE = true; }
+    ok($okE, "entrar rechazado: $que");
+}
+// Desafío de un solo uso y con vencimiento (en la sesión)
+$dS = Huella::nuevoDesafio('entrar');
+ok(Huella::tomarDesafio('entrar') === $dS && Huella::tomarDesafio('entrar') === '', 'el desafío sirve una sola vez');
+Huella::nuevoDesafio('registro:1');
+igual(Huella::tomarDesafio('entrar'), '', 'el desafío de activar no sirve para entrar');
+Huella::nuevoDesafio('entrar');
+$_SESSION['huella_desafio']['hasta'] = time() - 1;
+igual(Huella::tomarDesafio('entrar'), '', 'desafío vencido (5 minutos)');
+// RSA (algunos celulares Windows)
+$kR = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+$credR = random_bytes(20);
+$d4 = random_bytes(32);
+Huella::registrar($db, $uS, celular_registro($kR, $credR, $d4, $rp, $origen), $d4, $rp, $origen);
+$d5 = random_bytes(32);
+igual(Huella::entrar($db, celular_entrar($kR, $credR, $d5, $rp, $origen, 0), $d5, $rp, $origen), $uS, 'llave RSA (RS256) también entra');
+// Usuario desactivado o contraseña nueva
+$db->exec("UPDATE usuarios SET activo = false WHERE id = $uS");
+$d6 = random_bytes(32);
+try { Huella::entrar($db, celular_entrar($kH, $credH, $d6, $rp, $origen, 20), $d6, $rp, $origen); $okE = false; } catch (RuntimeException $e) { $okE = str_contains($e->getMessage(), 'desactivado'); }
+ok($okE, 'usuario desactivado no entra con huella');
+$db->exec("UPDATE usuarios SET activo = true WHERE id = $uS");
+ok(!Huella::quitar($db, $uA, $idH) && Huella::quitar($db, $uS, $idH) && Huella::cuantas($db, $uS) === 1, 'quitar una huella (solo las propias)');
+$db->exec("UPDATE usuarios SET activo = true WHERE id = $uA");
+$credA = random_bytes(32); $d7 = random_bytes(32);
+Huella::registrar($db, $uA, celular_registro($kOtro, $credA, $d7, $rp, $origen), $d7, $rp, $origen);
+Empresas::cambiarUsuario($db, $eS, $uA, 'clave', $uS);
+igual(Huella::cuantas($db, $uA), 0, 'contraseña nueva puesta por el administrador: se borran sus huellas (por si perdió el celular)');
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

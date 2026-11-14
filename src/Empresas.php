@@ -209,6 +209,9 @@ final class Empresas
             case 'clave':
                 $clave = self::claveNueva();
                 $db->prepare('UPDATE usuarios SET clave = ? WHERE id = ?')->execute([password_hash($clave, PASSWORD_DEFAULT), $usuarioId]);
+                // (14 nov 2026) Contraseña nueva = se cierra en todos sus celulares y se borran sus huellas (por si perdió el celular)
+                Sesiones::olvidarUsuario($db, $usuarioId);
+                $db->prepare('DELETE FROM huellas WHERE usuario_id = ?')->execute([$usuarioId]);
                 return $clave;
             case 'admin':
             case 'agente':
@@ -216,6 +219,7 @@ final class Empresas
                 return null;
             case 'desactivar':
                 $db->prepare('UPDATE usuarios SET activo = false WHERE id = ?')->execute([$usuarioId]);
+                Sesiones::olvidarUsuario($db, $usuarioId);   // (14 nov 2026) se cierra en todos sus celulares
                 return null;
             case 'activar':
                 $e = self::buscar($db, $empresaId);
@@ -230,7 +234,8 @@ final class Empresas
         throw new RuntimeException('Acción no válida.');
     }
 
-    public static function cambiarMiClave(PDO $db, int $usuarioId, string $actual, string $nueva, string $repetir): void
+    /** Cambia la contraseña propia. (14 nov 2026) Cierra la sesión en los demás celulares; $esteCelular (id del recuerdo) se queda abierto. */
+    public static function cambiarMiClave(PDO $db, int $usuarioId, string $actual, string $nueva, string $repetir, ?int $esteCelular = null): void
     {
         $st = $db->prepare('SELECT clave FROM usuarios WHERE id = ?');
         $st->execute([$usuarioId]);
@@ -244,6 +249,7 @@ final class Empresas
             throw new RuntimeException('Las dos contraseñas nuevas no son iguales.');
         }
         $db->prepare('UPDATE usuarios SET clave = ? WHERE id = ?')->execute([password_hash($nueva, PASSWORD_DEFAULT), $usuarioId]);
+        Sesiones::olvidarUsuario($db, $usuarioId, $esteCelular);
     }
 
     /** Crea un token de API nuevo para la empresa (se muestra una sola vez; se guarda solo su huella). */

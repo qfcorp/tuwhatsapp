@@ -129,11 +129,21 @@ if ($u && $linea) {
     <?php foreach ($avisos as [$tipo, $texto]): ?>
     <div class="tk-aviso <?= ['ok' => 'ok', 'error' => 'mal'][$tipo] ?? 'info' ?> aviso aviso-<?= e($tipo) ?>" role="<?= $tipo === 'error' ? 'alert' : 'status' ?>"><?= e($texto) ?></div>
     <?php endforeach; ?>
+    <?php if ($u && !empty($_SESSION['ofrecer_huella'])): unset($_SESSION['ofrecer_huella']); ?>
+    <section class="tarjeta tk-tarjeta" id="ofrecer-huella" hidden>
+        <h2>👆 ¿Entrar con tu huella la próxima vez?</h2>
+        <p>Si algún día se cierra la sesión, entras con tu huella en vez de escribir la contraseña. Tu huella no sale del celular.</p>
+        <button type="button" class="boton tk-boton" data-huella-activar="ofrecer-huella-estado">Sí, usar mi huella</button>
+        <button type="button" class="enlace" id="huella-ahora-no">Ahora no</button>
+        <div id="ofrecer-huella-estado" role="status" aria-live="polite" hidden></div>
+    </section>
+    <?php endif; ?>
     <?= $contenido ?>
 </main>
 <?php if ($u): ?></div><?php endif; ?>
 <script src="/assets/tukan-ui.js?v=1" defer></script>
 <script src="/assets/app.js?v=11" defer></script>
+<script src="/assets/huella.js?v=1" defer></script>
 <?php if ($u && $linea && !empty($linea['llamadas_activo'])): ?><script src="/assets/llamadas.js?v=1" defer></script><?php endif; ?>
 </body>
 </html>

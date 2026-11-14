@@ -37,6 +37,14 @@ if (!defined('TUWA_SIN_SESION') && PHP_SAPI !== 'cli') {
         'samesite' => 'Lax',
     ]);
     ini_set('session.gc_maxlifetime', (string) (60 * 60 * 24 * 30));
+    // (14 nov 2026) Las sesiones van en carpeta propia: en Ubuntu el cron «sessionclean» borra las de /var/lib/php/sessions a los
+    // 24 minutos (usa el php.ini, no este ini_set) y por eso la app pedía entrar a cada rato. Aquí PHP las limpia solo a los 30 días.
+    $dirSesiones = (string) (getenv('TUWA_SESIONES') ?: '/var/lib/tuwhatsapp/sesiones');
+    if (is_dir($dirSesiones) && is_writable($dirSesiones)) {
+        session_save_path($dirSesiones);
+        ini_set('session.gc_probability', '1');
+        ini_set('session.gc_divisor', '1000');
+    }
     session_start();
     header('X-Frame-Options: DENY');
     header('X-Content-Type-Options: nosniff');
@@ -184,12 +192,91 @@ function usuario(): ?array
         return $u;
     }
     $id = (int) ($_SESSION['usuario_id'] ?? 0);
+    if ($id <= 0 && PHP_SAPI !== 'cli' && is_string($_COOKIE[\TuWhatsApp\Sesiones::COOKIE] ?? null)) {
+        $id = entrar_por_cookie();   // (14 nov 2026) «Recordar este celular»: la sesión se abre sola, como WhatsApp
+    }
     if ($id <= 0) {
         return $u = null;
     }
     $st = db()->prepare('SELECT id, nombre, correo, empresa_id, rol, super, idioma FROM usuarios WHERE id = ? AND activo');
     $st->execute([$id]);
     return $u = ($st->fetch() ?: null);
+}
+
+// ---------------------------------------------------------------------
+// (14 nov 2026) La app se queda abierta como WhatsApp: «Recordar este celular» y entrar con huella.
+// ---------------------------------------------------------------------
+
+function es_https(): bool
+{
+    return (($_SERVER['HTTPS'] ?? '') === 'on') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+}
+
+/** Abre la sesión con la cookie tuwa_recordar. Devuelve el id del usuario o 0 (y borra la cookie si ya no sirve). */
+function entrar_por_cookie(): int
+{
+    $cookie = (string) $_COOKIE[\TuWhatsApp\Sesiones::COOKIE];
+    try {
+        $id = \TuWhatsApp\Sesiones::usuarioDeCookie(db(), $cookie) ?? 0;
+        if ($id > 0) {
+            // El personal de Tukán entra solo desde el Panel Tukán Central (igual que en la pantalla de entrar)
+            $st = db()->prepare('SELECT super FROM usuarios WHERE id = ?');
+            $st->execute([$id]);
+            if ($st->fetchColumn() && \TuWhatsApp\TukanCentral::soloCentral()) {
+                \TuWhatsApp\Sesiones::olvidar(db(), $cookie);
+                $id = 0;
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('tuwhatsapp recordar: ' . $e->getMessage());
+        return 0;
+    }
+    if ($id <= 0) {
+        borrar_cookie_recordar();
+        return 0;
+    }
+    if (session_status() === PHP_SESSION_ACTIVE && !headers_sent()) {
+        session_regenerate_id(true);
+    }
+    $_SESSION['usuario_id'] = $id;
+    return $id;
+}
+
+/** Guarda la cookie para que este celular no vuelva a pedir la contraseña. */
+function recordar_este_celular(int $usuarioId): void
+{
+    $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+    $valor = \TuWhatsApp\Sesiones::recordar(db(), $usuarioId, $ua, en_app_android() ? 'App Tukán Mensajes · Android' : null);
+    setcookie(\TuWhatsApp\Sesiones::COOKIE, $valor, ['expires' => time() + 60 * 60 * 24 * \TuWhatsApp\Sesiones::DIAS, 'path' => '/',
+        'secure' => es_https(), 'httponly' => true, 'samesite' => 'Lax']);
+    $_COOKIE[\TuWhatsApp\Sesiones::COOKIE] = $valor;
+}
+
+function borrar_cookie_recordar(): void
+{
+    if (!headers_sent()) {
+        setcookie(\TuWhatsApp\Sesiones::COOKIE, '', ['expires' => time() - 3600, 'path' => '/', 'secure' => es_https(), 'httponly' => true, 'samesite' => 'Lax']);
+    }
+    unset($_COOKIE[\TuWhatsApp\Sesiones::COOKIE]);
+}
+
+/** Id del recuerdo de este celular (o null). */
+function este_celular(): ?int
+{
+    $c = $_COOKIE[\TuWhatsApp\Sesiones::COOKIE] ?? null;
+    return is_string($c) ? \TuWhatsApp\Sesiones::idDeCookie(db(), $c) : null;
+}
+
+/** Dominio para la huella (rpId) y origen exacto de la página (lo que firma el celular). */
+function huella_rp_id(): string
+{
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    return (string) preg_replace('/:\d+$/', '', $host);
+}
+
+function huella_origen(): string
+{
+    return (es_https() ? 'https' : 'http') . '://' . strtolower((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
 }
 
 /** Personal de Tukán: ve el panel de Clientes y puede entrar a cualquier cuenta para dar soporte. */

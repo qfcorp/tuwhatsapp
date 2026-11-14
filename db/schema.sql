@@ -732,3 +732,33 @@ CREATE INDEX IF NOT EXISTS pagos_plan_empresa ON pagos_plan (empresa_id, fecha D
 -- (10 nov 2026) Identidad gráfica común de Tukán: «Primeros pasos» en el Inicio. Se muestran hasta completarlos; el administrador los
 -- puede «Ocultar» para toda la cuenta.
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS pasos_ocultos boolean NOT NULL DEFAULT false;
+
+-- =====================================================================
+-- 14 nov 2026: la app se queda abierta como WhatsApp («Recordar este celular») y se puede entrar con huella.
+-- sesiones_recordadas: cookie tuwa_recordar = selector:validador (400 días); aquí solo el sha256 del validador.
+-- huellas: llaves de acceso (WebAuthn / passkeys) de cada celular; la huella nunca sale del celular.
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS sesiones_recordadas (
+    id              bigserial PRIMARY KEY,
+    usuario_id      integer NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    selector        text NOT NULL UNIQUE,
+    validador_hash  text NOT NULL,
+    dispositivo     text NOT NULL DEFAULT '',
+    creado          timestamptz NOT NULL DEFAULT now(),
+    ultimo_uso      timestamptz NOT NULL DEFAULT now(),
+    expira          timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sesiones_recordadas_usuario ON sesiones_recordadas (usuario_id);
+
+CREATE TABLE IF NOT EXISTS huellas (
+    id              serial PRIMARY KEY,
+    usuario_id      integer NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    credencial_id   text NOT NULL UNIQUE,
+    llave_pem       text NOT NULL,
+    alg             integer NOT NULL DEFAULT -7,
+    contador        bigint NOT NULL DEFAULT 0,
+    nombre          text NOT NULL DEFAULT '',
+    creado          timestamptz NOT NULL DEFAULT now(),
+    ultimo_uso      timestamptz
+);
+CREATE INDEX IF NOT EXISTS huellas_usuario ON huellas (usuario_id);

@@ -1,5 +1,18 @@
 # WhatsApp Tukán — Estado y pasos para continuar
-*Actualizado: 7 nov 2026*
+*Actualizado: 14 nov 2026*
+
+## 🔓 La app se queda abierta como WhatsApp + entrar con huella (14 nov 2026)
+Pedido de Dimitry: «debo ingresar a cada rato; debería ingresar una vez y que quede ahí abierta, por último con huella; si me olvidé de loguearme se pierde».
+- Causa: en Ubuntu el cron `sessionclean` borraba las sesiones de `/var/lib/php/sessions` a los **24 minutos** (php.ini), aunque el programa pedía 30 días.
+  Arreglo: sesiones en `/var/lib/tuwhatsapp/sesiones` (lo crea `deploy/instalar.sh`, con limpieza diaria de las de más de 30 días).
+- **Recordar este celular** (marcado por defecto): cookie de 400 días, tabla `sesiones_recordadas` (solo hash). Si se pierde la sesión, entra sola.
+  Mi cuenta → **Dispositivos con sesión abierta** (cerrar uno / en todos los demás). Cambiar la contraseña cierra los demás.
+- **Entrar con huella** (WebAuthn, `src/Huella.php`, tabla `huellas`, `public/assets/huella.js`): botón en la pantalla de entrar, oferta después de entrar
+  con contraseña y Mi cuenta → Activar huella / Quitar. Contraseña nueva puesta por el administrador borra las huellas.
+- Pruebas: autenticador simulado en PHP (EC y RSA): firma mala, desafío reusado o vencido, origen y dominio equivocados, sin huella (UV), contador hacia
+  atrás, usuario desactivado; cookie válida/robada/vencida/borrada al salir y al cambiar la clave; de punta a punta en pantallas con `tests/huella_celular.php`.
+- Manual: capítulo 21 nuevo (+ novedades). **Falta regenerar el PDF del manual** después de unir con los cambios de avisos.
+- Al actualizar el servidor: correr el instalador (crea la carpeta de sesiones y las 2 tablas nuevas). Los usuarios entran **una vez más** con la casilla marcada.
 
 ## 🎨 Identidad gráfica común de Tukán (10 nov 2026, noche)
 Pedido de Dimitry: «todos los programas iguales al ERP, cada uno con sus colores».

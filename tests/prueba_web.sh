@@ -254,6 +254,70 @@ ok 'tiene "Intenta de nuevo" && ! tiene "Ahora es: Personal"' "POST sin csrf se 
 get "/?r=algo_raro";  ok '[ "$CODIGO" = 404 ]' "ruta desconocida 404"
 get "/?r=salir"; get "/?r=gasto"; ok '[ "$CODIGO" = 302 ]' "después de salir no entra"
 
+echo "== Recordar este celular (no vuelve a pedir entrar) y entrar con huella"
+J_ANTES="$J"; J="$(mktemp)"
+RP_H="127.0.0.1"; ORIGEN_H="$W"; HDIR="$(mktemp -d)"
+DBH="${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}"
+hpost() {   # hpost <página para sacar el csrf> <accion> [datos JSON] [más campos]
+  local pag="$1" acc="$2" datos="${3:-}"; shift 3 2>/dev/null || shift $#
+  curl -s -o "$P.pag" -b "$J" -c "$J" "$W$pag"
+  local c; c=$(grep -o 'name="csrf" value="[^"]*"' "$P.pag" | head -1 | sed 's/.*value="//;s/"$//')
+  CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" --data-urlencode "csrf=$c" --data-urlencode "accion=$acc" --data-urlencode "datos=$datos" "$@" "$W/?r=huella")
+}
+desafio() { php -r '$j = json_decode(file_get_contents($argv[1]), true); echo $j["opciones"]["challenge"] ?? "";' "$P"; }
+get "/?r=login"
+ok 'tiene "name=\"recordar\" value=\"1\" checked" && tiene "Recordar este celular" && tiene "id=\"entrar-huella\"" && tiene "huella.js"' "pantalla de entrar: «Recordar este celular» marcado y botón de huella"
+post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=claveSegura1"
+ok '! grep -q tuwa_recordar "$J"' "sin la casilla no se recuerda el celular"
+get "/?r=salir"; J="$(mktemp)"; get "/?r=login"
+post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=claveSegura1" --data-urlencode "recordar=1"
+ok 'grep -q "tuwa_recordar" "$J" && tiene "id=\"ofrecer-huella\""' "con la casilla: guarda la cookie y ofrece la huella"
+ok '[ "$(psql -tA -d "$DBH" -c "SELECT count(*) FROM sesiones_recordadas")" = 1 ]' "un celular recordado en la base"
+sed -i '/[[:space:]]tuwhatsapp[[:space:]]/d' "$J"   # se pierde la sesión de PHP (servidor reiniciado, limpieza de sesiones…)
+get "/?r=bandeja"; ok '[ "$CODIGO" = 200 ] && tiene "Salir"' "sesión perdida: la cookie la vuelve a abrir sola (no pide entrar)"
+get "/?r=bandeja"; ok '! tiene "id=\"ofrecer-huella\""' "la oferta de la huella sale una sola vez"
+get "/?r=cuenta"
+ok 'tiene "Dispositivos con sesión abierta" && tiene "Este celular" && tiene "Activar huella en este celular"' "Mi cuenta: celulares con la sesión abierta y activar la huella"
+# Activar la huella en este celular (celular simulado: tests/huella_celular.php)
+hpost "/?r=cuenta" opciones_registro ""
+ok '[ "$CODIGO" = 200 ] && grep -q "\"userVerification\":\"required\"" "$P" && grep -q "\"rp\":{\"id\":\"127.0.0.1\"" "$P"' "opciones para activar la huella"
+DES=$(desafio)
+hpost "/?r=cuenta" registrar "$(php tests/huella_celular.php registro "$HDIR" "$DES" "$RP_H" "$ORIGEN_H")"
+ok '[ "$CODIGO" = 200 ] && grep -q "\"ok\":true" "$P"' "huella activada"
+hpost "/?r=cuenta" registrar "$(php tests/huella_celular.php registro "$HDIR" "$DES" "$RP_H" "$ORIGEN_H")"
+ok '[ "$CODIGO" = 400 ] && grep -q "venció" "$P"' "el mismo desafío no sirve dos veces"
+get "/?r=cuenta"; ok 'tiene "Activada el"' "la huella aparece en Mi cuenta"
+# Salir: se borra el recuerdo y la cookie
+get "/?r=salir"
+ok '[ "$(psql -tA -d "$DBH" -c "SELECT count(*) FROM sesiones_recordadas")" = 0 ]' "al salir se olvida este celular"
+sed -i '/[[:space:]]tuwhatsapp[[:space:]]/d' "$J"; get "/?r=bandeja"; ok '[ "$CODIGO" = 302 ]' "después de salir pide entrar (la cookie ya no sirve)"
+# Entrar con huella
+J="$(mktemp)"
+hpost "/?r=login" opciones_entrar ""
+ok '[ "$CODIGO" = 200 ] && grep -q "\"allowCredentials\":\[\]" "$P"' "opciones para entrar con huella"
+DES=$(desafio)
+hpost "/?r=login" entrar "$(php tests/huella_celular.php mala "$HDIR" "$DES" "$RP_H" "$ORIGEN_H" 3)"
+ok '[ "$CODIGO" = 400 ] && grep -q "no coincide" "$P"' "firma mala no entra"
+get "/?r=bandeja"; ok '[ "$CODIGO" = 302 ]' "…y sigue sin sesión"
+hpost "/?r=login" opciones_entrar ""; DES=$(desafio)
+hpost "/?r=login" entrar "$(php tests/huella_celular.php entrar "$HDIR" "$DES" "http://otra.com" "http://otra.com" 4)"
+ok '[ "$CODIGO" = 400 ]' "huella pedida desde otra página no entra"
+hpost "/?r=login" opciones_entrar ""; DES=$(desafio)
+hpost "/?r=login" entrar "$(php tests/huella_celular.php entrar "$HDIR" "$DES" "$RP_H" "$ORIGEN_H" 5)"
+ok '[ "$CODIGO" = 200 ] && grep -q "\"ok\":true" "$P" && grep -q "tuwa_recordar" "$J"' "entra con la huella (y recuerda el celular)"
+get "/?r=bandeja"; ok '[ "$CODIGO" = 200 ]' "con sesión después de la huella"
+hpost "/?r=login" entrar "$(php tests/huella_celular.php entrar "$HDIR" "$DES" "$RP_H" "$ORIGEN_H" 6)"
+ok '[ "$CODIGO" = 400 ]' "el desafío de entrar no se puede reusar"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" -d "accion=opciones_entrar" "$W/?r=huella"); ok '[ "$CODIGO" = 400 ]' "sin csrf se rechaza"
+# Cerrar la sesión en los otros celulares desde Mi cuenta
+J_OTRO="$(mktemp)"; cp "$J" "$J_OTRO.base"; J="$J_OTRO"; get "/?r=login"
+post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=claveSegura1" --data-urlencode "recordar=1"
+J="$(mktemp)"; cp "$J_OTRO.base" "$J"
+get "/?r=cuenta"; post "/?r=cuenta" --data-urlencode "accion=cerrar_otros"
+ok 'tiene "se cerró la sesión en tus otros celulares"' "cerrar en todos los demás"
+J="$J_OTRO"; sed -i '/[[:space:]]tuwhatsapp[[:space:]]/d' "$J"; get "/?r=bandeja"; ok '[ "$CODIGO" = 302 ]' "el otro celular tiene que entrar de nuevo"
+get "/?r=salir"; J="$J_ANTES"; rm -rf "$HDIR"
+
 
 echo "== Cuentas por cliente"
 entrar() { J="$(mktemp)"; get "/?r=login"; post "/?r=login" --data-urlencode "correo=$1" --data-urlencode "clave=$2"; }

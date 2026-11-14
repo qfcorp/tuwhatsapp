@@ -1,4 +1,5 @@
 <?php
+/** @var list<array> $celulares @var ?int $esteCelular @var list<array> $huellas */
 /** @var array $empresa @var list<array> $usuarios @var ?array $claveNueva @var ?string $tokenNuevo @var int $numeros @var array $plan
  *  @var ?array $pago pagar el plan con tarjeta (null = no se muestra: como antes) */
 use TuWhatsApp\Empresas;
@@ -59,6 +60,50 @@ $activos = count(array_filter($usuarios, fn ($x) => $x['activo']));
     <?php endif; ?>
 </section>
 <?php endif; ?>
+
+<section class="tarjeta tk-tarjeta" id="sesiones">
+    <h2>Entrar sin escribir la contraseña</h2>
+    <p class="suave">La app se queda abierta como WhatsApp: en los celulares de esta lista no se vuelve a pedir la contraseña. Si pierdes un celular, ciérralo aquí.</p>
+    <h3>Dispositivos con sesión abierta</h3>
+    <?php if (!$celulares): ?>
+    <p class="suave pequeno">Ninguno todavía. Al entrar, deja marcada la casilla «Recordar este celular».</p>
+    <?php else: ?>
+    <ul class="lista-simple">
+        <?php foreach ($celulares as $c): ?>
+        <li>
+            <span><b><?= e($c['dispositivo'] !== '' ? $c['dispositivo'] : 'Navegador') ?></b><?= (int) $c['id'] === (int) $esteCelular ? ' <small class="chip">Este celular</small>' : '' ?><br>
+                <small class="suave">Desde el <?= e((new DateTimeImmutable($c['creado']))->format('d/m/Y')) ?> · último uso <?= e((new DateTimeImmutable($c['ultimo_uso']))->format('d/m/Y H:i')) ?></small></span>
+            <form method="post"><?= csrf_campo() ?><input type="hidden" name="accion" value="cerrar_celular"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
+                <button class="boton boton-claro tk-boton chico secundario">Cerrar sesión</button></form>
+        </li>
+        <?php endforeach; ?>
+    </ul>
+    <?php if (count($celulares) > 1 || ($celulares && $esteCelular === null)): ?>
+    <form method="post"><?= csrf_campo() ?><input type="hidden" name="accion" value="cerrar_otros">
+        <button class="boton boton-claro tk-boton secundario">Cerrar en todos los demás</button></form>
+    <?php endif; ?>
+    <?php endif; ?>
+
+    <h3>👆 Entrar con huella</h3>
+    <?php if ($huellas): ?>
+    <ul class="lista-simple">
+        <?php foreach ($huellas as $h): ?>
+        <li>
+            <span><b><?= e($h['nombre']) ?></b><br><small class="suave">Activada el <?= e((new DateTimeImmutable($h['creado']))->format('d/m/Y')) ?><?= $h['ultimo_uso'] ? ' · último uso ' . e((new DateTimeImmutable($h['ultimo_uso']))->format('d/m/Y H:i')) : '' ?></small></span>
+            <form method="post"><?= csrf_campo() ?><input type="hidden" name="accion" value="quitar_huella"><input type="hidden" name="id" value="<?= (int) $h['id'] ?>">
+                <button class="boton boton-claro tk-boton chico secundario">Quitar</button></form>
+        </li>
+        <?php endforeach; ?>
+    </ul>
+    <?php else: ?>
+    <p class="suave pequeno">Todavía no tienes huella activada.</p>
+    <?php endif; ?>
+    <div data-huella hidden>
+        <button type="button" class="boton tk-boton" data-huella-activar="huella-estado" data-recargar>👆 Activar huella en este celular</button>
+    </div>
+    <div id="huella-estado" role="status" aria-live="polite" hidden></div>
+    <p class="suave pequeno">Funciona en celulares con huella o reconocimiento de cara y bloqueo de pantalla activado. La huella nunca sale de tu celular.</p>
+</section>
 
 <details class="tarjeta tk-tarjeta plegable">
     <summary>Cambiar mi contraseña</summary>

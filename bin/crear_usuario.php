@@ -34,4 +34,6 @@ if (mb_strlen($clave) < 8) {
 $st = db()->prepare("INSERT INTO usuarios (correo, nombre, clave, empresa_id, rol, super, activo) VALUES (lower(?), ?, ?, 1, 'admin', true, true)
                      ON CONFLICT (correo) DO UPDATE SET nombre = EXCLUDED.nombre, clave = EXCLUDED.clave, activo = true RETURNING id");
 $st->execute([$correo, $nombre !== '' ? $nombre : $correo, password_hash($clave, PASSWORD_DEFAULT)]);
+// (14 nov 2026) Contraseña nueva: se cierra la sesión recordada en todos sus celulares
+\TuWhatsApp\Sesiones::olvidarUsuario(db(), (int) $st->fetchColumn());
 echo "LISTO: ya puedes entrar con $correo\n";

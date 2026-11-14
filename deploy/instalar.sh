@@ -37,6 +37,13 @@ sudo mkdir -p "$APP/config" "$APP/archivos"
 sudo chown -R "$YO":www-data "$APP"
 sudo chmod 2770 "$APP/archivos"   # fotos y audios de los chats: los escribe el programa (www-data)
 
+echo "== 2b. Sesiones en carpeta propia (la app no vuelve a pedir entrar a cada rato)"
+# Ubuntu borra las sesiones de /var/lib/php/sessions a los 24 minutos; las de WhatsApp Tukan viven aqui 30 dias
+sudo mkdir -p /var/lib/tuwhatsapp/sesiones && sudo chown www-data:www-data /var/lib/tuwhatsapp/sesiones && sudo chmod 700 /var/lib/tuwhatsapp/sesiones \
+  && echo "   listo" || echo "   AVISO: no se pudo crear /var/lib/tuwhatsapp/sesiones"
+LINEA_SES="17 4 * * * find /var/lib/tuwhatsapp/sesiones -type f -name 'sess_*' -mtime +30 -delete"
+(sudo crontab -l 2>/dev/null | grep -v "tuwhatsapp/sesiones"; echo "$LINEA_SES") | sudo crontab - && echo "   limpieza diaria de sesiones viejas: lista"
+
 echo "== 3. Base de datos"
 ENVF="$APP/config/.env"
 viejo() { [ -f "$ENVF" ] && grep -E "^$1=" "$ENVF" | head -1 | cut -d= -f2- || true; }
@@ -115,7 +122,7 @@ sudo touch /var/log/tuwhatsapp-campanias.log && sudo chown www-data:www-data /va
 
 echo
 echo "=========== RESULTADO ==========="
-echo "1) Tablas: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" < /dev/null) (deben ser 32)"
+echo "1) Tablas: $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" < /dev/null) (deben ser $(grep -c '^CREATE TABLE' "$APP/db/schema.sql"))"
 echo "2) Extensiones de PHP: $(php -m | grep -E -c '^(pdo_pgsql|curl|mbstring|sodium)$') (deben ser 4)"
 curl -s -o /dev/null -w "3) Pagina de entrar: %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/?r=login"
 curl -s -o /dev/null -w "4) Webhook: %{http_code} (debe ser 403 hasta conectar Meta)\n" -H "Host: $DOMINIO" "http://127.0.0.1/webhook.php"
@@ -127,6 +134,7 @@ sudo grep -q '^TUKAN_IA_CLAVE=.' /etc/tukan-ia.env 2>/dev/null && echo "9) Asist
 curl -s -o /dev/null -w "10) Pagina de pago con tarjeta (Plux): %{http_code} (debe ser 404 sin pedido)\n" -H "Host: $DOMINIO" "http://127.0.0.1/pagar.php"
 curl -s -o /dev/null -w "11) App de Android (assetlinks.json): %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/.well-known/assetlinks.json"
 curl -s -o /dev/null -w "12) Politica de privacidad: %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/privacidad.php"
+echo "13) Carpeta de sesiones (no pide entrar a cada rato): $(sudo -u www-data test -w /var/lib/tuwhatsapp/sesiones && echo lista || echo FALTA)"
 echo "================================="
 echo "Crear tu usuario:          php $APP/bin/crear_usuario.php"
 echo "Guardar la clave de Meta:  bash $APP/deploy/clave_meta.sh"

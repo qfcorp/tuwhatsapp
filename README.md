@@ -94,6 +94,22 @@ En la tienda y dentro de la app se llama **Tukán Mensajes** (Google no deja usa
 cobro con Google Play preparado y apagado (`TUWA_GOOGLE_PLAY_COBRO`). Cuenta de muestra para el revisor de Google (nunca llama a Meta):
 `sudo php /var/www/tuwhatsapp/deploy/demo_google.php crear`. Todo en [docs/GOOGLE_PLAY.md](docs/GOOGLE_PLAY.md).
 
+## La app se queda abierta (recordar el celular y entrar con huella) — 14 nov 2026
+Como WhatsApp: se entra una vez y no vuelve a pedir la contraseña.
+- **Sesiones en carpeta propia** `/var/lib/tuwhatsapp/sesiones` (o `TUWA_SESIONES`): en Ubuntu el cron `sessionclean` borraba las de
+  `/var/lib/php/sessions` a los 24 minutos (usa el php.ini, no el `ini_set` del programa) y por eso pedía entrar a cada rato. Aquí duran 30 días;
+  `deploy/instalar.sh` crea la carpeta (www-data, 700) y un cron diario que borra las de más de 30 días. Si la carpeta no existe, se usa la normal.
+- **«Recordar este celular»** (marcado por defecto al entrar): cookie `tuwa_recordar` = selector:validador por 400 días (lo máximo de Chrome);
+  en la tabla `sesiones_recordadas` solo queda el sha256 del validador. Si la sesión de PHP se pierde, la cookie la abre sola. Salir la borra;
+  cambiar mi contraseña cierra los demás celulares; contraseña nueva puesta por el administrador o usuario desactivado cierran todos.
+  **Mi cuenta → Dispositivos con sesión abierta**: cerrar uno o «Cerrar en todos los demás». Máximo 20 por persona. `src/Sesiones.php`.
+- **Entrar con huella** (WebAuthn / llaves de acceso, sin librerías): `src/Huella.php` (CBOR, llaves COSE ES256 y RS256, firma y contador).
+  Tabla `huellas`. Ruta JSON `/?r=huella` (`opciones_entrar`, `entrar`, `opciones_registro`, `registrar`; desafío en la sesión, un solo uso, 5 min).
+  Botón **👆 Entrar con huella** en la pantalla de entrar (solo si el celular puede), oferta «¿Entrar con tu huella la próxima vez?» después
+  de entrar con contraseña y **Mi cuenta → Activar huella en este celular / Quitar**. `public/assets/huella.js`. El dominio de la huella es
+  el de la página (whatsapp.tukanec.com); la huella nunca sale del celular.
+- El personal de Tukán con `TUKAN_SOLO_CENTRAL=1` no entra por cookie ni por huella (solo desde el Panel Tukán Central).
+
 ## Idiomas (botón 🌐)
 
 Arriba a la derecha está el botón **🌐**: el programa se usa en **español, inglés, francés, portugués o italiano**.

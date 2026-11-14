@@ -50,4 +50,8 @@ return [
     "No se pudo llamar",
     "No contestó o rechazó la llamada",
     "La llamada falló",
+    "Pon tu dedo en el sensor del celular…",
+    "No se pudo usar la huella. Intenta de nuevo o entra con tu contraseña.",
+    "Listo: la próxima vez entras con tu huella.",
+    "Cancelaste o se venció la huella. Intenta de nuevo.",
 ];

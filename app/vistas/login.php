@@ -21,7 +21,13 @@
             <?= csrf_campo() ?>
             <label>Correo<input type="email" name="correo" required autocomplete="username" value="<?= e($_POST['correo'] ?? '') ?>"></label>
             <label>Contraseña<input type="password" name="clave" required autocomplete="current-password"></label>
+            <label class="casilla"><input type="checkbox" name="recordar" value="1" checked> Recordar este celular (no vuelve a pedir la contraseña)</label>
             <button class="boton boton-grande tk-boton grande">Entrar</button>
+            <div data-huella hidden>
+                <p class="suave pequeno" style="text-align:center;margin:10px 0 6px">o</p>
+                <button type="button" class="boton boton-claro boton-grande tk-boton grande secundario" id="entrar-huella">👆 Entrar con huella</button>
+            </div>
+            <div id="huella-estado" role="status" aria-live="polite" hidden></div>
             <?php if (!en_app_tienda()): ?>
             <p class="suave pequeno" style="margin-top:12px">¿Todavía no tienes cuenta? <a href="https://wa.me/593983662181?text=<?= rawurlencode('Hola, quiero probar WhatsApp Tukán') ?>" target="_blank" rel="noopener">Pide tu prueba por WhatsApp</a>.</p>
             <?php endif; ?>
