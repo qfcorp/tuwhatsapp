@@ -303,6 +303,20 @@ final class Webhook
             }
         } finally {
             $this->avisarTelegram($linea, (int) $contacto['id'], $texto, (int) $id);
+            $this->avisarApp($linea, (int) $contacto['id'], $texto, (int) $id);
+        }
+    }
+
+    /** (14 nov 2026) Aviso NATIVO a los celulares con la app Tukán Mensajes (src/Fcm.php), también al final. */
+    private function avisarApp(array $linea, int $contactoId, string $texto, int $mensajeId): void
+    {
+        try {
+            $contacto = Contactos::buscar($this->db, (int) $linea['id'], $contactoId);
+            if ($contacto) {
+                Fcm::mensajeNuevo($this->db, $linea, $contacto, $texto, $mensajeId);
+            }
+        } catch (\Throwable $e) {
+            error_log('tuwhatsapp fcm: ' . $e->getMessage());
         }
     }
 

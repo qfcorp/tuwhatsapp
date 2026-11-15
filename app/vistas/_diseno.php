@@ -33,7 +33,7 @@ if ($u && $linea) {
         }
     }
 }
-if ($u && es_super()) $gruposMenu['Tukán'] = ['clientes' => 'Clientes de Tukán'];
+if ($u && es_super()) $gruposMenu['Tukán'] = ['clientes' => 'Clientes de Tukán', 'firebase' => 'Avisos de la app (Firebase)'];
 $avisos = tomar_avisos();
 // (14 nov 2026) ¿Le van a llegar avisos de mensajes nuevos? En Inicio y Bandeja: cinta amarilla si no tiene ningún dispositivo con avisos
 // ni el respaldo por correo ni Telegram; dentro de la app de Android, tarjeta para activar los avisos en ESE celular (si no lo está; se ve en JavaScript).
@@ -42,6 +42,13 @@ if ($u && in_array($rutaActual, ['inicio', 'bandeja'], true)) {
     $avisosApagados = \TuWhatsApp\Push::funcionando(db(), (int) $u['id']) === 0 && !\TuWhatsApp\AvisoCorreo::activoPara(db(), (int) $u['id'])
         && !\TuWhatsApp\Telegram::activoPara(db(), (int) $u['id']);
     $tarjetaAvisosApp = en_app_android();
+}
+// (14 nov 2026) Avisos NATIVOS de la app (src/Fcm.php): si este celular es la app con su registro, en vez de la tarjeta de Chrome se
+// pregunta una vez si recibe aquí los avisos (pendiente) o se pide cerrar y abrir la app (todavía sin registro). Vinculado: nada.
+$estadoFcm = (string) ($GLOBALS['estado_fcm'] ?? 'sin_cookie');
+$tarjetaFcm = $u && in_array($rutaActual, ['inicio', 'bandeja'], true) && in_array($estadoFcm, ['pendiente', 'sin_registro'], true) ? $estadoFcm : '';
+if ($estadoFcm !== 'sin_cookie') {
+    $tarjetaAvisosApp = false;   // la app nueva no usa los avisos de Chrome
 }
 $empresaVista = $u ? empresa_actual() : null;
 $lineas = $empresaVista ? \TuWhatsApp\Lineas::todas(db(), (int) $empresaVista['id']) : [];
@@ -148,6 +155,22 @@ if ($u && $linea) {
     <?php endif; ?>
     <?php if ($avisosApagados): ?>
     <a class="tk-aviso aviso cinta-avisos" role="alert" href="<?= e(url('app')) ?>">⚠️ <b>No te van a llegar avisos de mensajes nuevos.</b> <span>Activar →</span></a>
+    <?php endif; ?>
+    <?php if ($tarjetaFcm === 'pendiente'): ?>
+    <section class="tarjeta tk-tarjeta aviso tarjeta-avisos-app" id="tarjeta-fcm">
+        <h2>🔔 ¿Recibir aquí los avisos de tus clientes?</h2>
+        <p>Te llega un aviso en <b>este celular</b> cada vez que un cliente te escribe, aunque la app esté cerrada, igual que en WhatsApp.</p>
+        <form method="post" action="<?= e(url('app')) ?>" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_si">
+            <button class="boton tk-boton">🔔 Sí, avisarme en este celular</button></form>
+        <form method="post" action="<?= e(url('app')) ?>" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_no">
+            <button class="enlace">No, gracias</button></form>
+    </section>
+    <?php elseif ($tarjetaFcm === 'sin_registro'): ?>
+    <section class="tarjeta tk-tarjeta aviso tarjeta-avisos-app" id="tarjeta-fcm">
+        <h2>🔔 Falta un paso para los avisos</h2>
+        <p>Cierra la app <b>Tukán Mensajes</b> (deslízala de las apps abiertas) y vuelve a abrirla. Si el celular te pregunta si permites las
+        notificaciones, toca <b>Permitir</b>.</p>
+    </section>
     <?php endif; ?>
     <?php if ($tarjetaAvisosApp): ?>
     <section class="tarjeta tk-tarjeta aviso tarjeta-avisos-app" id="tarjeta-avisos-app" data-vapid="<?= e(\TuWhatsApp\Push::clavePublica(db())) ?>" hidden>

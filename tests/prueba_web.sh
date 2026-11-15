@@ -1205,6 +1205,84 @@ sqlp "UPDATE empresas e SET estado = a.estado, vence = a.vence, plan = a.plan, m
       cancelar_en = a.cancelar_en, cancelar_pedido = a.cancelar_pedido, cancelar_motivo = a.cancelar_motivo FROM _emp_antes a WHERE e.id = a.id; DROP TABLE _emp_antes"
 J="$TUKAN_J"
 
+echo "== Avisos nativos de la app (Firebase SIMULADO, src/Fcm.php)"
+J_FCM_ANTES="$J"
+fcmreg() { curl -s -o "$P" -w '%{http_code}' --data-urlencode "accion=${5:-registrar}" --data-urlencode "dispositivo=$1" --data-urlencode "secreto=$2" --data-urlencode "token=$3" --data-urlencode "modelo=$4" --data-urlencode "version=1.0.4" "$W/fcm.php"; }
+D1=$(openssl rand -hex 16); S1=$(openssl rand -hex 32); D2=$(openssl rand -hex 16); S2=$(openssl rand -hex 32)
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' "$W/fcm.php"); ok '[ "$CODIGO" = 405 ]' "fcm.php solo acepta POST"
+CODIGO=$(fcmreg "$D1" "$S1" "token-dimi-web" "Pixel 8"); ok '[ "$CODIGO" = 200 ] && tiene "\"ok\":true"' "la app registra su celular"
+CODIGO=$(fcmreg "$D1" "$(openssl rand -hex 32)" "token-robado" "Otro"); ok '[ "$CODIGO" = 403 ] && [ "$(sqlp "SELECT token FROM fcm_dispositivos WHERE dispositivo = '"'"'$D1'"'"'")" = token-dimi-web ]' "otro secreto: 403 y no cambia nada"
+CODIGO=$(fcmreg "zz$D1" "$S1" "t" "x"); ok '[ "$CODIGO" = 400 ]' "forma mala: 400"
+CODIGO=$(fcmreg "$D2" "$S2" "token-bella-web" "Moto G"); ok '[ "$CODIGO" = 200 ]' "otro celular registrado"
+# La clave de Firebase: solo el personal de Tukán
+CLAVEF="$(mktemp --suffix=.json)"
+php -r 'echo json_encode(["type" => "service_account", "project_id" => "tukan-mensajes-prueba", "private_key_id" => "k1", "private_key" => file_get_contents(getenv("FCM_SIM_PRIVADA")),
+  "client_email" => getenv("FCM_SIM_CORREO"), "token_uri" => getenv("FCM_URL") . "/token"], JSON_UNESCAPED_SLASHES);' > "$CLAVEF"
+entrar bella@salon.com BellaNueva1
+get "/?r=firebase"; ok '[ "$CODIGO" != 200 ] && ! tiene "Clave de Firebase del servidor"' "el administrador de un cliente no ve la página de Firebase"
+seguir "/?r=firebase"; ok '! tiene "Clave de Firebase del servidor" && ! tiene "r=firebase"' "…ni siguiendo la redirección, ni en su menú"
+get "/?r=app"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" -F "csrf=$(csrf)" -F "accion=subir" -F "clave=@$CLAVEF;type=application/json" "$W/?r=firebase")
+ok '[ "$(sqlp "SELECT count(*) FROM ajustes WHERE clave = '"'"'fcm_clave'"'"'")" = 0 ]' "…ni puede subir la clave"
+J="$TUKAN_J"
+get "/?r=firebase"; ok '[ "$CODIGO" = 200 ] && tiene "Clave de Firebase del servidor" && tiene "Todavía no hay clave"' "el personal de Tukán abre Avisos de la app (Firebase)"
+get "/?r=bandeja"; ok 'tiene "r=firebase"' "en el menú de Tukán"
+get "/?r=firebase"
+CODIGO=$(curl -s -L -o "$P" -w '%{http_code}' -b "$J" -c "$J" -F "csrf=$(csrf)" -F "accion=subir" -F "clave=@$CLAVEF;type=application/json" "$W/?r=firebase")
+ok 'tiene "Clave de Firebase guardada" && tiene "tukan-mensajes-prueba" && ! tiene "PRIVATE KEY"' "sube la clave (se ve el proyecto, nunca la llave)"
+ok '[ "$(sqlp "SELECT count(*) FROM ajustes WHERE clave = '"'"'fcm_clave'"'"' AND valor NOT LIKE '"'"'%PRIVATE%'"'"'")" = 1 ]' "la clave queda cifrada en la base"
+printf '{"type":"otra"}' > "$CLAVEF.mala"
+get "/?r=firebase"
+CODIGO=$(curl -s -L -o "$P" -w '%{http_code}' -b "$J" -c "$J" -F "csrf=$(csrf)" -F "accion=subir" -F "clave=@$CLAVEF.mala;type=application/json" "$W/?r=firebase")
+ok 'tiene "no es una clave de cuenta de servicio" && tiene "Guardada"' "archivo que no es la clave: se rechaza y queda la anterior"
+rm -f "$CLAVEF" "$CLAVEF.mala"
+# La app abre la página con ?disp= (Referer de la app): se vincula al entrar
+JA="$(mktemp)"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$JA" -c "$JA" -H "Referer: android-app://com.tukansoftware.tuwhatsapp/" "$W/?r=inicio&app=play&disp=$D1")
+ok '[ "$CODIGO" = 302 ] && grep -q "tuwa_disp.*$D1\.[0-9a-f]\{32\}" "$JA"' "abierto por la app (antes de entrar): cookie firmada del celular"
+J="$JA"; get "/?r=login"; post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=claveSegura1"
+DIMI_ID=$(sqlp "SELECT id FROM usuarios WHERE correo = 'dimi@tukanec.com'")
+ok '[ "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D1'"'"'")" = "$DIMI_ID" ]' "al entrar, el celular queda vinculado a quien entró"
+get "/?r=inicio"; ok '! tiene "activar-push-app" && ! tiene "id=\"tarjeta-fcm\""' "con la app vinculada no sale la tarjeta de activar avisos"
+get "/?r=app"; ok 'tiene "Este celular recibe los avisos con la app Tukán Mensajes" && tiene "App Tukán Mensajes · Pixel 8"' "App en el celular: este celular con la app y en la lista"
+: > "$FCM_LOG"
+post "/?r=app" --data-urlencode "accion=fcm_prueba"
+ok 'tiene "Aviso de prueba enviado a tu celular con la app" && grep -q "token-dimi-web" "$FCM_LOG"' "aviso de prueba a la app"
+: > "$FCM_LOG"
+T=$(date +%s)
+MSGF='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"593983662181","phone_number_id":"100"},"contacts":[{"profile":{"name":"Cliente Firebase"},"wa_id":"593991117777"}],"messages":[{"from":"593991117777","id":"wamid.FCMWEB1","timestamp":"'$T'","type":"text","text":{"body":"Hola desde la web"}}]}}]}]}'
+ok '[ "$(webhook "$MSGF")" = 200 ]' "llega un mensaje de un cliente"
+sleep 0.5
+ok 'grep -q "\"token\":\"token-dimi-web\"" "$FCM_LOG" && grep -q "Hola desde la web" "$FCM_LOG" && grep -q "\"priority\":\"HIGH\"" "$FCM_LOG"' "…y el aviso nativo sale a la app (solo datos, prioridad alta)"
+get "/?r=salir"
+ok '[ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D1'"'"'")" ]' "salir desde ese celular: deja de recibir los avisos"
+get "/?r=login"; post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=claveSegura1"
+ok '[ "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D1'"'"'")" = "$DIMI_ID" ]' "vuelve a entrar en la app: se vincula de nuevo solo"
+rm -f "$JA"
+# Un enlace con ?disp= de otro celular (sin la app) no vincula solo: hay que confirmarlo
+entrar bella@salon.com BellaNueva1
+JB="$J"
+get "/?r=app&disp=$D2"
+ok 'tiene "Recibir aquí los avisos con la app Tukán Mensajes" && tiene "Sí, avisarme en este celular" && [ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" ]' "sin el Referer de la app: no se vincula solo, pregunta"
+post "/?r=app" --data-urlencode "accion=fcm_si"
+BELLA_ID=$(sqlp "SELECT id FROM usuarios WHERE correo = 'bella@salon.com'")
+ok 'tiene "te llegarán los avisos en este celular" && [ "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" = "$BELLA_ID" ]' "con el botón sí se vincula"
+get "/?r=app"; ok 'tiene "Este celular recibe los avisos con la app Tukán Mensajes" && ! tiene "Recibir aquí los avisos"' "vinculado: ya no pregunta"
+J="$TUKAN_J"; get "/?r=inicio&disp=$D2"
+ok 'tiene "id=\"tarjeta-fcm\"" && tiene "Sí, avisarme en este celular" && [ "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" = "$BELLA_ID" ]' "Inicio: un celular pendiente pregunta con una tarjeta (y no le quita el celular a nadie)"
+sed -i '/tuwa_disp/d' "$TUKAN_J"; J="$JB"
+# «Cerrar en todos los demás» desde otro aparato: el celular se desvincula y no se vuelve a vincular (su sesión ya no vale)
+entrar bella@salon.com BellaNueva1
+get "/?r=cuenta"; post "/?r=cuenta" --data-urlencode "accion=cerrar_otros"
+ok '[ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" ]' "cerrar en todos los demás: el celular deja de recibir avisos"
+J="$JB"; get "/?r=app"
+ok '[ "$CODIGO" = 302 ] && grep -qi "location: /?r=login" <(curl -s -I -b "$J" "$W/?r=app") && [ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" ]' "…y como su sesión se cerró, no se vuelve a vincular"
+CODIGO=$(fcmreg "$D2" "$S2" "" "" quitar); ok '[ "$CODIGO" = 200 ] && [ "$(sqlp "SELECT count(*) FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" = 0 ]' "la app quita su celular con su secreto"
+J="$TUKAN_J"
+get "/?r=firebase"; post "/?r=firebase" --data-urlencode "accion=quitar"
+ok 'tiene "Clave de Firebase quitada" && [ "$(sqlp "SELECT count(*) FROM ajustes WHERE clave IN ('"'"'fcm_clave'"'"', '"'"'fcm_acceso'"'"')")" = 0 ]' "quitar la clave"
+J="$J_FCM_ANTES"
+
 echo "== Permisos de lo nuevo"
 entrar luis@tukan.com "$CLAVE_LUIS"
 for R in catalogo cobros flujos equipo campos tienda; do get "/?r=$R"; ok '[ "$CODIGO" = 302 ]' "el agente no abre $R"; done

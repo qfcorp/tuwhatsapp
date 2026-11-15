@@ -825,3 +825,34 @@ CREATE TABLE IF NOT EXISTS tg_rafagas (
 );
 -- (revisión) Aviso de prueba a Telegram: máximo 3 por hora por persona.
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tg_pruebas jsonb NOT NULL DEFAULT '[]';
+
+-- =====================================================================
+-- (14 nov 2026) Avisos NATIVOS en la app de Android «Tukán Mensajes» (Firebase Cloud Messaging, src/Fcm.php).
+--  La app registra su celular (dispositivo = 32 hex, secreto: en la base solo el sha256) y su token de Firebase en /fcm.php.
+--  usuario_id: la persona que recibe los avisos en ese celular (se vincula con la cookie tuwa_disp). rechazado_por: dijo que no / lo quitó.
+--  La clave de la cuenta de servicio de Firebase va cifrada en ajustes (fcm_clave) y el token de acceso de Google en fcm_acceso.
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS fcm_dispositivos (
+    id            serial PRIMARY KEY,
+    dispositivo   text NOT NULL UNIQUE,
+    secreto_hash  text NOT NULL,
+    token         text NOT NULL DEFAULT '',
+    modelo        text NOT NULL DEFAULT '',
+    version       text NOT NULL DEFAULT '',
+    usuario_id    integer REFERENCES usuarios(id) ON DELETE SET NULL,
+    rechazado_por integer REFERENCES usuarios(id) ON DELETE SET NULL,
+    vinculado     timestamptz,
+    creado        timestamptz NOT NULL DEFAULT now(),
+    actualizado   timestamptz NOT NULL DEFAULT now(),
+    ultimo_ok     timestamptz,
+    errores       integer NOT NULL DEFAULT 0,
+    ultimo_error  timestamptz,
+    error_texto   text NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS fcm_dispositivos_usuario ON fcm_dispositivos (usuario_id) WHERE usuario_id IS NOT NULL;
+-- Límite anti abuso: registros NUEVOS por IP por hora
+CREATE TABLE IF NOT EXISTS fcm_registros_ip (
+    ip     text NOT NULL,
+    creado timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS fcm_registros_ip_ip ON fcm_registros_ip (ip, creado);

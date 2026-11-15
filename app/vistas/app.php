@@ -1,5 +1,6 @@
 <?php
-/** @var string $vapid @var int $suscripciones @var list<array> $dispositivos @var array $ajustesCorreo @var string $correoModo @var array $empresaApp @var array $telegram */
+/** @var string $vapid @var int $suscripciones @var list<array> $dispositivos @var array $ajustesCorreo @var string $correoModo @var array $empresaApp @var array $telegram
+ *  @var list<array> $appNativa @var string $estadoFcm @var bool $fcmListo */
 $fechaCorta = function (?string $f): string {
     if ($f === null || $f === '') {
         return '—';
@@ -26,13 +27,47 @@ $minCorreo = (int) $ajustesCorreo['min'];
     <h2>2. Avisos aunque la app esté cerrada</h2>
     <p>Te llega un aviso al celular cada vez que un cliente te escribe, como en WhatsApp (si la conversación está asignada a otra persona, le llega a ella;
     si a esa persona no le llegan avisos, también les llega a los administradores).</p>
+    <div class="caja-app-nativa" id="caja-app-nativa">
+        <?php if ($estadoFcm === 'vinculado'): ?>
+        <p><b>📱 Este celular recibe los avisos con la app Tukán Mensajes ✅</b> <span class="suave pequeno">(llegan aunque la app esté cerrada, como en WhatsApp)</span></p>
+        <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_prueba">
+            <button class="boton boton-claro tk-boton secundario">Mandarme un aviso de prueba a la app</button></form>
+        <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_no">
+            <button class="enlace">Apagar en este celular</button></form>
+        <?php elseif (in_array($estadoFcm, ['pendiente', 'apagado'], true)): ?>
+        <p><b>📱 ¿Recibir aquí los avisos con la app Tukán Mensajes?</b></p>
+        <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_si">
+            <button class="boton tk-boton">🔔 Sí, avisarme en este celular</button></form>
+        <?php elseif ($estadoFcm === 'sin_registro'): ?>
+        <p class="tk-aviso aviso aviso-info pequeno">📱 Falta un paso: cierra la app <b>Tukán Mensajes</b> (deslízala de las apps abiertas) y vuelve a abrirla.
+        Si el celular pregunta si permites las notificaciones, toca <b>Permitir</b>.</p>
+        <?php else: ?>
+        <p class="suave pequeno">📱 <b>En Android, lo mejor es la app Tukán Mensajes de Google Play</b>: los avisos llegan solos, con el nombre de la app, aunque esté cerrada.
+        Instálala (o actualízala), ábrela, entra con tu usuario y toca <b>Permitir</b> cuando pregunte por las notificaciones.</p>
+        <?php endif; ?>
+        <?php if (!$fcmListo && es_super()): ?>
+        <p class="tk-aviso aviso aviso-info pequeno">Falta la clave de Firebase del servidor: súbela en <a href="<?= e(url('firebase')) ?>">Avisos de la app (Firebase)</a>.</p>
+        <?php endif; ?>
+    </div>
+    <?php if ($estadoFcm === 'sin_cookie'): ?>
+    <p class="suave pequeno">En la computadora, iPhone u otro navegador, activa los avisos del navegador:</p>
+    <?php endif; ?>
     <button type="button" class="boton tk-boton" id="activar-push">🔔 Activar avisos en este celular</button>
     <button type="button" class="boton boton-claro tk-boton secundario" id="probar-push" hidden>Mandarme un aviso de prueba</button>
     <button type="button" class="enlace" id="quitar-push" hidden>Desactivar en este celular</button>
     <p class="suave pequeno" id="estado-push" aria-live="polite"><?= $suscripciones > 0 ? 'Tienes avisos activos en ' . $suscripciones . ($suscripciones === 1 ? ' dispositivo.' : ' dispositivos.') : '' ?></p>
-    <?php if ($dispositivos): ?>
+    <?php if ($dispositivos || $appNativa): ?>
     <h3 class="pequeno">Dispositivos que reciben avisos</h3>
     <ul class="lista-dispositivos">
+        <?php foreach ($appNativa as $d): $falla = $d['errores'] >= 5; ?>
+        <li>
+            <span><?= $falla ? '⚠️' : '✅' ?> <b>📱 App Tukán Mensajes<?= $d['modelo'] !== '' ? ' · ' . e($d['modelo']) : '' ?></b>
+                <span class="suave pequeno">· último aviso entregado: <?= e($fechaCorta($d['ultimo_ok'])) ?><?php if ($d['errores'] > 0): ?> ·
+                <?= $falla ? 'NO le están llegando (se vuelve a intentar cada día)' : 'falló ' . $d['errores'] . ($d['errores'] === 1 ? ' vez' : ' veces') ?><?php endif; ?></span></span>
+            <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="quitar_app"><input type="hidden" name="id" value="<?= (int) $d['id'] ?>">
+                <button class="enlace pequeno">Quitar</button></form>
+        </li>
+        <?php endforeach; ?>
         <?php foreach ($dispositivos as $d): $falla = $d['errores'] >= 5; ?>
         <li>
             <span><?= $falla ? '⚠️' : '✅' ?> <b><?= e($d['dispositivo']) ?></b>
@@ -48,8 +83,9 @@ $minCorreo = (int) $ajustesCorreo['min'];
     <details class="pequeno">
         <summary><b>¿No te llegan los avisos? (Android)</b></summary>
         <ol>
-            <li>Abre la app <b>Tukán Mensajes</b> (o esta página) y toca <b>Activar avisos en este celular</b>. Después toca <b>Mandarme un aviso de prueba</b>.</li>
-            <li>Ajustes del celular → <b>Apps → Tukán Mensajes → Notificaciones</b>: que estén <b>permitidas</b>. Haz lo mismo con <b>Chrome</b> (los avisos pasan por Chrome).</li>
+            <li>Instala o actualiza la app <b>Tukán Mensajes</b> desde <b>Google Play</b>, ábrela, entra con tu usuario y toca <b>Permitir</b> cuando pregunte por las notificaciones.
+            Aquí debe decir <b>«Este celular recibe los avisos con la app Tukán Mensajes ✅»</b>. Después toca <b>Mandarme un aviso de prueba a la app</b>.</li>
+            <li>Ajustes del celular → <b>Apps → Tukán Mensajes → Notificaciones</b>: que estén <b>permitidas</b>.</li>
             <li>Ajustes → <b>Apps → Chrome → Batería</b>: elige <b>Sin restricciones</b> (o "No optimizar"). Lo mismo para <b>Tukán Mensajes</b>.</li>
             <li><b>Xiaomi / Redmi / POCO:</b> Ajustes → Apps → Chrome → <b>Inicio automático</b> encendido y Ahorro de batería → <b>Sin restricciones</b>.</li>
             <li><b>Samsung:</b> Ajustes → Batería → Límites de uso en segundo plano: saca a <b>Chrome</b> y <b>Tukán Mensajes</b> de "Apps en suspensión" y agrégalas a "Apps que nunca se suspenden".</li>

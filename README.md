@@ -111,6 +111,14 @@ Como WhatsApp: se entra una vez y no vuelve a pedir la contraseña.
   el de la página (whatsapp.tukanec.com); la huella nunca sale del celular.
 - El personal de Tukán con `TUKAN_SOLO_CENTRAL=1` no entra por cookie ni por huella (solo desde el Panel Tukán Central).
 
+## Avisos nativos en la app de Android (Firebase) — 14 nov 2026
+La app **Tukán Mensajes** de Google Play recibe los avisos ella misma con Firebase Cloud Messaging, aunque esté cerrada (como WhatsApp). Ver `src/Fcm.php`.
+- **Activarlo en el servidor (una vez):** en console.firebase.google.com → proyecto de Tukán Mensajes → ⚙️ Configuración del proyecto → Cuentas de servicio →
+  **Generar nueva clave privada** (baja un .json). En WhatsApp Tukán, con el usuario de Tukán: menú Tukán → **Avisos de la app (Firebase)** → subir el archivo → **Guardar clave**.
+  Por consola: `bash /var/www/tuwhatsapp/deploy/configurar_firebase.sh /ruta/clave.json`. Después borrar el .json.
+- **Cada persona:** instala/actualiza la app, entra y toca **Permitir** las notificaciones. En App en el celular dice «Este celular recibe los avisos con la app ✅».
+- Registro del celular: `POST /fcm.php` (accion=registrar|quitar, dispositivo, secreto, token, modelo, version). Máximo 20 celulares nuevos por IP por hora.
+
 ## Avisos por Telegram (bot propio de Tukán Mensajes) — 14 nov 2026
 Cada persona del equipo conecta su Telegram y le llegan los mensajes de sus clientes con el botón **Abrir el chat** (`src/Telegram.php`, webhook `public/telegram.php`).
 - **Activarlo en el servidor (una vez):** en Telegram, `@BotFather` → `/newbot` → nombre "Tukán Mensajes" → usuario que termine en `bot` → copiar el token. Luego:

@@ -135,7 +135,7 @@ final class Push
     {
         $st = $db->prepare('SELECT count(*) FROM push_suscripciones WHERE usuario_id = ? AND errores < 5');
         $st->execute([$usuarioId]);
-        return (int) $st->fetchColumn();
+        return (int) $st->fetchColumn() + Fcm::funcionando($db, $usuarioId);   // (14 nov 2026) también los celulares con la app (avisos nativos)
     }
 
     /** @return list<array{id:int, dispositivo:string, creado:string, ultimo_ok:?string, errores:int, ultimo_error:?string, error_texto:string}> */
@@ -237,21 +237,30 @@ final class Push
     }
 
     /**
-     * Manda un aviso a los navegadores de esas personas. Devuelve cuántos se entregaron.
+     * Manda un aviso a los navegadores de esas personas y (14 nov 2026) a sus celulares con la app (avisos nativos, src/Fcm.php).
+     * Devuelve cuántos se entregaron. $conFcm = false: solo Web Push (el aviso de mensaje nuevo manda el nativo al final del webhook).
      * @param list<int> $usuarios
      * @param array{titulo:string, texto:string, url:string, tag?:string} $aviso
      */
-    public static function enviar(PDO $db, array $usuarios, array $aviso): int
+    public static function enviar(PDO $db, array $usuarios, array $aviso, bool $conFcm = true): int
     {
         $usuarios = array_values(array_unique(array_map('intval', $usuarios)));
         if (!$usuarios) {
             return 0;
         }
+        $nativos = 0;
+        if ($conFcm) {
+            try {
+                $nativos = Fcm::enviar($db, $usuarios, $aviso);
+            } catch (\Throwable $e) {
+                error_log('tuwhatsapp fcm: ' . $e->getMessage());
+            }
+        }
         $st = $db->prepare('SELECT * FROM push_suscripciones WHERE usuario_id IN (' . implode(',', array_fill(0, count($usuarios), '?')) . ') AND ' . self::SQL_USABLE . ' LIMIT 50');
         $st->execute($usuarios);
         $subs = $st->fetchAll();
         if (!$subs) {
-            return 0;
+            return $nativos;
         }
         [$publica, $privada] = self::claves($db);
         $cuerpo = json_encode(['titulo' => mb_substr($aviso['titulo'], 0, 80), 'texto' => mb_substr($aviso['texto'], 0, 160), 'url' => $aviso['url'],
@@ -286,19 +295,16 @@ final class Push
                    ->execute([mb_substr($falla, 0, 200), $s['id']]);
             }
         }
-        return $ok;
+        return $ok + $nativos;
     }
 
     /**
-     * Aviso de mensaje nuevo: a quien atiende la conversación; si no tiene a nadie, a todo el equipo que recibe chats.
-     * Si a ninguna de esas personas le llegan avisos (no los activó o le fallan), también se avisa a los administradores de la cuenta.
-     * No avisa de contactos personales. (Si nadie lo lee, después llega el respaldo por correo: ver AvisoCorreo.)
+     * A quién se avisa de un mensaje nuevo: a quien atiende la conversación; si no tiene a nadie, a todo el equipo que recibe chats.
+     * Si a ninguna de esas personas le llegan avisos (no los activó o le fallan), también a los administradores de la cuenta.
+     * @return list<int>
      */
-    public static function mensajeNuevo(PDO $db, array $linea, array $contacto, string $texto, int $mensajeId): void
+    public static function destinatarios(PDO $db, array $linea, array $contacto): array
     {
-        if (($contacto['tipo'] ?? '') === 'personal') {
-            return;
-        }
         if (!empty($contacto['asignado_a'])) {
             $usuarios = [(int) $contacto['asignado_a']];
         } else {
@@ -311,8 +317,26 @@ final class Push
             $st->execute([(int) $linea['empresa_id']]);
             $usuarios = array_merge($usuarios, array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN)));
         }
-        self::enviar($db, $usuarios, ['titulo' => Contactos::nombre($contacto), 'texto' => mb_strimwidth($texto, 0, 120, '…'),
-                                      'url' => '/?r=chat&c=' . (int) $contacto['id'], 'tag' => 'tuwa-c' . (int) $contacto['id'] . '-' . $mensajeId]);
+        return array_values(array_unique($usuarios));
+    }
+
+    /** Texto del aviso de mensaje nuevo (igual en el navegador y en la app). */
+    public static function avisoMensaje(array $contacto, string $texto, int $mensajeId): array
+    {
+        return ['titulo' => Contactos::nombre($contacto), 'texto' => mb_strimwidth($texto, 0, 120, '…'),
+                'url' => '/?r=chat&c=' . (int) $contacto['id'], 'tag' => 'tuwa-c' . (int) $contacto['id'] . '-' . $mensajeId];
+    }
+
+    /**
+     * Aviso de mensaje nuevo por Web Push (ver destinatarios()). No avisa de contactos personales. El aviso NATIVO de la app (src/Fcm.php)
+     * sale al final del webhook, después de la respuesta automática. (Si nadie lo lee, después llega el respaldo por correo: ver AvisoCorreo.)
+     */
+    public static function mensajeNuevo(PDO $db, array $linea, array $contacto, string $texto, int $mensajeId): void
+    {
+        if (($contacto['tipo'] ?? '') === 'personal') {
+            return;
+        }
+        self::enviar($db, self::destinatarios($db, $linea, $contacto), self::avisoMensaje($contacto, $texto, $mensajeId), false);
     }
 
     /** ¿A alguna de esas personas le llegan avisos? */
@@ -323,6 +347,6 @@ final class Push
         }
         $st = $db->prepare('SELECT 1 FROM push_suscripciones WHERE usuario_id IN (' . implode(',', array_fill(0, count($usuarios), '?')) . ') AND errores < 5 LIMIT 1');
         $st->execute(array_values($usuarios));
-        return (bool) $st->fetchColumn();
+        return (bool) $st->fetchColumn() || Fcm::algunoFunciona($db, $usuarios);
     }
 }

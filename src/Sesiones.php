@@ -104,6 +104,8 @@ final class Sesiones
         $st->execute([$usuarioId, $menos ?? 0]);
         $n = $st->rowCount();
         $db->prepare('UPDATE usuarios SET sesion_gen = sesion_gen + 1 WHERE id = ?')->execute([$usuarioId]);
+        // (14 nov 2026) Y sus celulares con la app dejan de recibir avisos nativos (menos este, si se queda con la sesión abierta)
+        Fcm::desvincularUsuario($db, $usuarioId, $menos !== null ? Fcm::dispositivoCookie() : null);
         return $n;
     }
 

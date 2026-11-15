@@ -136,6 +136,8 @@ curl -s -o /dev/null -w "11) App de Android (assetlinks.json): %{http_code} (deb
 curl -s -o /dev/null -w "12) Politica de privacidad: %{http_code} (debe ser 200)\n" -H "Host: $DOMINIO" "http://127.0.0.1/privacidad.php"
 echo "13) Carpeta de sesiones (no pide entrar a cada rato): $(sudo -u www-data test -w /var/lib/tuwhatsapp/sesiones && echo lista || echo FALTA)"
 grep -q '^TUWA_TELEGRAM_BOT=.' "$ENVF" && echo "14) Avisos por Telegram: bot conectado" || echo "14) Avisos por Telegram: apagado (se activa con bash $APP/deploy/configurar_telegram.sh)"
+curl -s -o /dev/null -w "15) Registro de la app para avisos nativos (fcm.php): %{http_code} (debe ser 405)\n" -H "Host: $DOMINIO" "http://127.0.0.1/fcm.php"
+echo "16) Avisos nativos de la app (Firebase): $(PGPASSWORD="$CLAVE" psql -h 127.0.0.1 -U tuwhatsapp -d tuwhatsapp -tAc "SELECT CASE WHEN count(*) > 0 THEN 'clave guardada' ELSE 'FALTA la clave (menu Tukan -> Avisos de la app, o deploy/configurar_firebase.sh)' END FROM ajustes WHERE clave = 'fcm_clave'" < /dev/null)"
 echo "================================="
 echo "Crear tu usuario:          php $APP/bin/crear_usuario.php"
 echo "Guardar la clave de Meta:  bash $APP/deploy/clave_meta.sh"

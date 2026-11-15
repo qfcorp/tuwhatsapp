@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # Corre todas las pruebas con Meta simulado. Necesita PostgreSQL.
-# Variables: PGHOST (127.0.0.1) PGPORT (5432) PGUSER (postgres) PGPASSWORD, SIM_PUERTO (8097), WEB_PUERTO (8096), PLUX_PUERTO (8098), PANEL_PUERTO (8095), SMTP_PUERTO (8099), TG_PUERTO (8094)
+# Variables: PGHOST (127.0.0.1) PGPORT (5432) PGUSER (postgres) PGPASSWORD, SIM_PUERTO (8097), WEB_PUERTO (8096), PLUX_PUERTO (8098), PANEL_PUERTO (8095), SMTP_PUERTO (8099), TG_PUERTO (8094), FCM_PUERTO (8093)
 set -u
 cd "$(dirname "$0")/.."
 export PGHOST="${PGHOST:-127.0.0.1}" PGPORT="${PGPORT:-5432}" PGUSER="${PGUSER:-postgres}"
 DB="${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}"   # en paralelo con otras pruebas: TUWA_DB_PRUEBA=otra_base
 export TUWA_DB_PRUEBA="$DB"
+export PGTZ="${PGTZ:-America/Guayaquil}"   # fechas de la base = las del programa (si no, de noche fallan las pruebas que comparan fechas)
 SIM_PUERTO="${SIM_PUERTO:-8097}"
 WEB_PUERTO="${WEB_PUERTO:-8096}"
 PLUX_PUERTO="${PLUX_PUERTO:-8098}"
 PANEL_PUERTO="${PANEL_PUERTO:-8095}"
 SMTP_PUERTO="${SMTP_PUERTO:-8099}"
 TG_PUERTO="${TG_PUERTO:-8094}"
+FCM_PUERTO="${FCM_PUERTO:-8093}"
 export SIM_LOG="$(mktemp)"
 export SIM_URL="http://127.0.0.1:$SIM_PUERTO"
 export TUWA_ARCHIVOS="$(mktemp -d)"
@@ -46,7 +48,13 @@ export TG_LOG="$PLUX_DIR/telegram.log" TG_URL="http://127.0.0.1:$TG_PUERTO"
 : > "$TG_LOG"
 php -S "127.0.0.1:$TG_PUERTO" tests/telegram_simulado.php > /dev/null 2>&1 &
 TGF=$!
-trap 'kill $SIM $PLUXF $PANELF $SMTPF $TGF ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS" "$PLUX_DIR"' EXIT
+# Firebase (avisos nativos de la app) y OAuth de Google SIMULADOS: cuenta de servicio de prueba hecha aquí mismo
+openssl genrsa -out "$PLUX_DIR/fcm_privada.pem" 2048 2>/dev/null && openssl rsa -in "$PLUX_DIR/fcm_privada.pem" -pubout -out "$PLUX_DIR/fcm_publica.pem" 2>/dev/null || { echo "No se pudieron hacer las llaves de prueba de Firebase"; exit 1; }
+export FCM_LOG="$PLUX_DIR/fcm.log" FCM_URL="http://127.0.0.1:$FCM_PUERTO" FCM_SIM_PUBLICA="$PLUX_DIR/fcm_publica.pem" FCM_SIM_PRIVADA="$PLUX_DIR/fcm_privada.pem" FCM_SIM_CORREO="tukan-avisos@tukan-mensajes-prueba.iam.gserviceaccount.com"
+: > "$FCM_LOG"
+php -S "127.0.0.1:$FCM_PUERTO" tests/fcm_simulado.php > /dev/null 2>&1 &
+FCMF=$!
+trap 'kill $SIM $PLUXF $PANELF $SMTPF $TGF $FCMF ${WEB:-} 2>/dev/null; rm -rf "$TUWA_ARCHIVOS" "$PLUX_DIR"' EXIT
 sleep 0.5
 
 export TUWA_DB_HOST="$PGHOST" TUWA_DB_PORT="$PGPORT" TUWA_DB_NAME="$DB" TUWA_DB_USER="$PGUSER" TUWA_DB_PASS="${PGPASSWORD:-}"
@@ -89,6 +97,7 @@ TUWA_TELEGRAM_TOKEN=123456:tokenDePruebaDelBotTukanMensajes0123456789
 TUWA_TELEGRAM_SECRETO=secreto_telegram_de_prueba_0123456789
 TUWA_TELEGRAM_BOT=TukanMensajesBot
 TUWA_TELEGRAM_API_URL=$TG_URL
+TUWA_FCM_URL=$FCM_URL
 EOF
 TUWA_ENV="$ENVF" php -d display_errors=0 -d log_errors=1 -d error_log="$ENVF.log" -S "127.0.0.1:$WEB_PUERTO" -t public > /dev/null 2>&1 &
 WEB=$!

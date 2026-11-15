@@ -1,6 +1,23 @@
 # WhatsApp Tukán — Estado y pasos para continuar
 *Actualizado: 14 nov 2026*
 
+## 📱 Avisos NATIVOS en la app de Android, como WhatsApp (14 nov 2026, noche) — Firebase Cloud Messaging
+Problema (Dimitry): en el celular no llegaban los avisos aunque los aprobaba; Android los veía como "página web de Chrome". En App en el
+celular solo aparecía "Chrome · Windows": el Web Push dentro de la app (TWA) nunca registró el celular.
+- **Servidor (`src/Fcm.php`, `public/fcm.php`):** la app registra su celular (dispositivo 32 hex + secreto 64 hex, en la base solo el sha256) y su token
+  de Firebase. La app abre la página con `&disp=<dispositivo>`: cookie `tuwa_disp` FIRMADA si la abrió la app (Referer `android-app://com.tukansoftware.tuwhatsapp`)
+  → se vincula sola a quien entra; si no (enlace de otra persona), queda pendiente y se confirma con el botón «Sí, avisarme en este celular».
+- **Envío:** FCM HTTP v1, mensaje solo de datos (titulo, texto, url, tag), prioridad alta, espera 24 h; OAuth con JWT RS256 de la cuenta de servicio, token de acceso
+  cifrado ~50 min. Token muerto (404 UNREGISTERED / 400 token no válido) → se borra el celular. Sale al FINAL del webhook (no atrasa la respuesta automática).
+  También va en `Push::enviar` (llamadas, pagos, Copiloto, aviso de prueba). Cuenta para la cinta amarilla y para el aviso a los administradores.
+- **Desvincular:** Salir desde ese celular; contraseña cambiada/reseteada o usuario desactivado (todos); «Cerrar en todos los demás» (todos menos este); Quitar en App en el celular.
+- **Clave de Firebase:** menú Tukán → **Avisos de la app (Firebase)** (solo personal de Tukán, `es_super()`): subir el .json de la cuenta de servicio (se guarda cifrado con
+  TUWA_LLAVE en `ajustes.fcm_clave`; se ve proyecto y correo, nunca la llave), aviso de prueba, quitar. Por consola: `bash deploy/configurar_firebase.sh /ruta/clave.json`.
+- **App (qfcorp/tukan-apps):** la parte de Android la hace la app 1.0.4 (FirebaseMessagingService, canal propio, registro en /fcm.php, `&disp=` en la URL de inicio).
+  IMPORTANTE para la app: quitar cualquier `disp=` que venga en un enlace externo y poner solo el suyo.
+- Pruebas: Firebase y OAuth SIMULADOS (`tests/fcm_simulado.php`, FCM_PUERTO 8093). `tests/correr.sh` ahora fija `PGTZ=America/Guayaquil` (de noche, la fecha de la base en UTC
+  no coincidía con la del programa y fallaban pruebas de fechas).
+
 ## ✈️ Avisos por Telegram (14 nov 2026)
 Pedido de Dimitry: «podemos mandar una notificación a Telegram con el bot».
 - Bot PROPIO de Tukán Mensajes (no el de las alertas internas): `deploy/configurar_telegram.sh` + `bin/telegram.php conectar|estado`; `.env`: TUWA_TELEGRAM_TOKEN,

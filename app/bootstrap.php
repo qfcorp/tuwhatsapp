@@ -55,6 +55,11 @@ if (!defined('TUWA_SIN_SESION') && PHP_SAPI !== 'cli') {
             'secure' => (($_SERVER['HTTPS'] ?? '') === 'on') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')]);
         $_COOKIE['tuwa_app'] = 'play';
     }
+    // (14 nov 2026) Avisos nativos: la app de Android abre la página con ?disp=<su celular> (ver src/Fcm.php). Se recuerda en la cookie
+    // tuwa_disp: firmada si la abrió la app (Referer android-app://…); si no, queda pendiente de confirmar con un botón.
+    if (is_string($_GET['disp'] ?? null)) {
+        \TuWhatsApp\Fcm::recordarDeUrl((string) $_GET['disp'], (string) ($_SERVER['HTTP_REFERER'] ?? ''));
+    }
     // App de iPhone (App Store, 13 nov 2026): abre con ?app=ios (u ?origen=ios) y manda «TukanIOS» en el navegador.
     // Se recuerda con la cookie canal=ios (1 año), sin depender de que el modo Google Play esté prendido.
     if ((string) ($_GET['app'] ?? $_GET['origen'] ?? '') === 'ios') {

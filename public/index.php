@@ -16,7 +16,7 @@ $rutas = ['login', 'salir', 'inicio', 'bandeja', 'chat', 'nuevo_chat', 'pendient
           'cuenta', 'bloqueada', 'clientes', 'cliente', 'ver_cuenta', 'volver_tukan', 'campanias', 'respuestas', 'aceptar', 'mas', 'archivo',
           'embudo', 'seguimientos', 'reportes', 'ia', 'enlaces', 'integraciones',
           'catalogo', 'foto_producto', 'cobros', 'pedidos', 'pedido', 'cotizacion', 'flujos', 'flujo', 'equipo', 'campos', 'tienda', 'app', 'push',
-          'llamada', 'llamar', 'llamadas', 'asistente', 'tufactura', 'huella'];
+          'llamada', 'llamar', 'llamadas', 'asistente', 'tufactura', 'huella', 'firebase'];
 $ruta = (string) ($_GET['r'] ?? 'inicio');
 if (!in_array($ruta, $rutas, true)) {
     http_response_code(404);
@@ -31,7 +31,7 @@ if ($ruta !== 'login' && !usuario()) {
 $post = $_SERVER['REQUEST_METHOD'] === 'POST';
 
 // Permisos: lo de Tukán solo para su personal; la configuración solo para administradores de la cuenta
-$soloSuper = ['clientes', 'cliente', 'ver_cuenta'];
+$soloSuper = ['clientes', 'cliente', 'ver_cuenta', 'firebase'];
 $soloAdmin = ['reglas', 'lineas', 'linea', 'conectar_qr', 'campanias', 'respuestas', 'reportes', 'ia', 'enlaces', 'integraciones',
               'catalogo', 'cobros', 'flujos', 'flujo', 'equipo', 'campos', 'tienda'];
 if (usuario()) {
@@ -53,6 +53,13 @@ if (usuario()) {
     if ($nombreMod = \TuWhatsApp\Modulos::rutaBloqueada($empresaHoy, $ruta)) {
         aviso('"' . $nombreMod . '" ' . (en_app_tienda() ? 'no está activo en tu cuenta.' : 'no está incluido en tu plan. Escribe a Tukán para activarlo.'), 'info');
         redirigir('mas');
+    }
+    // (14 nov 2026) Avisos nativos: si este navegador es la app de Android con su celular registrado, se vincula a quien entró
+    try {
+        $GLOBALS['estado_fcm'] = \TuWhatsApp\Fcm::alEntrar(db(), (int) usuario()['id']);
+    } catch (\Throwable $ex) {
+        error_log('tuwhatsapp fcm vincular: ' . $ex->getMessage());
+        $GLOBALS['estado_fcm'] = 'sin_cookie';
     }
     // El administrador del cliente acepta los términos una vez por versión (la cuenta de Tukán no)
     if (!es_super() && !\TuWhatsApp\Terminos::aceptados($empresaHoy) && !in_array($ruta, ['salir', 'bloqueada', 'aceptar'], true)) {
@@ -364,6 +371,7 @@ try {
         vista('login', 'Entrar', ['error' => $error, 'hayUsuarios' => $hayUsuarios]);
 
     case 'salir':
+        \TuWhatsApp\Fcm::alSalir(db(), (int) usuario()['id']);   // (14 nov 2026) este celular deja de recibir sus avisos nativos
         if (is_string($_COOKIE[\TuWhatsApp\Sesiones::COOKIE] ?? null)) {   // este celular ya no se recuerda
             \TuWhatsApp\Sesiones::olvidar(db(), (string) $_COOKIE[\TuWhatsApp\Sesiones::COOKIE]);
         }
@@ -755,6 +763,36 @@ try {
         vista('cuenta', 'Mi cuenta', ['celulares' => \TuWhatsApp\Sesiones::lista(db(), (int) usuario()['id']), 'esteCelular' => este_celular(),
             'huellas' => \TuWhatsApp\Huella::lista(db(), (int) usuario()['id']), 'claveReciente' => clave_reciente(), 'empresa' => $e, 'usuarios' => Empresas::usuarios(db(), (int) $e['id']), 'plan' => \TuWhatsApp\Modulos::detalle($e), 'pago' => pago_tarjeta($e),
             'claveNueva' => $clave, 'tokenNuevo' => $token, 'numeros' => count(Lineas::todas(db(), (int) $e['id']))]);
+
+    case 'firebase':   // (14 nov 2026) solo el personal de Tukán: clave de Firebase para los avisos nativos de la app (src/Fcm.php)
+        if ($post) {
+            try {
+                $accionF = (string) ($_POST['accion'] ?? '');
+                if ($accionF === 'subir') {
+                    $arch = $_FILES['clave'] ?? null;
+                    if (!is_array($arch) || ($arch['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $arch['tmp_name'])) {
+                        throw new RuntimeException('Elige el archivo .json de la clave de Firebase.');
+                    }
+                    if ((int) $arch['size'] > 20000) {
+                        throw new RuntimeException('Ese archivo es demasiado grande para ser una clave de Firebase.');
+                    }
+                    $g = \TuWhatsApp\Fcm::guardarClave(db(), (string) file_get_contents((string) $arch['tmp_name']));
+                    aviso('Clave de Firebase guardada (proyecto ' . $g['project_id'] . ').');
+                } elseif ($accionF === 'prueba') {
+                    $nF = \TuWhatsApp\Fcm::prueba(db(), (int) usuario()['id']);
+                    aviso($nF > 0 ? 'Aviso de prueba enviado a ' . $nF . ($nF === 1 ? ' celular.' : ' celulares.')
+                        : 'No se mandó ningún aviso: abre la app Tukán Mensajes en tu celular con tu usuario y vuelve a probar.', $nF > 0 ? 'ok' : 'error');
+                } elseif ($accionF === 'quitar') {
+                    \TuWhatsApp\Fcm::quitarClave(db());
+                    aviso('Clave de Firebase quitada: la app ya no recibe avisos nativos.');
+                }
+            } catch (\RuntimeException $ex) {
+                aviso($ex->getMessage(), 'error');
+            }
+            redirigir('firebase');
+        }
+        vista('firebase', 'Avisos de la app (Firebase)', ['estado' => \TuWhatsApp\Fcm::estadoClave(db()),
+                                                          'misCelulares' => \TuWhatsApp\Fcm::dispositivos(db(), (int) usuario()['id'])]);
 
     case 'clientes':
         if ($post) {
@@ -1361,6 +1399,21 @@ try {
                 } elseif ($accion === 'quitar_dispositivo') {
                     \TuWhatsApp\Push::quitarId(db(), $uidApp, (int) ($_POST['id'] ?? 0));
                     aviso('Ese dispositivo ya no recibe avisos.');
+                } elseif ($accion === 'quitar_app') {   // (14 nov 2026) celular con la app (avisos nativos)
+                    \TuWhatsApp\Fcm::quitarId(db(), $uidApp, (int) ($_POST['id'] ?? 0));
+                    aviso('Ese celular ya no recibe avisos.');
+                } elseif ($accion === 'fcm_si') {
+                    $okSi = \TuWhatsApp\Fcm::confirmar(db(), $uidApp);
+                    aviso($okSi ? 'Listo: te llegarán los avisos en este celular, como en WhatsApp.'
+                        : 'Este celular todavía no está listo. Cierra la app Tukán Mensajes y vuelve a abrirla.', $okSi ? 'ok' : 'error');
+                } elseif ($accion === 'fcm_no') {
+                    \TuWhatsApp\Fcm::rechazar(db(), $uidApp);
+                    aviso('Listo: en este celular no te llegarán avisos de la app. Puedes activarlos aquí cuando quieras.');
+                } elseif ($accion === 'fcm_prueba' && !es_super() && cuenta_muestra(empresa_actual())) {
+                    aviso('Cuenta de demostración: esto se puede ver, pero no se cambia.', 'info');
+                } elseif ($accion === 'fcm_prueba') {
+                    $nApp = \TuWhatsApp\Fcm::prueba(db(), $uidApp);
+                    aviso($nApp > 0 ? 'Aviso de prueba enviado a tu celular con la app.' : 'No se pudo mandar el aviso a la app. Cierra la app y vuelve a abrirla.', $nApp > 0 ? 'ok' : 'error');
                 } elseif ($accion === 'tg_conectar') {   // avisos por Telegram: abre el bot con un código de un solo uso
                     $enlaceTg = \TuWhatsApp\Telegram::crearCodigo(db(), $uidApp);
                     header('Location: ' . $enlaceTg, true, 302);
@@ -1385,7 +1438,9 @@ try {
         vista('app', 'App en el celular', ['vapid' => \TuWhatsApp\Push::clavePublica(db()), 'suscripciones' => \TuWhatsApp\Push::cuantas(db(), $uidApp),
                                            'dispositivos' => \TuWhatsApp\Push::dispositivos(db(), $uidApp), 'ajustesCorreo' => \TuWhatsApp\AvisoCorreo::ajustes(db(), $uidApp),
                                            'correoModo' => \TuWhatsApp\Correo::modo(), 'empresaApp' => empresa_actual(),
-                                           'telegram' => \TuWhatsApp\Telegram::estado(db(), $uidApp)]);
+                                           'telegram' => \TuWhatsApp\Telegram::estado(db(), $uidApp),
+                                           'appNativa' => \TuWhatsApp\Fcm::dispositivos(db(), $uidApp), 'estadoFcm' => (string) ($GLOBALS['estado_fcm'] ?? 'sin_cookie'),
+                                           'fcmListo' => \TuWhatsApp\Fcm::configurado(db())]);
 
     case 'push':   // el navegador activa, quita o prueba los avisos (JSON)
         header('Content-Type: application/json; charset=utf-8');
