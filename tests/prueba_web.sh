@@ -1236,15 +1236,28 @@ get "/?r=firebase"
 CODIGO=$(curl -s -L -o "$P" -w '%{http_code}' -b "$J" -c "$J" -F "csrf=$(csrf)" -F "accion=subir" -F "clave=@$CLAVEF.mala;type=application/json" "$W/?r=firebase")
 ok 'tiene "no es una clave de cuenta de servicio" && tiene "Guardada"' "archivo que no es la clave: se rechaza y queda la anterior"
 rm -f "$CLAVEF" "$CLAVEF.mala"
-# La app abre la página con ?disp= (Referer de la app): se vincula al entrar
+# Protocolo v2: la app abre la página con &disp=&ts=&prueba= (HMAC con clave = sha256 crudo del secreto)
+pruebaapp() { printf 'vincular:%s:%s' "$1" "$3" | openssl dgst -sha256 -mac HMAC -macopt "hexkey:$(printf '%s' "$2" | sha256sum | cut -d' ' -f1)" | sed 's/^.* //'; }
 JA="$(mktemp)"
 CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$JA" -c "$JA" -H "Referer: android-app://com.tukansoftware.tuwhatsapp/" "$W/?r=inicio&app=play&disp=$D1")
-ok '[ "$CODIGO" = 302 ] && grep -q "tuwa_disp.*$D1\.[0-9a-f]\{32\}" "$JA"' "abierto por la app (antes de entrar): cookie firmada del celular"
-J="$JA"; get "/?r=login"; post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=claveSegura1"
+ok '! grep -q "tuwa_disp" "$JA"' "Referer de la app pero sin prueba: no pone cookie (el Referer ya no sirve)"
+TS=$(date +%s)
+CODIGO=$(curl -s -o "$P" -D "$P.h" -w '%{http_code}' -b "$JA" -c "$JA" "$W/?r=inicio&app=play&disp=$D1&ts=$TS&prueba=$(openssl rand -hex 32)")
+ok '! grep -q "tuwa_disp" "$JA"' "prueba falsa: no pone cookie"
+CODIGO=$(curl -s -o "$P" -D "$P.h" -w '%{http_code}' -b "$JA" -c "$JA" "$W/?r=inicio&app=play&disp=$D1&ts=$((TS-700))&prueba=$(pruebaapp "$D1" "$S1" $((TS-700)))")
+ok '! grep -q "tuwa_disp" "$JA"' "prueba vencida (más de 10 minutos): no pone cookie"
+CODIGO=$(curl -s -o "$P" -D "$P.h" -w '%{http_code}' -b "$JA" -c "$JA" "$W/?r=inicio&app=play&disp=$D1&ts=$TS&prueba=$(pruebaapp "$D1" "$S1" $TS)")
+ok '[ "$CODIGO" = 302 ] && grep -qi "^location: /?r=inicio&app=play" "$P.h" && ! grep -qi "^location:.*disp=" "$P.h" && grep -q "tuwa_disp.*$D1\.[0-9a-f]\{32\}" "$JA"' "prueba buena: cookie firmada y 302 a la misma página sin disp, ts ni prueba"
+JR="$(mktemp)"
+CODIGO=$(curl -s -o "$P" -D "$P.h" -w '%{http_code}' -b "$JR" -c "$JR" "$W/?r=inicio&app=play&disp=$D1&ts=$TS&prueba=$(pruebaapp "$D1" "$S1" $TS)")
+ok '! grep -q "tuwa_disp" "$JR" && ! grep -qi "^location:.*app=play$" "$P.h"' "la misma dirección usada otra vez (repetida): no sirve"
+rm -f "$JR" "$P.h"
+J="$JA"; get "/?r=login"; post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=claveSegura1" --data-urlencode "recordar=1"
 DIMI_ID=$(sqlp "SELECT id FROM usuarios WHERE correo = 'dimi@tukanec.com'")
 ok '[ "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D1'"'"'")" = "$DIMI_ID" ]' "al entrar, el celular queda vinculado a quien entró"
-get "/?r=inicio"; ok '! tiene "activar-push-app" && ! tiene "id=\"tarjeta-fcm\""' "con la app vinculada no sale la tarjeta de activar avisos"
-get "/?r=app"; ok 'tiene "Este celular recibe los avisos con la app Tukán Mensajes" && tiene "App Tukán Mensajes · Pixel 8"' "App en el celular: este celular con la app y en la lista"
+ok '[ "$(sqlp "SELECT count(*) FROM sesiones_recordadas WHERE disp = '"'"'$D1'"'"'")" = 1 ]' "el «recordar este celular» guarda qué celular de la app es"
+get "/?r=inicio"; ok '! tiene "activar-push-app" && ! tiene "id=\"tarjeta-fcm\"" && tiene "data-fcm=\"vinculado\""' "con la app vinculada no sale la tarjeta de activar avisos (y la página sabe que está vinculada)"
+get "/?r=app"; ok 'tiene "Este celular recibe los avisos con la app Tukán Mensajes" && tiene "App Tukán Mensajes · Pixel 8" && ! tiene "Sí, avisarme en este celular"' "App en el celular: este celular con la app y en la lista (sin botón de confirmar)"
 : > "$FCM_LOG"
 post "/?r=app" --data-urlencode "accion=fcm_prueba"
 ok 'tiene "Aviso de prueba enviado a tu celular con la app" && grep -q "token-dimi-web" "$FCM_LOG"' "aviso de prueba a la app"
@@ -1254,29 +1267,47 @@ MSGF='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"fi
 ok '[ "$(webhook "$MSGF")" = 200 ]' "llega un mensaje de un cliente"
 sleep 0.5
 ok 'grep -q "\"token\":\"token-dimi-web\"" "$FCM_LOG" && grep -q "Hola desde la web" "$FCM_LOG" && grep -q "\"priority\":\"HIGH\"" "$FCM_LOG"' "…y el aviso nativo sale a la app (solo datos, prioridad alta)"
+# avisos=0: el celular tiene las notificaciones bloqueadas
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' --data-urlencode "accion=registrar" --data-urlencode "dispositivo=$D1" --data-urlencode "secreto=$S1" --data-urlencode "token=token-dimi-web" --data-urlencode "modelo=Pixel 8" --data-urlencode "avisos=0" "$W/fcm.php")
+get "/?r=app"; ok '[ "$CODIGO" = 200 ] && tiene "Este celular tiene los avisos bloqueados" && tiene "Ajustes → Apps → Tukán Mensajes → Notificaciones"' "avisos=0: App en el celular dice que están bloqueados y dónde activarlos"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' --data-urlencode "accion=registrar" --data-urlencode "dispositivo=$D1" --data-urlencode "secreto=$S1" --data-urlencode "token=token-dimi-web" --data-urlencode "modelo=Pixel 8" --data-urlencode "avisos=1" "$W/fcm.php")
 get "/?r=salir"
 ok '[ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D1'"'"'")" ]' "salir desde ese celular: deja de recibir los avisos"
-get "/?r=login"; post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=claveSegura1"
+get "/?r=login"; post "/?r=login" --data-urlencode "correo=dimi@tukanec.com" --data-urlencode "clave=claveSegura1" --data-urlencode "recordar=1"
 ok '[ "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D1'"'"'")" = "$DIMI_ID" ]' "vuelve a entrar en la app: se vincula de nuevo solo"
+# Cerrar esa sesión desde Mi cuenta en otro aparato: ese celular se desvincula
+JPC="$TUKAN_J"; J="$JPC"
+REC=$(sqlp "SELECT id FROM sesiones_recordadas WHERE disp = '$D1' ORDER BY id DESC LIMIT 1")
+get "/?r=cuenta"; post "/?r=cuenta" --data-urlencode "accion=cerrar_celular" --data-urlencode "id=$REC"
+ok '[ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D1'"'"'")" ]' "cerrar la sesión de la app desde Mi cuenta: ese celular deja de recibir avisos"
 rm -f "$JA"
-# Un enlace con ?disp= de otro celular (sin la app) no vincula solo: hay que confirmarlo
+# Un enlace con ?disp= (sin prueba) o un Referer falso no vinculan
 entrar bella@salon.com BellaNueva1
 JB="$J"
-get "/?r=app&disp=$D2"
-ok 'tiene "Recibir aquí los avisos con la app Tukán Mensajes" && tiene "Sí, avisarme en este celular" && [ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" ]' "sin el Referer de la app: no se vincula solo, pregunta"
-post "/?r=app" --data-urlencode "accion=fcm_si"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" -H "Referer: android-app://com.tukansoftware.tuwhatsapp/" "$W/?r=app&disp=$D2")
+ok '[ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" ] && ! tiene "Sí, avisarme en este celular" && ! grep -q "tuwa_disp" "$J"' "enlace con ?disp= y Referer falso de la app: no vincula ni pregunta"
+TS2=$(date +%s)
+CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -c "$J" "$W/?r=app&disp=$D2&ts=$TS2&prueba=$(pruebaapp "$D2" "$S2" $TS2)")
+get "/?r=app"
 BELLA_ID=$(sqlp "SELECT id FROM usuarios WHERE correo = 'bella@salon.com'")
-ok 'tiene "te llegarán los avisos en este celular" && [ "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" = "$BELLA_ID" ]' "con el botón sí se vincula"
-get "/?r=app"; ok 'tiene "Este celular recibe los avisos con la app Tukán Mensajes" && ! tiene "Recibir aquí los avisos"' "vinculado: ya no pregunta"
-J="$TUKAN_J"; get "/?r=inicio&disp=$D2"
-ok 'tiene "id=\"tarjeta-fcm\"" && tiene "Sí, avisarme en este celular" && [ "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" = "$BELLA_ID" ]' "Inicio: un celular pendiente pregunta con una tarjeta (y no le quita el celular a nadie)"
-sed -i '/tuwa_disp/d' "$TUKAN_J"; J="$JB"
-# «Cerrar en todos los demás» desde otro aparato: el celular se desvincula y no se vuelve a vincular (su sesión ya no vale)
+ok '[ "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" = "$BELLA_ID" ] && tiene "Este celular recibe los avisos con la app"' "con la prueba de la app sí se vincula"
+post "/?r=app" --data-urlencode "accion=fcm_apagar"
+ok 'tiene "no te llegarán avisos de la app" && tiene "Volver a activar los avisos en este celular" && [ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" ]' "apagar en este celular"
+post "/?r=app" --data-urlencode "accion=fcm_activar"
+ok 'tiene "te llegarán los avisos en este celular" && [ "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" = "$BELLA_ID" ]' "volver a activarlos"
+# Cambiar la contraseña desde otro aparato: TODOS sus celulares se desvinculan
 entrar bella@salon.com BellaNueva1
-get "/?r=cuenta"; post "/?r=cuenta" --data-urlencode "accion=cerrar_otros"
-ok '[ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" ]' "cerrar en todos los demás: el celular deja de recibir avisos"
+get "/?r=cuenta"; post "/?r=cuenta" --data-urlencode "accion=mi_clave" --data-urlencode "actual=BellaNueva1" --data-urlencode "nueva=BellaNueva2" --data-urlencode "repetir=BellaNueva2"
+ok '[ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" ]' "cambiar la contraseña: todos sus celulares dejan de recibir avisos"
+get "/?r=cuenta"; post "/?r=cuenta" --data-urlencode "accion=mi_clave" --data-urlencode "actual=BellaNueva2" --data-urlencode "nueva=BellaNueva1" --data-urlencode "repetir=BellaNueva1"
 J="$JB"; get "/?r=app"
-ok '[ "$CODIGO" = 302 ] && grep -qi "location: /?r=login" <(curl -s -I -b "$J" "$W/?r=app") && [ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" ]' "…y como su sesión se cerró, no se vuelve a vincular"
+ok '[ "$CODIGO" = 302 ] && [ -z "$(sqlp "SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" ]' "…y como su sesión se cerró, el celular no se vuelve a vincular"
+# Límite por IP con la IP real (CF-Connecting-IP)
+for i in $(seq 1 20); do curl -s -o /dev/null -H "CF-Connecting-IP: 203.0.113.9" --data-urlencode "accion=registrar" --data-urlencode "dispositivo=$(openssl rand -hex 16)" --data-urlencode "secreto=$(openssl rand -hex 32)" --data-urlencode "token=tok$i" "$W/fcm.php"; done
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "CF-Connecting-IP: 203.0.113.9" --data-urlencode "accion=registrar" --data-urlencode "dispositivo=$(openssl rand -hex 16)" --data-urlencode "secreto=$(openssl rand -hex 32)" --data-urlencode "token=tokx" "$W/fcm.php")
+ok '[ "$CODIGO" = 429 ]' "límite de 20 celulares nuevos por hora con la IP real (CF-Connecting-IP)"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "CF-Connecting-IP: 203.0.113.10" --data-urlencode "accion=registrar" --data-urlencode "dispositivo=$(openssl rand -hex 16)" --data-urlencode "secreto=$(openssl rand -hex 32)" --data-urlencode "token=toky" "$W/fcm.php")
+ok '[ "$CODIGO" = 200 ]' "…otra IP real (aunque llegue por el mismo Cloudflare) sí puede"
 CODIGO=$(fcmreg "$D2" "$S2" "" "" quitar); ok '[ "$CODIGO" = 200 ] && [ "$(sqlp "SELECT count(*) FROM fcm_dispositivos WHERE dispositivo = '"'"'$D2'"'"'")" = 0 ]' "la app quita su celular con su secreto"
 J="$TUKAN_J"
 get "/?r=firebase"; post "/?r=firebase" --data-urlencode "accion=quitar"

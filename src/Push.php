@@ -158,6 +158,12 @@ final class Push
         return $r;
     }
 
+    /** ¿Esa suscripción es la de Chrome dentro de la app de Android? (ver describir()) */
+    public static function esDeLaApp(string $dispositivo): bool
+    {
+        return str_starts_with($dispositivo, 'App Tukán Mensajes');
+    }
+
     public static function quitarId(PDO $db, int $usuarioId, int $id): void
     {
         $db->prepare('DELETE FROM push_suscripciones WHERE usuario_id = ? AND id = ?')->execute([$usuarioId, $id]);
@@ -259,6 +265,12 @@ final class Push
         $st = $db->prepare('SELECT * FROM push_suscripciones WHERE usuario_id IN (' . implode(',', array_fill(0, count($usuarios), '?')) . ') AND ' . self::SQL_USABLE . ' LIMIT 50');
         $st->execute($usuarios);
         $subs = $st->fetchAll();
+        // (revisión) Sin avisos repetidos: a quien ya le funciona la app nueva (avisos nativos) no se le manda el Web Push de la app vieja
+        // (la suscripción de Chrome dentro de la app de Android). Los de la computadora u otros navegadores sí siguen.
+        $conApp = Fcm::conAppFuncionando($db, $usuarios);
+        if ($conApp) {
+            $subs = array_values(array_filter($subs, fn ($x) => !(in_array((int) $x['usuario_id'], $conApp, true) && self::esDeLaApp((string) $x['dispositivo']))));
+        }
         if (!$subs) {
             return $nativos;
         }

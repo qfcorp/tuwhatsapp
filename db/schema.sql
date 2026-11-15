@@ -850,6 +850,11 @@ CREATE TABLE IF NOT EXISTS fcm_dispositivos (
     error_texto   text NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS fcm_dispositivos_usuario ON fcm_dispositivos (usuario_id) WHERE usuario_id IS NOT NULL;
+-- (revisión, protocolo v2) avisos: el celular permite las notificaciones (la app lo manda al registrarse); ultimo_ts: anti repetición
+-- de la prueba HMAC de la URL (&disp=&ts=&prueba=). sesiones_recordadas.disp: el celular de la app de ese recuerdo (cerrarlo lo desvincula).
+ALTER TABLE fcm_dispositivos ADD COLUMN IF NOT EXISTS avisos    boolean NOT NULL DEFAULT true;
+ALTER TABLE fcm_dispositivos ADD COLUMN IF NOT EXISTS ultimo_ts bigint NOT NULL DEFAULT 0;
+ALTER TABLE sesiones_recordadas ADD COLUMN IF NOT EXISTS disp   text;
 -- Límite anti abuso: registros NUEVOS por IP por hora
 CREATE TABLE IF NOT EXISTS fcm_registros_ip (
     ip     text NOT NULL,

@@ -117,7 +117,8 @@ La app **Tukán Mensajes** de Google Play recibe los avisos ella misma con Fireb
   **Generar nueva clave privada** (baja un .json). En WhatsApp Tukán, con el usuario de Tukán: menú Tukán → **Avisos de la app (Firebase)** → subir el archivo → **Guardar clave**.
   Por consola: `bash /var/www/tuwhatsapp/deploy/configurar_firebase.sh /ruta/clave.json`. Después borrar el .json.
 - **Cada persona:** instala/actualiza la app, entra y toca **Permitir** las notificaciones. En App en el celular dice «Este celular recibe los avisos con la app ✅».
-- Registro del celular: `POST /fcm.php` (accion=registrar|quitar, dispositivo, secreto, token, modelo, version). Máximo 20 celulares nuevos por IP por hora.
+- Registro del celular: `POST /fcm.php` (accion=registrar|quitar, dispositivo, secreto, token, modelo, version, avisos 0/1). Máximo 20 celulares nuevos por IP real por hora.
+- Vínculo: la app abre `…&disp=D&ts=T&prueba=P` con P = HMAC-SHA256(sha256(secreto) crudo, "vincular:D:T"), válida 10 minutos y una sola vez; el servidor pone la cookie firmada y redirige sin esos datos.
 
 ## Avisos por Telegram (bot propio de Tukán Mensajes) — 14 nov 2026
 Cada persona del equipo conecta su Telegram y le llegan los mensajes de sus clientes con el botón **Abrir el chat** (`src/Telegram.php`, webhook `public/telegram.php`).

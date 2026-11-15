@@ -1402,12 +1402,12 @@ try {
                 } elseif ($accion === 'quitar_app') {   // (14 nov 2026) celular con la app (avisos nativos)
                     \TuWhatsApp\Fcm::quitarId(db(), $uidApp, (int) ($_POST['id'] ?? 0));
                     aviso('Ese celular ya no recibe avisos.');
-                } elseif ($accion === 'fcm_si') {
-                    $okSi = \TuWhatsApp\Fcm::confirmar(db(), $uidApp);
+                } elseif ($accion === 'fcm_activar') {   // volver a activar después de apagarlos (solo con la cookie firmada de la app)
+                    $okSi = \TuWhatsApp\Fcm::reactivar(db(), $uidApp);
                     aviso($okSi ? 'Listo: te llegarán los avisos en este celular, como en WhatsApp.'
                         : 'Este celular todavía no está listo. Cierra la app Tukán Mensajes y vuelve a abrirla.', $okSi ? 'ok' : 'error');
-                } elseif ($accion === 'fcm_no') {
-                    \TuWhatsApp\Fcm::rechazar(db(), $uidApp);
+                } elseif ($accion === 'fcm_apagar') {
+                    \TuWhatsApp\Fcm::apagar(db(), $uidApp);
                     aviso('Listo: en este celular no te llegarán avisos de la app. Puedes activarlos aquí cuando quieras.');
                 } elseif ($accion === 'fcm_prueba' && !es_super() && cuenta_muestra(empresa_actual())) {
                     aviso('Cuenta de demostración: esto se puede ver, pero no se cambia.', 'info');

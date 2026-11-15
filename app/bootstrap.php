@@ -55,10 +55,17 @@ if (!defined('TUWA_SIN_SESION') && PHP_SAPI !== 'cli') {
             'secure' => (($_SERVER['HTTPS'] ?? '') === 'on') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')]);
         $_COOKIE['tuwa_app'] = 'play';
     }
-    // (14 nov 2026) Avisos nativos: la app de Android abre la página con ?disp=<su celular> (ver src/Fcm.php). Se recuerda en la cookie
-    // tuwa_disp: firmada si la abrió la app (Referer android-app://…); si no, queda pendiente de confirmar con un botón.
+    // (14 nov 2026) Avisos nativos (protocolo v2, ver src/Fcm.php): la app abre la página con &disp=&ts=&prueba= (prueba HMAC con su
+    // secreto). Si es válida, cookie firmada tuwa_disp y 302 a la misma página sin esos datos; si no, se ignoran.
     if (is_string($_GET['disp'] ?? null)) {
-        \TuWhatsApp\Fcm::recordarDeUrl((string) $_GET['disp'], (string) ($_SERVER['HTTP_REFERER'] ?? ''));
+        try {
+            if (\TuWhatsApp\Fcm::vincularDeUrl(db(), (string) $_GET['disp'], (string) ($_GET['ts'] ?? ''), (string) ($_GET['prueba'] ?? ''))) {
+                header('Location: ' . \TuWhatsApp\Fcm::urlLimpia((string) ($_SERVER['REQUEST_URI'] ?? '/')), true, 302);
+                exit;
+            }
+        } catch (\Throwable $e) {
+            error_log('tuwhatsapp fcm url: ' . $e->getMessage());
+        }
     }
     // App de iPhone (App Store, 13 nov 2026): abre con ?app=ios (u ?origen=ios) y manda «TukanIOS» en el navegador.
     // Se recuerda con la cookie canal=ios (1 año), sin depender de que el modo Google Play esté prendido.
@@ -332,7 +339,8 @@ function entrar_por_cookie(): int
 function recordar_este_celular(int $usuarioId): void
 {
     $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
-    $valor = \TuWhatsApp\Sesiones::recordar(db(), $usuarioId, $ua, en_app_android() ? 'App Tukán Mensajes · Android' : null);
+    $valor = \TuWhatsApp\Sesiones::recordar(db(), $usuarioId, $ua, en_app_android() ? 'App Tukán Mensajes · Android' : null,
+                                              \TuWhatsApp\Fcm::dispositivoCookie());   // el celular de la app (cerrar esta sesión lo desvincula)
     setcookie(\TuWhatsApp\Sesiones::COOKIE, $valor, ['expires' => time() + 60 * 60 * 24 * \TuWhatsApp\Sesiones::DIAS, 'path' => '/',
         'secure' => es_https(), 'httponly' => true, 'samesite' => 'Lax']);
     $_COOKIE[\TuWhatsApp\Sesiones::COOKIE] = $valor;

@@ -478,6 +478,7 @@
     };
     // Vuelve a guardar en el servidor la suscripción que este navegador ya tiene (por si el servidor la perdió), una vez por sesión
     var resincronizar = function (sub) {
+        if (document.body.dataset.fcm === 'vinculado') { return; }   // la app nueva usa sus avisos nativos
         try { if (sessionStorage.getItem('tuwaPushSinc') === sub.endpoint) { return; } sessionStorage.setItem('tuwaPushSinc', sub.endpoint); } catch (x) {}
         mandarPush('suscribir', sub.toJSON(), null);
     };
@@ -495,6 +496,15 @@
             });
         }).catch(function () { estado.textContent = TR('No se pudieron activar los avisos en este navegador.'); return null; });
     };
+    // (revisión) Dentro de la app nueva con avisos nativos vinculados: se quita el Web Push de Chrome de este celular (en el navegador
+    // y en el servidor), para que no lleguen dos avisos por cada mensaje.
+    if (pushPosible && document.body.dataset.fcm === 'vinculado') {
+        navigator.serviceWorker.getRegistration().then(function (reg) { return reg ? reg.pushManager.getSubscription() : null; }).then(function (sub) {
+            if (!sub) { return; }
+            var datosQ = { endpoint: sub.endpoint };
+            return sub.unsubscribe().then(function () { return mandarPush('quitar', datosQ, null); });
+        }).catch(function () {});
+    }
     var cajaPush = $('#caja-push');
     if (cajaPush) {
         var estadoPush = $('#estado-push'), activarPush = $('#activar-push'), probarPush = $('#probar-push'), quitarPush = $('#quitar-push');

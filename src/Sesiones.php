@@ -19,13 +19,13 @@ final class Sesiones
     public const DIAS = 400;
 
     /** Crea el recuerdo de este celular y devuelve el valor de la cookie. */
-    public static function recordar(PDO $db, int $usuarioId, string $userAgent = '', ?string $nombre = null): string
+    public static function recordar(PDO $db, int $usuarioId, string $userAgent = '', ?string $nombre = null, ?string $disp = null): string
     {
         $selector = bin2hex(random_bytes(12));
         $validador = bin2hex(random_bytes(32));
-        $db->prepare("INSERT INTO sesiones_recordadas (usuario_id, selector, validador_hash, dispositivo, expira)
-                      VALUES (?, ?, ?, ?, now() + make_interval(days => ?))")
-           ->execute([$usuarioId, $selector, hash('sha256', $validador), $nombre ?? self::dispositivo($userAgent), self::DIAS]);
+        $db->prepare("INSERT INTO sesiones_recordadas (usuario_id, selector, validador_hash, dispositivo, expira, disp)
+                      VALUES (?, ?, ?, ?, now() + make_interval(days => ?), ?)")
+           ->execute([$usuarioId, $selector, hash('sha256', $validador), $nombre ?? self::dispositivo($userAgent), self::DIAS, $disp]);
         // Se guardan como mucho 20 por persona: se borran los más viejos
         $db->prepare('DELETE FROM sesiones_recordadas WHERE usuario_id = ? AND id NOT IN
                       (SELECT id FROM sesiones_recordadas WHERE usuario_id = ? ORDER BY ultimo_uso DESC LIMIT 20)')
@@ -104,8 +104,9 @@ final class Sesiones
         $st->execute([$usuarioId, $menos ?? 0]);
         $n = $st->rowCount();
         $db->prepare('UPDATE usuarios SET sesion_gen = sesion_gen + 1 WHERE id = ?')->execute([$usuarioId]);
-        // (14 nov 2026) Y sus celulares con la app dejan de recibir avisos nativos (menos este, si se queda con la sesión abierta)
-        Fcm::desvincularUsuario($db, $usuarioId, $menos !== null ? Fcm::dispositivoCookie() : null);
+        // (14 nov 2026) Y TODOS sus celulares con la app dejan de recibir avisos nativos (el de este aparato, si sigue con la sesión
+        // abierta, se vuelve a vincular solo en su próximo clic con su cookie firmada)
+        Fcm::desvincularUsuario($db, $usuarioId);
         return $n;
     }
 
@@ -120,9 +121,16 @@ final class Sesiones
     /** Cerrar la sesión de un celular desde Mi cuenta (solo los propios). */
     public static function cerrar(PDO $db, int $usuarioId, int $id): bool
     {
-        $st = $db->prepare('DELETE FROM sesiones_recordadas WHERE id = ? AND usuario_id = ?');
+        $st = $db->prepare('DELETE FROM sesiones_recordadas WHERE id = ? AND usuario_id = ? RETURNING disp');
         $st->execute([$id, $usuarioId]);
-        return $st->rowCount() > 0;
+        $f = $st->fetch();
+        if ($f === false) {
+            return false;
+        }
+        if (is_string($f['disp'] ?? null) && $f['disp'] !== '') {   // (14 nov 2026) si era la app, ese celular deja de recibir avisos
+            Fcm::desvincularDispositivo($db, $usuarioId, (string) $f['disp']);
+        }
+        return true;
     }
 
     /** @return list<array> celulares con la sesión abierta (el más usado primero) */

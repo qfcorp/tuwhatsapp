@@ -4,17 +4,23 @@
 ## 📱 Avisos NATIVOS en la app de Android, como WhatsApp (14 nov 2026, noche) — Firebase Cloud Messaging
 Problema (Dimitry): en el celular no llegaban los avisos aunque los aprobaba; Android los veía como "página web de Chrome". En App en el
 celular solo aparecía "Chrome · Windows": el Web Push dentro de la app (TWA) nunca registró el celular.
-- **Servidor (`src/Fcm.php`, `public/fcm.php`):** la app registra su celular (dispositivo 32 hex + secreto 64 hex, en la base solo el sha256) y su token
-  de Firebase. La app abre la página con `&disp=<dispositivo>`: cookie `tuwa_disp` FIRMADA si la abrió la app (Referer `android-app://com.tukansoftware.tuwhatsapp`)
-  → se vincula sola a quien entra; si no (enlace de otra persona), queda pendiente y se confirma con el botón «Sí, avisarme en este celular».
+- **Servidor (`src/Fcm.php`, `public/fcm.php`):** la app registra su celular (dispositivo 32 hex + secreto 64 hex, en la base solo el sha256), su token
+  de Firebase y `avisos` (1 = el celular permite las notificaciones; con 0 no cuenta como "avisos funcionando" y App en el celular dice que están bloqueados).
+  Vuelve a registrarse al abrir (al menos una vez al día) y cuando cambia `avisos`. Límite: 20 celulares nuevos por hora por IP real (`ip_cliente()`, CF-Connecting-IP).
+- **Vínculo (protocolo v2, tras la revisión):** la app abre la página con `&disp=D&ts=T&prueba=P`, P = HMAC-SHA256(clave = sha256 crudo del secreto,
+  "vincular:D:T"). Si P es buena, |ahora−T| ≤ 10 min y T es más nuevo que el último usado por ese celular → cookie firmada `tuwa_disp` y 302 a la misma
+  página sin esos datos; con la sesión abierta, el celular queda vinculado. Sin prueba válida se ignora (el Referer y el botón de confirmar ya NO existen).
 - **Envío:** FCM HTTP v1, mensaje solo de datos (titulo, texto, url, tag), prioridad alta, espera 24 h; OAuth con JWT RS256 de la cuenta de servicio, token de acceso
   cifrado ~50 min. Token muerto (404 UNREGISTERED / 400 token no válido) → se borra el celular. Sale al FINAL del webhook (no atrasa la respuesta automática).
   También va en `Push::enviar` (llamadas, pagos, Copiloto, aviso de prueba). Cuenta para la cinta amarilla y para el aviso a los administradores.
-- **Desvincular:** Salir desde ese celular; contraseña cambiada/reseteada o usuario desactivado (todos); «Cerrar en todos los demás» (todos menos este); Quitar en App en el celular.
+- **Desvincular:** Salir desde ese celular; cerrar esa sesión desde Mi cuenta (el recuerdo guarda su `disp`); contraseña cambiada/reseteada, usuario
+  desactivado o «Cerrar en todos los demás» (TODOS; el celular desde donde se hizo se vuelve a vincular solo con su cookie); Quitar o «Apagar en este celular».
+- **Sin repetidos:** a quien le funciona la app nueva no se le manda el Web Push de Chrome dentro de la app vieja ("App Tukán Mensajes · …"); y el JS de la app
+  nueva desuscribe ese Web Push y borra su fila. Token dado de baja por Google → el celular queda sin token (se conserva) hasta que la app se registre de nuevo.
+- Solo cuentan como "avisos funcionando" si la clave de Firebase está subida. Limpieza diaria: registros por IP viejos y celulares nunca vinculados de más de 7 días.
 - **Clave de Firebase:** menú Tukán → **Avisos de la app (Firebase)** (solo personal de Tukán, `es_super()`): subir el .json de la cuenta de servicio (se guarda cifrado con
   TUWA_LLAVE en `ajustes.fcm_clave`; se ve proyecto y correo, nunca la llave), aviso de prueba, quitar. Por consola: `bash deploy/configurar_firebase.sh /ruta/clave.json`.
 - **App (qfcorp/tukan-apps):** la parte de Android la hace la app 1.0.4 (FirebaseMessagingService, canal propio, registro en /fcm.php, `&disp=` en la URL de inicio).
-  IMPORTANTE para la app: quitar cualquier `disp=` que venga en un enlace externo y poner solo el suyo.
 - Pruebas: Firebase y OAuth SIMULADOS (`tests/fcm_simulado.php`, FCM_PUERTO 8093). `tests/correr.sh` ahora fija `PGTZ=America/Guayaquil` (de noche, la fecha de la base en UTC
   no coincidía con la del programa y fallaban pruebas de fechas).
 

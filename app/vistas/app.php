@@ -32,12 +32,15 @@ $minCorreo = (int) $ajustesCorreo['min'];
         <p><b>📱 Este celular recibe los avisos con la app Tukán Mensajes ✅</b> <span class="suave pequeno">(llegan aunque la app esté cerrada, como en WhatsApp)</span></p>
         <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_prueba">
             <button class="boton boton-claro tk-boton secundario">Mandarme un aviso de prueba a la app</button></form>
-        <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_no">
+        <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_apagar">
             <button class="enlace">Apagar en este celular</button></form>
-        <?php elseif (in_array($estadoFcm, ['pendiente', 'apagado'], true)): ?>
-        <p><b>📱 ¿Recibir aquí los avisos con la app Tukán Mensajes?</b></p>
-        <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_si">
-            <button class="boton tk-boton">🔔 Sí, avisarme en este celular</button></form>
+        <?php elseif ($estadoFcm === 'bloqueado'): ?>
+        <p class="tk-aviso aviso aviso-error">🔕 <b>Este celular tiene los avisos bloqueados:</b> Ajustes → Apps → Tukán Mensajes → Notificaciones (permitir).
+        Después cierra la app y vuelve a abrirla.</p>
+        <?php elseif ($estadoFcm === 'apagado'): ?>
+        <p><b>📱 Apagaste los avisos de la app en este celular.</b></p>
+        <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_activar">
+            <button class="boton tk-boton">🔔 Volver a activar los avisos en este celular</button></form>
         <?php elseif ($estadoFcm === 'sin_registro'): ?>
         <p class="tk-aviso aviso aviso-info pequeno">📱 Falta un paso: cierra la app <b>Tukán Mensajes</b> (deslízala de las apps abiertas) y vuelve a abrirla.
         Si el celular pregunta si permites las notificaciones, toca <b>Permitir</b>.</p>
@@ -59,11 +62,13 @@ $minCorreo = (int) $ajustesCorreo['min'];
     <?php if ($dispositivos || $appNativa): ?>
     <h3 class="pequeno">Dispositivos que reciben avisos</h3>
     <ul class="lista-dispositivos">
-        <?php foreach ($appNativa as $d): $falla = $d['errores'] >= 5; ?>
+        <?php foreach ($appNativa as $d): $falla = $d['errores'] >= 5 || !$d['avisos'] || !$d['con_token']; ?>
         <li>
             <span><?= $falla ? '⚠️' : '✅' ?> <b>📱 App Tukán Mensajes<?= $d['modelo'] !== '' ? ' · ' . e($d['modelo']) : '' ?></b>
-                <span class="suave pequeno">· último aviso entregado: <?= e($fechaCorta($d['ultimo_ok'])) ?><?php if ($d['errores'] > 0): ?> ·
-                <?= $falla ? 'NO le están llegando (se vuelve a intentar cada día)' : 'falló ' . $d['errores'] . ($d['errores'] === 1 ? ' vez' : ' veces') ?><?php endif; ?></span></span>
+                <span class="suave pequeno">· último aviso entregado: <?= e($fechaCorta($d['ultimo_ok'])) ?><?php if (!$d['avisos']): ?> ·
+                avisos bloqueados en el celular (Ajustes → Apps → Tukán Mensajes → Notificaciones)<?php elseif (!$d['con_token']): ?> ·
+                hay que abrir la app de nuevo<?php elseif ($d['errores'] > 0): ?> ·
+                <?= $d['errores'] >= 5 ? 'NO le están llegando (se vuelve a intentar cada día)' : 'falló ' . $d['errores'] . ($d['errores'] === 1 ? ' vez' : ' veces') ?><?php endif; ?></span></span>
             <form method="post" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="quitar_app"><input type="hidden" name="id" value="<?= (int) $d['id'] ?>">
                 <button class="enlace pequeno">Quitar</button></form>
         </li>

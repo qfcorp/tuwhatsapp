@@ -2903,36 +2903,66 @@ for ($i = 0; $i < Fcm::REGISTROS_POR_HORA; $i++) {
 }
 igual(Fcm::registrar($db, ['dispositivo' => $hex(16), 'secreto' => $hex(32), 'token' => 'tok-x'], '10.9.9.9')[0], 429, 'más de 20 celulares nuevos por hora desde la misma IP: 429');
 igual(Fcm::registrar($db, ['dispositivo' => $dA, 'secreto' => $sA, 'token' => 'token-ana', 'modelo' => 'Samsung SM-A546E'], '10.9.9.9')[0], 200, '…pero un celular ya registrado sí se actualiza desde esa IP');
-igual(Fcm::limpiar($db, new DateTimeImmutable('+2 days')), 21, 'limpieza: borra los registros por IP de más de 1 día');
+$db->exec("DELETE FROM ajustes WHERE clave = 'fcm_limpieza'");
+$sueltos = (int) $db->query('SELECT count(*) FROM fcm_dispositivos WHERE usuario_id IS NULL AND vinculado IS NULL')->fetchColumn();
+igual(Fcm::limpiar($db, new DateTimeImmutable('+2 days')), [21, 0], 'limpieza diaria: borra los registros por IP de más de 1 día (los celulares de menos de 7 días se quedan)');
+igual(Fcm::limpiar($db, new DateTimeImmutable('+2 days 1 hour')), null, '…y no se repite el mismo día');
+$db->exec("DELETE FROM ajustes WHERE clave = 'fcm_limpieza'");
+$db->exec("UPDATE fcm_dispositivos SET vinculado = now() WHERE dispositivo = '$dA'");
+igual(Fcm::limpiar($db, new DateTimeImmutable('+8 days'))[1], $sueltos - 1, 'celulares que nunca se vincularon a nadie en 7 días: se borran');
+ok((bool) $db->query("SELECT 1 FROM fcm_dispositivos WHERE dispositivo = '$dA'")->fetchColumn(), '…pero no uno que alguna vez se vinculó');
+$db->exec("DELETE FROM ajustes WHERE clave = 'fcm_limpieza'");
 
-// Cookie tuwa_disp y vínculo con la persona
+// Protocolo v2: la app abre la página con &disp=&ts=&prueba= (HMAC con clave = sha256 crudo del secreto)
+$pruebaApp = fn (string $d, string $sec, int $t) => hash_hmac('sha256', "vincular:$d:$t", hash('sha256', $sec, true));
 $_COOKIE = [];
-Fcm::recordarDeUrl($dA, 'android-app://com.tukansoftware.tuwhatsapp/');
+$tA = time();
+ok(Fcm::vincularDeUrl($db, $dA, (string) $tA, $pruebaApp($dA, $sA, $tA)), 'prueba HMAC buena: vincula');
 $cookieA = (string) ($_COOKIE[Fcm::COOKIE] ?? '');
-ok(str_starts_with($cookieA, $dA . '.') && Fcm::leerCookie()['firmada'], 'abierto por la app (Referer android-app://…): cookie firmada');
+igual($cookieA, Fcm::valorCookie($dA), '…y deja la cookie firmada');
+igual(Fcm::dispositivoCookie(), $dA, 'la cookie firmada se lee');
+$_COOKIE = [];
+ok(!Fcm::vincularDeUrl($db, $dA, (string) $tA, $pruebaApp($dA, $sA, $tA)), 'la misma prueba otra vez (repetida): no sirve');
+ok(!Fcm::vincularDeUrl($db, $dA, (string) ($tA - 5), $pruebaApp($dA, $sA, $tA - 5)), 'un ts más viejo que el último usado: no sirve');
+ok(!Fcm::vincularDeUrl($db, $dA, (string) ($tA + 1), $pruebaApp($dA, $hex(32), $tA + 1)), 'prueba hecha con otro secreto: no sirve');
+ok(!Fcm::vincularDeUrl($db, $dA, (string) ($tA - 700), $pruebaApp($dA, $sA, $tA - 700)), 'prueba de hace más de 10 minutos (vencida): no sirve');
+ok(!Fcm::vincularDeUrl($db, $dA, (string) ($tA + 700), $pruebaApp($dA, $sA, $tA + 700)), 'prueba del futuro (más de 10 minutos): no sirve');
+ok(!Fcm::vincularDeUrl($db, $hex(16), (string) $tA, $pruebaApp($dA, $sA, $tA)), 'celular desconocido: no sirve');
+ok(!Fcm::vincularDeUrl($db, $dA, 'abc', 'xyz'), 'datos con forma mala: no sirve');
+igual($_COOKIE, [], 'ninguna de esas pone cookie');
+ok(Fcm::vincularDeUrl($db, $dA, (string) ($tA + 2), $pruebaApp($dA, $sA, $tA + 2)), 'un ts nuevo y bueno sí sirve');
+igual(Fcm::urlLimpia('/?r=inicio&app=play&disp=' . $dA . '&ts=1&prueba=abc'), '/?r=inicio&app=play', 'la dirección queda sin disp, ts ni prueba (para el 302)');
+igual(Fcm::urlLimpia('//malo.com/?disp=1'), '/', 'nunca redirige a otro sitio');
+$_COOKIE = [Fcm::COOKIE => $dA];
+ok(Fcm::dispositivoCookie() === null, 'cookie sin firma (como la «pendiente» de antes): no cuenta');
+$_COOKIE = [Fcm::COOKIE => $dA . '.' . str_repeat('0', 32)];
+ok(Fcm::dispositivoCookie() === null, 'cookie con firma falsa: no cuenta');
+igual(Fcm::alEntrar($db, $fAna), 'sin_cookie', '…así que no vincula nada');
+$_COOKIE = [Fcm::COOKIE => $cookieA];
 igual(Fcm::alEntrar($db, $fAna), 'vinculado', 'Ana entra en la app: su celular queda vinculado');
 igual((int) $db->query("SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '$dA'")->fetchColumn(), $fAna, '…a Ana');
-ok(Fcm::algunoFunciona($db, [$fAna]) && \TuWhatsApp\Push::algunoFunciona($db, [$fAna]) && \TuWhatsApp\Push::funcionando($db, $fAna) === 1, 'cuenta como «avisos funcionando» (no sale la cinta amarilla)');
-Fcm::recordarDeUrl($hex(16), 'https://pagina-mala.com/');
-igual((string) $_COOKIE[Fcm::COOKIE], $cookieA, 'un enlace con ?disp= de otro celular (sin la app) no reemplaza la cookie firmada');
+ok(!Fcm::algunoFunciona($db, [$fAna]) && Fcm::funcionando($db, $fAna) === 0, 'sin la clave de Firebase subida todavía no cuenta como «avisos funcionando»');
 [$dB, $sB] = [$hex(16), $hex(32)];
 Fcm::registrar($db, ['dispositivo' => $dB, 'secreto' => $sB, 'token' => 'token-beto', 'modelo' => 'Moto G'], '10.0.0.2');
-$_COOKIE = [];
-Fcm::recordarDeUrl($dB, '');
-ok(($_COOKIE[Fcm::COOKIE] ?? '') === $dB && !Fcm::leerCookie()['firmada'], 'sin el Referer de la app: cookie pendiente (sin firma)');
-igual(Fcm::alEntrar($db, $fBeto), 'pendiente', 'pendiente: no se vincula solo (hay que confirmarlo con el botón)');
-ok($db->query("SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '$dB'")->fetchColumn() === null, '…y no queda vinculado');
-ok(Fcm::confirmar($db, $fBeto) && Fcm::leerCookie()['firmada'], 'botón «Sí, avisarme en este celular»: vincula y firma la cookie');
+$_COOKIE = [Fcm::COOKIE => Fcm::valorCookie($dB)];
 igual(Fcm::alEntrar($db, $fBeto), 'vinculado', 'Beto: vinculado');
-Fcm::rechazar($db, $fBeto);
+Fcm::apagar($db, $fBeto);
 igual(Fcm::alEntrar($db, $fBeto), 'apagado', '«Apagar en este celular»: ya no se vincula solo aunque la cookie esté firmada');
-ok(Fcm::confirmar($db, $fBeto), 'se puede volver a activar');
-$_COOKIE = [Fcm::COOKIE => $dA . '.' . str_repeat('0', 32)];
-ok(!Fcm::leerCookie()['firmada'], 'cookie con firma falsa: cuenta como pendiente');
-$_COOKIE = [Fcm::COOKIE => $hex(16)];
-igual(Fcm::alEntrar($db, $fAna), 'sin_registro', 'cookie de un celular que no se registró: «cierra y abre la app»');
+ok(Fcm::reactivar($db, $fBeto), 'se puede volver a activar (con la cookie firmada)');
+igual(Fcm::alEntrar($db, $fBeto), 'vinculado', '…vinculado otra vez');
+$_COOKIE = [Fcm::COOKIE => $dB];
+ok(!Fcm::reactivar($db, $fAna), 'sin cookie firmada no se puede activar en un celular ajeno');
+$_COOKIE = [Fcm::COOKIE => Fcm::valorCookie($hex(16))];
+igual(Fcm::alEntrar($db, $fAna), 'sin_registro', 'cookie firmada de un celular que no se registró: «cierra y abre la app»');
 $_COOKIE = [];
 igual(Fcm::alEntrar($db, $fAna), 'sin_cookie', 'sin cookie (computadora o app vieja): nada');
+// avisos = 0: el celular tiene las notificaciones bloqueadas
+igual(Fcm::registrar($db, ['dispositivo' => $dB, 'secreto' => $sB, 'token' => 'token-beto', 'modelo' => 'Moto G', 'avisos' => '0'], '10.0.0.2'), [200, ['ok' => true]], 're-registro con avisos=0 (mismo token)');
+igual(Fcm::registrar($db, ['dispositivo' => $dB, 'secreto' => $sB, 'token' => 'token-beto', 'avisos' => '2'], '10.0.0.2')[0], 400, 'avisos raro: 400');
+$_COOKIE = [Fcm::COOKIE => Fcm::valorCookie($dB)];
+igual(Fcm::alEntrar($db, $fBeto), 'bloqueado', 'con avisos=0 el estado es «bloqueado»');
+igual(Fcm::dispositivos($db, $fBeto)[0]['avisos'] ?? null, false, 'en la lista sale con los avisos bloqueados');
+$_COOKIE = [];
 
 // Envío
 $fcmLimpiar();
@@ -2951,6 +2981,10 @@ igual(Fcm::guardarClave($db, $claveJson), ['project_id' => 'tukan-mensajes-prueb
 $guardada = (string) $db->query("SELECT valor FROM ajustes WHERE clave = 'fcm_clave'")->fetchColumn();
 ok($guardada !== '' && !str_contains($guardada, 'PRIVATE KEY') && !str_contains($guardada, 'tukan-mensajes-prueba'), 'en la base la clave queda cifrada');
 igual(Fcm::estadoClave($db)['project_id'], 'tukan-mensajes-prueba', 'estado: muestra el proyecto (no la llave)');
+ok(Fcm::algunoFunciona($db, [$fAna]) && \TuWhatsApp\Push::algunoFunciona($db, [$fAna]) && \TuWhatsApp\Push::funcionando($db, $fAna) === 1, 'con la clave subida: cuenta como «avisos funcionando» (no sale la cinta amarilla)');
+ok(!Fcm::algunoFunciona($db, [$fBeto]) && Fcm::funcionando($db, $fBeto) === 0, 'un celular con avisos=0 NO cuenta');
+Fcm::registrar($db, ['dispositivo' => $dB, 'secreto' => $sB, 'token' => 'token-beto', 'modelo' => 'Moto G', 'avisos' => '1'], '10.0.0.2');
+ok(Fcm::algunoFunciona($db, [$fBeto]), 'cuando la app avisa avisos=1, vuelve a contar');
 ok(!isset(Fcm::estadoClave($db)['private_key']), '…y nunca la llave privada');
 
 $cF1 = Contactos::guardar($db, $lF, '0981777001', 'Lucía <Fire> & Cía', 'cliente');
@@ -2997,7 +3031,12 @@ $ponerDueno = function (string $token) use ($db, $hex, $fDueno): void {
 array_map($ponerDueno, ['token-invalido', 'token-malo', 'token-500']);
 igual(Fcm::enviar($db, [$fDueno], ['titulo' => 'x', 'texto' => 'y', 'url' => '/', 'tag' => 't']), 0, 'ninguno se entregó');
 $quedan = $db->query("SELECT token FROM fcm_dispositivos WHERE usuario_id = $fDueno ORDER BY token")->fetchAll(PDO::FETCH_COLUMN);
-igual($quedan, ['token-500'], 'UNREGISTERED (404) y token no válido (400) se borran; la falla temporal se queda');
+igual($quedan, ['', '', 'token-500'], 'UNREGISTERED (404) y token no válido (400): el celular se queda SIN token (con su secreto y su persona); la falla temporal sigue');
+igual((int) $db->query("SELECT count(*) FROM fcm_dispositivos WHERE usuario_id = $fDueno AND token = '' AND secreto_hash <> ''")->fetchColumn(), 2, '…las dos filas se conservan');
+igual(Fcm::funcionando($db, $fDueno), 1, 'sin token no cuenta como avisos funcionando (solo cuenta el que tiene token)');
+$fcmLimpiar();
+Fcm::enviar($db, [$fDueno], ['titulo' => 'x', 'texto' => 'y', 'url' => '/', 'tag' => 't']);
+igual(count($fcmEnvios()), 1, 'a los celulares sin token no se les intenta mandar');
 $db->exec("DELETE FROM fcm_dispositivos WHERE usuario_id = $fDueno");
 $ponerDueno('token-lento');
 $t0F = microtime(true);
@@ -3044,10 +3083,21 @@ Empresas::cambiarUsuario($db, $eF, $fAna, 'activar', $fDueno);
 [$dC] = [$hex(16)];
 Fcm::registrar($db, ['dispositivo' => $dC, 'secreto' => $hex(32), 'token' => 'token-beto-2', 'modelo' => 'Tablet'], '10.0.0.3');
 $db->prepare('UPDATE fcm_dispositivos SET usuario_id = ? WHERE dispositivo IN (?, ?)')->execute([$fBeto, $dB, $dC]);
-$_COOKIE = [Fcm::COOKIE => $dB . '.' . substr(hash_hmac('sha256', 'tuwa-disp:' . $dB, str_repeat('ab', 32)), 0, 32)];
+$_COOKIE = [Fcm::COOKIE => Fcm::valorCookie($dB)];
 \TuWhatsApp\Sesiones::olvidarUsuario($db, $fBeto, 999999);   // «cerrar en todos los demás» desde el celular B
-igual($db->query("SELECT dispositivo FROM fcm_dispositivos WHERE usuario_id = $fBeto")->fetchAll(PDO::FETCH_COLUMN), [$dB], 'cerrar en todos los demás: queda solo el celular desde donde se hizo');
+igual((int) $db->query("SELECT count(*) FROM fcm_dispositivos WHERE usuario_id = $fBeto")->fetchColumn(), 0, 'cerrar en todos los demás: se desvinculan TODOS sus celulares…');
+igual(Fcm::alEntrar($db, $fBeto), 'vinculado', '…y el celular desde donde se hizo se vuelve a vincular solo en su próximo clic');
 $_COOKIE = [];
+// Cerrar una sesión desde Mi cuenta: si ese recuerdo era de la app, su celular se desvincula
+$_COOKIE = [Fcm::COOKIE => Fcm::valorCookie($dC)];
+\TuWhatsApp\Sesiones::recordar($db, $fBeto, 'Mozilla/5.0 (Linux; Android 14; Tablet)', 'App Tukán Mensajes · Android', Fcm::dispositivoCookie());
+$_COOKIE = [];
+$db->prepare('UPDATE fcm_dispositivos SET usuario_id = ? WHERE dispositivo = ?')->execute([$fBeto, $dC]);
+$idRec = (int) $db->query("SELECT id FROM sesiones_recordadas WHERE usuario_id = $fBeto AND disp = '$dC'")->fetchColumn();
+ok($idRec > 0, 'al recordar la sesión desde la app se guarda su celular');
+ok(\TuWhatsApp\Sesiones::cerrar($db, $fBeto, $idRec) && $db->query("SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '$dC'")->fetchColumn() === null, 'cerrar esa sesión desde Mi cuenta: ese celular deja de recibir avisos');
+ok((int) $db->query("SELECT usuario_id FROM fcm_dispositivos WHERE dispositivo = '$dB'")->fetchColumn() === $fBeto, '…y los otros celulares siguen');
+$db->prepare('UPDATE fcm_dispositivos SET usuario_id = ? WHERE dispositivo = ?')->execute([$fBeto, $dC]);
 ok(Fcm::quitarId($db, $fBeto, (int) $db->query("SELECT id FROM fcm_dispositivos WHERE dispositivo = '$dB'")->fetchColumn()), 'quitar un celular desde App en el celular');
 ok(!Fcm::quitarId($db, $fAna, (int) $db->query("SELECT id FROM fcm_dispositivos WHERE dispositivo = '$dC'")->fetchColumn()), 'no se puede quitar el celular de otra persona');
 igual(Fcm::quitarDesdeApp($db, ['dispositivo' => $dA, 'secreto' => $hex(32)])[0], 403, 'quitar desde la app con otro secreto: 403');
@@ -3055,7 +3105,33 @@ igual(Fcm::quitarDesdeApp($db, ['dispositivo' => $dA, 'secreto' => $sA]), [200, 
 ok($db->query("SELECT 1 FROM fcm_dispositivos WHERE dispositivo = '$dA'")->fetchColumn() === false, '…lo borra');
 ok(Fcm::tokenMuerto(404, null) && Fcm::tokenMuerto(400, ['error' => ['status' => 'INVALID_ARGUMENT', 'message' => 'The registration token is not a valid FCM registration token']])
    && !Fcm::tokenMuerto(400, ['error' => ['status' => 'INVALID_ARGUMENT', 'message' => 'Invalid JSON payload']]) && !Fcm::tokenMuerto(500, null), 'solo se borra si Google dice que el token ya no sirve');
+// Sin avisos repetidos: con la app nueva funcionando, no se manda el Web Push de Chrome dentro de la app vieja (sí el de la computadora)
+$subPrueba = function (string $fin, string $disp) use ($db, $fBeto): void {
+    $k = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
+    $d = openssl_pkey_get_details($k);
+    $b = fn ($x) => rtrim(strtr(base64_encode($x), '+/', '-_'), '=');
+    $db->prepare('INSERT INTO push_suscripciones (usuario_id, endpoint, p256dh, auth, dispositivo) VALUES (?, ?, ?, ?, ?)')
+       ->execute([$fBeto, getenv('SIM_URL') . '/push/ok/' . $fin, $b("\x04" . str_pad($d['ec']['x'], 32, "\0", STR_PAD_LEFT) . str_pad($d['ec']['y'], 32, "\0", STR_PAD_LEFT)), $b(random_bytes(16)), $disp]);
+};
+putenv('TUWA_PUSH_PRUEBA=' . getenv('SIM_URL') . '/push/');
+$subPrueba('twa1', 'App Tukán Mensajes · Android Moto G');
+$subPrueba('pc1', 'Chrome · Windows');
+limpiarSim();
+$fcmLimpiar();
+\TuWhatsApp\Push::enviar($db, [$fBeto], ['titulo' => 'x', 'texto' => 'y', 'url' => '/', 'tag' => 't']);
+$rutasPush = array_map(fn ($x) => $x['ruta'], array_filter(sim(), fn ($x) => str_contains((string) ($x['ruta'] ?? ''), '/push/')));
+ok(count($fcmEnvios()) >= 1 && !array_filter($rutasPush, fn ($r) => str_contains($r, 'twa1')) && array_filter($rutasPush, fn ($r) => str_contains($r, 'pc1')),
+   'con la app nueva funcionando: aviso nativo + computadora, y NO el Web Push de la app vieja (sin repetidos)');
+$db->exec("UPDATE fcm_dispositivos SET avisos = false WHERE usuario_id = $fBeto");
+limpiarSim();
+\TuWhatsApp\Push::enviar($db, [$fBeto], ['titulo' => 'x', 'texto' => 'y', 'url' => '/', 'tag' => 't']);
+$rutasPush = array_map(fn ($x) => $x['ruta'], array_filter(sim(), fn ($x) => str_contains((string) ($x['ruta'] ?? ''), '/push/')));
+ok((bool) array_filter($rutasPush, fn ($r) => str_contains($r, 'twa1')), 'si la app nueva tiene los avisos bloqueados, el Web Push de la app vieja sí sale (por si acaso)');
+$db->exec("UPDATE fcm_dispositivos SET avisos = true WHERE usuario_id = $fBeto");
+$db->exec("DELETE FROM push_suscripciones WHERE usuario_id = $fBeto");
+putenv('TUWA_PUSH_PRUEBA=');
 Fcm::quitarClave($db);
+ok(!Fcm::algunoFunciona($db, [$fBeto]) && Fcm::funcionando($db, $fBeto) === 0, 'sin la clave de Firebase los celulares no cuentan como avisos funcionando');
 ok(!Fcm::configurado($db) && (int) $db->query("SELECT count(*) FROM ajustes WHERE clave IN ('fcm_clave', 'fcm_acceso')")->fetchColumn() === 0, 'quitar la clave borra también el token de acceso');
 putenv('TUWA_FCM_URL=');
 

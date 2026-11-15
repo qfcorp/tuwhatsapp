@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 // (14 nov 2026) Aquí la app de Android «Tukán Mensajes» registra su celular para los avisos nativos (Firebase Cloud Messaging).
-//   POST accion=registrar, dispositivo (32 hex), secreto (64 hex), token, modelo, version  → {"ok":true}
+//   POST accion=registrar, dispositivo (32 hex), secreto (64 hex), token, modelo, version, avisos (0/1)  → {"ok":true}
 //   POST accion=quitar,    dispositivo, secreto                                          → {"ok":true}
 // Un celular ya registrado solo se cambia con su mismo secreto. No usa sesión (el vínculo con la persona va por la cookie tuwa_disp).
 define('TUWA_SIN_SESION', true);
@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $accion = (string) ($_POST['accion'] ?? '');
 try {
     if ($accion === 'registrar') {
-        [$codigo, $r] = \TuWhatsApp\Fcm::registrar(db(), $_POST, (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        [$codigo, $r] = \TuWhatsApp\Fcm::registrar(db(), $_POST, ip_cliente());   // la IP real detrás de Cloudflare
     } elseif ($accion === 'quitar') {
         [$codigo, $r] = \TuWhatsApp\Fcm::quitarDesdeApp(db(), $_POST);
     } else {

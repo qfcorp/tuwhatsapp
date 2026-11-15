@@ -43,10 +43,10 @@ if ($u && in_array($rutaActual, ['inicio', 'bandeja'], true)) {
         && !\TuWhatsApp\Telegram::activoPara(db(), (int) $u['id']);
     $tarjetaAvisosApp = en_app_android();
 }
-// (14 nov 2026) Avisos NATIVOS de la app (src/Fcm.php): si este celular es la app con su registro, en vez de la tarjeta de Chrome se
-// pregunta una vez si recibe aquí los avisos (pendiente) o se pide cerrar y abrir la app (todavía sin registro). Vinculado: nada.
+// (14 nov 2026) Avisos NATIVOS de la app (src/Fcm.php): dentro de la app nueva no se usa la tarjeta de Chrome. Si la app todavía no
+// mandó su registro, se pide cerrarla y abrirla; si el celular tiene las notificaciones bloqueadas, se dice dónde activarlas.
 $estadoFcm = (string) ($GLOBALS['estado_fcm'] ?? 'sin_cookie');
-$tarjetaFcm = $u && in_array($rutaActual, ['inicio', 'bandeja'], true) && in_array($estadoFcm, ['pendiente', 'sin_registro'], true) ? $estadoFcm : '';
+$tarjetaFcm = $u && in_array($rutaActual, ['inicio', 'bandeja'], true) && in_array($estadoFcm, ['sin_registro', 'bloqueado'], true) ? $estadoFcm : '';
 if ($estadoFcm !== 'sin_cookie') {
     $tarjetaAvisosApp = false;   // la app nueva no usa los avisos de Chrome
 }
@@ -79,7 +79,7 @@ if ($u && $linea) {
 <script>try { var t = localStorage.getItem('tuwa_tema'); if (t) { document.documentElement.dataset.tema = t; } } catch (e) {}</script>
 <?= tukan_idioma_js(require RAIZ . '/app/frases_js.php') ?>
 </head>
-<body class="tk <?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?><?= en_app_tienda() ? ' en-app' : '' ?><?= en_app_ios() ? ' tukan-ios' : '' ?>"<?= $u && $linea && !empty($linea['llamadas_activo']) ? ' data-llamadas="1" data-csrf="' . e(csrf()) . '"' : '' ?>>
+<body class="tk <?= $u ? 'con-sesion' : 'sin-sesion' ?> ruta-<?= e($rutaActual) ?><?= en_app_tienda() ? ' en-app' : '' ?><?= en_app_ios() ? ' tukan-ios' : '' ?>"<?= $u && $linea && !empty($linea['llamadas_activo']) ? ' data-llamadas="1" data-csrf="' . e(csrf()) . '"' : '' ?><?= $u && in_array($estadoFcm, ['vinculado', 'bloqueado'], true) ? ' data-fcm="' . e($estadoFcm) . '"' : '' ?>>
 <?php if ($u): ?>
 <header class="tk-arriba">
     <div class="tk-arriba-izq">
@@ -156,14 +156,10 @@ if ($u && $linea) {
     <?php if ($avisosApagados): ?>
     <a class="tk-aviso aviso cinta-avisos" role="alert" href="<?= e(url('app')) ?>">⚠️ <b>No te van a llegar avisos de mensajes nuevos.</b> <span>Activar →</span></a>
     <?php endif; ?>
-    <?php if ($tarjetaFcm === 'pendiente'): ?>
+    <?php if ($tarjetaFcm === 'bloqueado'): ?>
     <section class="tarjeta tk-tarjeta aviso tarjeta-avisos-app" id="tarjeta-fcm">
-        <h2>🔔 ¿Recibir aquí los avisos de tus clientes?</h2>
-        <p>Te llega un aviso en <b>este celular</b> cada vez que un cliente te escribe, aunque la app esté cerrada, igual que en WhatsApp.</p>
-        <form method="post" action="<?= e(url('app')) ?>" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_si">
-            <button class="boton tk-boton">🔔 Sí, avisarme en este celular</button></form>
-        <form method="post" action="<?= e(url('app')) ?>" class="en-linea"><?= csrf_campo() ?><input type="hidden" name="accion" value="fcm_no">
-            <button class="enlace">No, gracias</button></form>
+        <h2>🔕 Este celular tiene los avisos bloqueados</h2>
+        <p>Actívalos en <b>Ajustes → Apps → Tukán Mensajes → Notificaciones</b> (permitir). Después cierra la app y vuelve a abrirla.</p>
     </section>
     <?php elseif ($tarjetaFcm === 'sin_registro'): ?>
     <section class="tarjeta tk-tarjeta aviso tarjeta-avisos-app" id="tarjeta-fcm">
@@ -185,7 +181,7 @@ if ($u && $linea) {
 </main>
 <?php if ($u): ?></div><?php endif; ?>
 <script src="/assets/tukan-ui.js?v=1" defer></script>
-<script src="/assets/app.js?v=12" defer></script>
+<script src="/assets/app.js?v=13" defer></script>
 <script src="/assets/huella.js?v=2" defer></script>
 <?php if ($u && $linea && !empty($linea['llamadas_activo'])): ?><script src="/assets/llamadas.js?v=1" defer></script><?php endif; ?>
 </body>

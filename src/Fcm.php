@@ -12,14 +12,15 @@ use RuntimeException;
  * El Web Push dentro de la app (TWA) depende de Chrome y en muchos celulares nunca se registra; con FCM el aviso lo muestra la
  * propia app, como WhatsApp, aunque esté cerrada.
  *
- * Protocolo con la app (qfcorp/tukan-apps):
+ * Protocolo con la app (qfcorp/tukan-apps), versión 2:
  *  1. La app genera una vez: dispositivo = 32 hex y secreto = 64 hex (los guarda en el celular).
- *  2. POST /fcm.php  accion=registrar, dispositivo, secreto, token, modelo, version  → {"ok":true}. Un dispositivo ya registrado
- *     solo se cambia con su mismo secreto (en la base va el sha256). accion=quitar (dispositivo, secreto) lo borra.
- *  3. La app abre la página con «&disp=<dispositivo>». El servidor guarda la cookie tuwa_disp y, con la sesión abierta, vincula ese
- *     celular a la persona. La cookie va FIRMADA solo si la página la abrió la app (Referer android-app://com.tukansoftware.tuwhatsapp);
- *     si no (por ejemplo un enlace con ?disp= de otra persona), la cookie queda «pendiente» y hay que confirmarlo con un botón:
- *     así nadie puede mandarse a su celular los mensajes de otra cuenta con un enlace.
+ *  2. POST /fcm.php  accion=registrar, dispositivo, secreto, token, modelo, version, avisos (1 = el celular permite las notificaciones,
+ *     0 = bloqueadas) → {"ok":true}. Un dispositivo ya registrado solo se cambia con su mismo secreto (en la base va el sha256).
+ *     La app vuelve a registrarse al abrir (al menos una vez al día) y cuando cambia «avisos». accion=quitar (dispositivo, secreto) lo borra.
+ *  3. La app abre la página con «&disp=D&ts=T&prueba=P»: P = HMAC-SHA256 (hex) con clave = los 32 bytes de sha256(secreto) y mensaje
+ *     "vincular:D:T". Si la prueba es buena, T está a menos de 10 minutos y es más nuevo que el último usado por ese celular (no se puede
+ *     repetir), se guarda la cookie firmada tuwa_disp y se redirige a la misma página sin esos datos. Con la sesión abierta, ese celular
+ *     queda vinculado a la persona. Sin prueba válida, los datos se ignoran (nadie se manda los avisos de otro con un enlace).
  *  4. Los avisos van por FCM HTTP v1 (solo datos: titulo, texto, url, tag) con la cuenta de servicio de Firebase, guardada cifrada.
  */
 final class Fcm
@@ -69,6 +70,7 @@ final class Fcm
         $token = (string) ($p['token'] ?? '');
         $modeloCrudo = (string) ($p['modelo'] ?? '');
         $versionCruda = (string) ($p['version'] ?? '');
+        $avisosCrudo = (string) ($p['avisos'] ?? '1');
         if (!self::dispositivoValido($disp) || !self::secretoValido($secreto)) {
             return [400, ['ok' => false, 'error' => 'dispositivo o secreto con forma incorrecta']];
         }
@@ -78,6 +80,10 @@ final class Fcm
         if (mb_strlen($modeloCrudo) > 80 || mb_strlen($versionCruda) > 40) {
             return [400, ['ok' => false, 'error' => 'modelo o version demasiado largos']];
         }
+        if (!in_array($avisosCrudo, ['0', '1'], true)) {
+            return [400, ['ok' => false, 'error' => 'avisos debe ser 0 o 1']];
+        }
+        $avisos = $avisosCrudo === '1';
         $modelo = self::textoCorto($modeloCrudo, 80);
         $version = self::textoCorto($versionCruda, 40);
         $hash = hash('sha256', $secreto);
@@ -91,9 +97,9 @@ final class Fcm
             if ((int) $c->fetchColumn() >= self::REGISTROS_POR_HORA) {
                 return [429, ['ok' => false, 'error' => 'demasiados registros desde esta conexion; intenta en una hora']];
             }
-            $ins = $db->prepare("INSERT INTO fcm_dispositivos (dispositivo, secreto_hash, token, modelo, version, creado, actualizado)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (dispositivo) DO NOTHING RETURNING id");
-            $ins->execute([$disp, $hash, $token, $modelo, $version, $ahora->format('c'), $ahora->format('c')]);
+            $ins = $db->prepare("INSERT INTO fcm_dispositivos (dispositivo, secreto_hash, token, modelo, version, avisos, creado, actualizado)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (dispositivo) DO NOTHING RETURNING id");
+            $ins->execute([$disp, $hash, $token, $modelo, $version, $avisos ? 'true' : 'false', $ahora->format('c'), $ahora->format('c')]);
             if ($ins->fetchColumn() !== false) {
                 $db->prepare('INSERT INTO fcm_registros_ip (ip, creado) VALUES (?, ?)')->execute([$ip, $ahora->format('c')]);
                 return [200, ['ok' => true]];
@@ -108,8 +114,8 @@ final class Fcm
         if (!hash_equals((string) $fila['secreto_hash'], $hash)) {
             return [403, ['ok' => false, 'error' => 'secreto incorrecto']];
         }
-        $db->prepare("UPDATE fcm_dispositivos SET token = ?, modelo = ?, version = ?, actualizado = ?, errores = 0, error_texto = '' WHERE id = ?")
-           ->execute([$token, $modelo, $version, $ahora->format('c'), (int) $fila['id']]);
+        $db->prepare("UPDATE fcm_dispositivos SET token = ?, modelo = ?, version = ?, avisos = ?, actualizado = ?, errores = 0, ultimo_error = NULL, error_texto = '' WHERE id = ?")
+           ->execute([$token, $modelo, $version, $avisos ? 'true' : 'false', $ahora->format('c'), (int) $fila['id']]);
         return [200, ['ok' => true]];
     }
 
@@ -134,154 +140,177 @@ final class Fcm
         return [200, ['ok' => true]];
     }
 
-    /** Limpieza diaria: registros por IP de más de 1 día. */
-    public static function limpiar(PDO $db, ?DateTimeImmutable $ahora = null): int
+    /**
+     * Limpieza (una vez al día): registros por IP de más de 1 día y celulares que nunca se vincularon a nadie en 7 días.
+     * Devuelve [registros por IP borrados, celulares borrados], o null si hoy ya se hizo.
+     * @return array{0:int, 1:int}|null
+     */
+    public static function limpiar(PDO $db, ?DateTimeImmutable $ahora = null): ?array
     {
         $ahora ??= new DateTimeImmutable();
-        $st = $db->prepare('DELETE FROM fcm_registros_ip WHERE creado < ?');
-        $st->execute([$ahora->modify('-1 day')->format('c')]);
-        return $st->rowCount();
+        $st = $db->prepare("INSERT INTO ajustes (clave, valor) VALUES ('fcm_limpieza', ?)
+                            ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor WHERE ajustes.valor IS DISTINCT FROM EXCLUDED.valor RETURNING clave");
+        $st->execute([$ahora->format('Y-m-d')]);
+        if (!$st->fetchColumn()) {
+            return null;
+        }
+        $a = $db->prepare('DELETE FROM fcm_registros_ip WHERE creado < ?');
+        $a->execute([$ahora->modify('-1 day')->format('c')]);
+        $b = $db->prepare('DELETE FROM fcm_dispositivos WHERE usuario_id IS NULL AND vinculado IS NULL AND creado < ?');
+        $b->execute([$ahora->modify('-7 days')->format('c')]);
+        return [$a->rowCount(), $b->rowCount()];
     }
 
-    // ---------------------------------------------------------------- cookie tuwa_disp y vínculo con la persona
+    // ---------------------------------------------------------------- vínculo con la persona (protocolo v2: prueba HMAC)
+
+    public const SEG_PRUEBA = 600;   // la prueba de la URL vale 10 minutos
 
     private static function firma(string $disp): string
     {
         return substr(hash_hmac('sha256', 'tuwa-disp:' . $disp, (string) (getenv('TUWA_LLAVE') ?: 'tuwa')), 0, 32);
     }
 
-    /** @return array{disp:string, firmada:bool}|null */
-    public static function leerCookie(?string $valor = null): ?array
+    /** Valor de la cookie firmada para ese celular. */
+    public static function valorCookie(string $disp): string
+    {
+        return $disp . '.' . self::firma($disp);
+    }
+
+    /** Dispositivo de la cookie firmada de este navegador (o null; una cookie sin firma válida no cuenta). */
+    public static function dispositivoCookie(?string $valor = null): ?string
     {
         $valor ??= is_string($_COOKIE[self::COOKIE] ?? null) ? (string) $_COOKIE[self::COOKIE] : '';
-        if (preg_match('/^([0-9a-f]{32})(?:\.([0-9a-f]{32}))?$/', $valor, $m)) {
-            $firmada = isset($m[2]) && hash_equals(self::firma($m[1]), $m[2]);
-            return ['disp' => $m[1], 'firmada' => $firmada];
+        if (preg_match('/^([0-9a-f]{32})\.([0-9a-f]{32})$/', $valor, $m) && hash_equals(self::firma($m[1]), $m[2])) {
+            return $m[1];
         }
         return null;
     }
 
-    /** Dispositivo de la cookie de este navegador (o null). */
-    public static function dispositivoCookie(): ?string
+    /** La prueba que manda la app: HMAC-SHA256 con clave = los 32 bytes de sha256(secreto). */
+    public static function prueba_url(string $secretoHashHex, string $disp, int $ts): string
     {
-        return self::leerCookie()['disp'] ?? null;
+        return hash_hmac('sha256', 'vincular:' . $disp . ':' . $ts, (string) hex2bin($secretoHashHex));
     }
 
-    /** ¿Esta página la abrió la app de Android? (Chrome manda Referer android-app://<paquete> al abrir una TWA). */
-    public static function abiertoPorLaApp(string $referer): bool
+    /**
+     * La app abrió la página con disp, ts y prueba. Si todo es válido (y el ts no se usó antes) pone la cookie firmada y devuelve true.
+     * Cualquier otra cosa (prueba mala, vencida, repetida, celular desconocido) se ignora y devuelve false.
+     */
+    public static function vincularDeUrl(PDO $db, string $disp, string $ts, string $prueba, ?int $ahora = null): bool
     {
-        return str_starts_with($referer, 'android-app://' . self::PAQUETE);
-    }
-
-    private static function ponerCookie(string $valor): void
-    {
+        $ahora ??= time();
+        if (!self::dispositivoValido($disp) || !preg_match('/^\d{9,11}$/', $ts) || !preg_match('/^[0-9a-f]{64}$/', $prueba)) {
+            return false;
+        }
+        $t = (int) $ts;
+        if (abs($ahora - $t) > self::SEG_PRUEBA) {
+            return false;
+        }
+        $st = $db->prepare('SELECT secreto_hash FROM fcm_dispositivos WHERE dispositivo = ?');
+        $st->execute([$disp]);
+        $hash = $st->fetchColumn();
+        if (!is_string($hash) || !preg_match('/^[0-9a-f]{64}$/', $hash) || !hash_equals(self::prueba_url($hash, $disp, $t), $prueba)) {
+            return false;
+        }
+        // Anti repetición: el ts tiene que ser más nuevo que el último usado (se marca en el mismo paso)
+        $u = $db->prepare('UPDATE fcm_dispositivos SET ultimo_ts = ? WHERE dispositivo = ? AND ultimo_ts < ? RETURNING id');
+        $u->execute([$t, $disp, $t]);
+        if ($u->fetchColumn() === false) {
+            return false;
+        }
         if (!headers_sent()) {
             $https = (($_SERVER['HTTPS'] ?? '') === 'on') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-            setcookie(self::COOKIE, $valor, ['expires' => time() + 60 * 60 * 24 * self::DIAS_COOKIE, 'path' => '/', 'secure' => $https,
-                                             'httponly' => true, 'samesite' => 'Lax']);
+            setcookie(self::COOKIE, self::valorCookie($disp), ['expires' => time() + 60 * 60 * 24 * self::DIAS_COOKIE, 'path' => '/', 'secure' => $https,
+                                                             'httponly' => true, 'samesite' => 'Lax']);
         }
-        $_COOKIE[self::COOKIE] = $valor;
+        $_COOKIE[self::COOKIE] = self::valorCookie($disp);
+        return true;
     }
 
-    /**
-     * La app abre la página con ?disp=<dispositivo>: se guarda en la cookie (firmada si la abrió la app; si no, pendiente de confirmar).
-     * Una cookie pendiente nunca reemplaza a una firmada de otro celular.
-     */
-    public static function recordarDeUrl(?string $disp, string $referer): void
+    /** La misma dirección sin disp, ts ni prueba (para el 302 después de vincular). */
+    public static function urlLimpia(string $uri): string
     {
-        if ($disp === null || !self::dispositivoValido($disp)) {
-            return;
+        $ruta = (string) (parse_url($uri, PHP_URL_PATH) ?: '/');
+        parse_str((string) (parse_url($uri, PHP_URL_QUERY) ?? ''), $q);
+        unset($q['disp'], $q['ts'], $q['prueba']);
+        if (!str_starts_with($ruta, '/') || str_starts_with($ruta, '//')) {
+            $ruta = '/';
         }
-        $actual = self::leerCookie();
-        if (self::abiertoPorLaApp($referer)) {
-            if (!($actual && $actual['disp'] === $disp && $actual['firmada'])) {
-                self::ponerCookie($disp . '.' . self::firma($disp));
-            }
-            return;
-        }
-        if ($actual && ($actual['firmada'] || $actual['disp'] === $disp)) {
-            return;   // ya está (o hay otro celular firmado): no se toca
-        }
-        self::ponerCookie($disp);
+        return $ruta . ($q ? '?' . http_build_query($q) : '');
     }
 
     /**
-     * En cada página con sesión: si la cookie es de un celular registrado, se vincula (si está firmada). Devuelve el estado de ESTE celular:
-     * 'sin_cookie' (no viene de la app con avisos nativos), 'sin_registro' (la app todavía no mandó su token), 'pendiente' (hay que
-     * confirmarlo con el botón), 'apagado' (la persona dijo que no o lo quitó) o 'vinculado'.
+     * En cada página con sesión: si la cookie firmada es de un celular registrado, se vincula. Devuelve el estado de ESTE celular:
+     * 'sin_cookie' (computadora, iPhone o app vieja), 'sin_registro' (la app todavía no mandó su token o Google lo dio de baja),
+     * 'apagado' (la persona lo apagó o lo quitó), 'bloqueado' (vinculado, pero el celular tiene las notificaciones bloqueadas) o 'vinculado'.
      */
     public static function alEntrar(PDO $db, int $usuarioId): string
     {
-        $c = self::leerCookie();
-        if (!$c) {
+        $disp = self::dispositivoCookie();
+        if ($disp === null) {
             return 'sin_cookie';
         }
-        $st = $db->prepare('SELECT id, usuario_id, rechazado_por, token FROM fcm_dispositivos WHERE dispositivo = ?');
-        $st->execute([$c['disp']]);
+        $st = $db->prepare('SELECT id, usuario_id, rechazado_por, token, avisos FROM fcm_dispositivos WHERE dispositivo = ?');
+        $st->execute([$disp]);
         $f = $st->fetch();
         if (!$f || (string) $f['token'] === '') {
             return 'sin_registro';
         }
-        if ((int) $f['usuario_id'] === $usuarioId) {
-            return 'vinculado';
-        }
-        if ((int) $f['rechazado_por'] === $usuarioId) {
+        if ((int) $f['rechazado_por'] === $usuarioId && (int) $f['usuario_id'] !== $usuarioId) {
             return 'apagado';
         }
-        if (!$c['firmada']) {
-            return 'pendiente';
+        if ((int) $f['usuario_id'] !== $usuarioId) {
+            $db->prepare('UPDATE fcm_dispositivos SET usuario_id = ?, vinculado = now(), rechazado_por = NULL WHERE id = ?')
+               ->execute([$usuarioId, (int) $f['id']]);
         }
-        $db->prepare('UPDATE fcm_dispositivos SET usuario_id = ?, vinculado = now(), rechazado_por = NULL WHERE id = ?')
-           ->execute([$usuarioId, (int) $f['id']]);
-        return 'vinculado';
+        return $f['avisos'] ? 'vinculado' : 'bloqueado';
     }
 
-    /** «Sí, recibir los avisos en este celular» (botón, con CSRF). Deja la cookie firmada. */
-    public static function confirmar(PDO $db, int $usuarioId): bool
+    /** «Volver a activar los avisos en este celular» (después de apagarlos). Solo con la cookie firmada de la app. */
+    public static function reactivar(PDO $db, int $usuarioId): bool
     {
-        $c = self::leerCookie();
-        if (!$c) {
+        $disp = self::dispositivoCookie();
+        if ($disp === null) {
             return false;
         }
         $st = $db->prepare("UPDATE fcm_dispositivos SET usuario_id = ?, vinculado = now(), rechazado_por = NULL WHERE dispositivo = ? AND token <> ''");
-        $st->execute([$usuarioId, $c['disp']]);
-        if ($st->rowCount() === 0) {
-            return false;
-        }
-        if (!$c['firmada']) {
-            self::ponerCookie($c['disp'] . '.' . self::firma($c['disp']));
-        }
-        return true;
+        $st->execute([$usuarioId, $disp]);
+        return $st->rowCount() > 0;
     }
 
-    /** «No» / «Apagar en este celular»: no se vincula solo hasta que la persona lo vuelva a activar. */
-    public static function rechazar(PDO $db, int $usuarioId): void
+    /** «Apagar en este celular»: no se vuelve a vincular solo hasta que la persona lo reactive. */
+    public static function apagar(PDO $db, int $usuarioId): void
     {
-        $c = self::leerCookie();
-        if (!$c) {
-            return;
+        $disp = self::dispositivoCookie();
+        if ($disp !== null) {
+            $db->prepare('UPDATE fcm_dispositivos SET usuario_id = CASE WHEN usuario_id = ? THEN NULL ELSE usuario_id END, rechazado_por = ? WHERE dispositivo = ?')
+               ->execute([$usuarioId, $usuarioId, $disp]);
         }
-        $db->prepare('UPDATE fcm_dispositivos SET usuario_id = CASE WHEN usuario_id = ? THEN NULL ELSE usuario_id END, rechazado_por = ? WHERE dispositivo = ?')
-           ->execute([$usuarioId, $usuarioId, $c['disp']]);
     }
 
     /** Salir desde este celular: deja de recibir los avisos de esa persona. */
     public static function alSalir(PDO $db, int $usuarioId): void
     {
-        $c = self::leerCookie();
-        if ($c) {
-            $db->prepare('UPDATE fcm_dispositivos SET usuario_id = NULL WHERE dispositivo = ? AND usuario_id = ?')->execute([$c['disp'], $usuarioId]);
+        $disp = self::dispositivoCookie();
+        if ($disp !== null) {
+            self::desvincularDispositivo($db, $usuarioId, $disp);
         }
     }
 
-    /**
-     * Contraseña cambiada, usuario desactivado o «cerrar en todos los demás»: sus celulares dejan de recibir avisos ($excepto: el de
-     * este navegador, que se vuelve a vincular solo en su próximo clic si sigue con la sesión abierta). Devuelve cuántos desvinculó.
-     */
-    public static function desvincularUsuario(PDO $db, int $usuarioId, ?string $excepto = null): int
+    /** Ese celular deja de recibir los avisos de esa persona (cerrar su sesión desde Mi cuenta, salir). */
+    public static function desvincularDispositivo(PDO $db, int $usuarioId, string $disp): void
     {
-        $st = $db->prepare('UPDATE fcm_dispositivos SET usuario_id = NULL WHERE usuario_id = ? AND dispositivo <> ?');
-        $st->execute([$usuarioId, $excepto ?? '']);
+        $db->prepare('UPDATE fcm_dispositivos SET usuario_id = NULL WHERE dispositivo = ? AND usuario_id = ?')->execute([$disp, $usuarioId]);
+    }
+
+    /**
+     * Contraseña cambiada o reseteada, usuario desactivado o «cerrar en todos los demás»: TODOS sus celulares dejan de recibir avisos.
+     * El celular desde donde se hizo (si sigue con la sesión abierta) se vuelve a vincular solo en su próximo clic con su cookie firmada.
+     */
+    public static function desvincularUsuario(PDO $db, int $usuarioId): int
+    {
+        $st = $db->prepare('UPDATE fcm_dispositivos SET usuario_id = NULL WHERE usuario_id = ?');
+        $st->execute([$usuarioId]);
         return $st->rowCount();
     }
 
@@ -293,22 +322,25 @@ final class Fcm
         return $st->rowCount() > 0;
     }
 
-    /** Celulares con la app que reciben los avisos de esa persona. @return list<array> */
+    /** Celulares con la app vinculados a esa persona. @return list<array> */
     public static function dispositivos(PDO $db, int $usuarioId): array
     {
-        $st = $db->prepare("SELECT id, dispositivo, modelo, version, vinculado, ultimo_ok, errores, ultimo_error, error_texto
-                            FROM fcm_dispositivos WHERE usuario_id = ? AND token <> '' ORDER BY vinculado DESC NULLS LAST, id DESC");
+        $st = $db->prepare("SELECT id, dispositivo, modelo, version, avisos, (token <> '') AS con_token, vinculado, ultimo_ok, errores, ultimo_error, error_texto
+                            FROM fcm_dispositivos WHERE usuario_id = ? ORDER BY vinculado DESC NULLS LAST, id DESC");
         $st->execute([$usuarioId]);
-        return array_map(fn ($f) => $f + ['errores' => (int) $f['errores']], $st->fetchAll());
+        return array_map(fn ($f) => ['errores' => (int) $f['errores'], 'avisos' => (bool) $f['avisos'], 'con_token' => (bool) $f['con_token']] + $f, $st->fetchAll());
     }
 
     /** Condición de "se le puede mandar" (las fallas temporales se reintentan al día siguiente). */
     private const SQL_USABLE = "token <> '' AND (errores < 5 OR ultimo_error IS NULL OR ultimo_error < now() - interval '1 day')";
 
+    /** Condición de "le funciona": con token, avisos permitidos, sin muchas fallas y con la clave de Firebase subida. */
+    private const SQL_FUNCIONA = "token <> '' AND avisos AND errores < 5 AND EXISTS (SELECT 1 FROM ajustes WHERE clave = 'fcm_clave')";
+
     /** ¿Cuántos celulares con la app le funcionan a esa persona? */
     public static function funcionando(PDO $db, int $usuarioId): int
     {
-        $st = $db->prepare("SELECT count(*) FROM fcm_dispositivos WHERE usuario_id = ? AND token <> '' AND errores < 5");
+        $st = $db->prepare('SELECT count(*) FROM fcm_dispositivos WHERE usuario_id = ? AND ' . self::SQL_FUNCIONA);
         $st->execute([$usuarioId]);
         return (int) $st->fetchColumn();
     }
@@ -320,9 +352,21 @@ final class Fcm
         if (!$usuarios) {
             return false;
         }
-        $st = $db->prepare("SELECT 1 FROM fcm_dispositivos WHERE usuario_id IN (" . implode(',', array_fill(0, count($usuarios), '?')) . ") AND token <> '' AND errores < 5 LIMIT 1");
+        $st = $db->prepare('SELECT 1 FROM fcm_dispositivos WHERE usuario_id IN (' . implode(',', array_fill(0, count($usuarios), '?')) . ') AND ' . self::SQL_FUNCIONA . ' LIMIT 1');
         $st->execute($usuarios);
         return (bool) $st->fetchColumn();
+    }
+
+    /** De esas personas, las que tienen la app con avisos funcionando (a ellas no se les manda el Web Push de la app vieja). @return list<int> */
+    public static function conAppFuncionando(PDO $db, array $usuarios): array
+    {
+        $usuarios = array_values(array_map('intval', $usuarios));
+        if (!$usuarios) {
+            return [];
+        }
+        $st = $db->prepare('SELECT DISTINCT usuario_id FROM fcm_dispositivos WHERE usuario_id IN (' . implode(',', array_fill(0, count($usuarios), '?')) . ') AND ' . self::SQL_FUNCIONA);
+        $st->execute($usuarios);
+        return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
     }
 
     // ---------------------------------------------------------------- clave de Firebase (cuenta de servicio), guardada cifrada
@@ -484,7 +528,7 @@ final class Fcm
         ]];
     }
 
-    /** ¿La respuesta de Google dice que ese token ya no sirve? (se borra el celular) */
+    /** ¿La respuesta de Google dice que ese token ya no sirve? (el celular se queda sin token) */
     public static function tokenMuerto(int $codigo, ?array $json): bool
     {
         $err = (array) ($json['error'] ?? []);
@@ -560,8 +604,9 @@ final class Fcm
             if ($codigo >= 200 && $codigo < 300) {
                 $ok++;
                 $db->prepare("UPDATE fcm_dispositivos SET ultimo_ok = now(), errores = 0, ultimo_error = NULL, error_texto = '' WHERE id = ?")->execute([$id]);
-            } elseif (self::tokenMuerto($codigo, $json)) {   // la app se desinstaló o el token cambió
-                $db->prepare('DELETE FROM fcm_dispositivos WHERE id = ?')->execute([$id]);
+            } elseif (self::tokenMuerto($codigo, $json)) {   // la app se desinstaló o el token cambió: se queda el celular sin token
+                // (con su secreto y su persona) hasta que la app se vuelva a registrar
+                $db->prepare("UPDATE fcm_dispositivos SET token = '', errores = 0, ultimo_error = now(), error_texto = 'Google dio de baja el token' WHERE id = ?")->execute([$id]);
             } else {
                 if ($codigo === 401) {
                     $vencido = true;

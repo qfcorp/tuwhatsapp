@@ -40,5 +40,5 @@ if ($tg['mensajes'] + $tg['fallidos'] > 0) {
 // (14 nov 2026) Una vez al día: borrar los «Recordar este celular» vencidos (src/Sesiones.php)
 \TuWhatsApp\Sesiones::limpiarAlDia(db());
 
-// (14 nov 2026) Avisos nativos de la app: borrar los registros por IP de más de 1 día (límite anti abuso de /fcm.php)
+// (14 nov 2026) Avisos nativos de la app, una vez al día: registros por IP viejos y celulares nunca vinculados de más de 7 días
 \TuWhatsApp\Fcm::limpiar(db());
