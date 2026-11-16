@@ -39,7 +39,7 @@ final class Archivos
     public static function carpeta(): string
     {
         $c = rtrim((string) (getenv('TUWA_ARCHIVOS') ?: RAIZ . '/archivos'), '/');
-        if (!is_dir($c) && !@mkdir($c, 0770, true) && !is_dir($c)) {
+        if (!is_dir($c) && !@mkdir($c, 02770, true) && !is_dir($c)) {
             throw new RuntimeException('No se puede crear la carpeta de archivos (' . $c . ').');
         }
         return $c;
@@ -78,12 +78,19 @@ final class Archivos
         }
         $sub = $empresaId . '/' . date('Y-m');
         $dir = self::carpeta() . '/' . $sub;
-        if (!is_dir($dir) && !@mkdir($dir, 0770, true) && !is_dir($dir)) {
-            throw new RuntimeException('No se pudo crear la carpeta de archivos.');
-        }
-        $nombre = bin2hex(random_bytes(12)) . '.' . $ext;
-        if (file_put_contents($dir . '/' . $nombre, $bytes) === false) {
-            throw new RuntimeException('No se pudo guardar el archivo.');
+        // umask 0007: las carpetas y archivos quedan con escritura para el grupo (www-data), aunque el instalador
+        // les cambie el dueño a qf al actualizar (antes quedaban 0750 y despues de actualizar no se podia adjuntar).
+        $mascara = umask(0007);
+        try {
+            if (!is_dir($dir) && !@mkdir($dir, 02770, true) && !is_dir($dir)) {
+                throw new RuntimeException('No se pudo crear la carpeta de archivos (revisa los permisos de ' . self::carpeta() . ').');
+            }
+            $nombre = bin2hex(random_bytes(12)) . '.' . $ext;
+            if (file_put_contents($dir . '/' . $nombre, $bytes) === false) {
+                throw new RuntimeException('No se pudo guardar el archivo.');
+            }
+        } finally {
+            umask($mascara);
         }
         return $sub . '/' . $nombre;
     }

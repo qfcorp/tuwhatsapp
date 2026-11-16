@@ -497,3 +497,7 @@ Regla SIEMPRE de Dimitry (12 nov 2026, regla 3.1.1 de la App Store): dentro de l
 - Archivos: `app/bootstrap.php`, `app/vistas/_diseno.php`, `bloqueada.php`, `cuenta.php`, `lineas.php`, `login.php`, `mas.php`, `public/index.php`,
   `src/Mensajeria.php`. Prueba nueva: `tests/prueba_app_iphone.sh` (en `tests/correr.sh`). Docs: `docs/GOOGLE_PLAY.md`, manual, README.
 - **Falta:** regenerar el PDF del manual en una máquina con el generador.
+
+## 16 nov 2026 — Arreglo: "No se pudo crear la carpeta de archivos" al adjuntar
+- Causa: el instalador hace `chown -R qf:www-data` de todo el programa; las carpetas de cada cuenta en `archivos/` las crea www-data con 0750, y después de actualizar www-data ya no podía escribir (no se podía adjuntar ni guardar fotos/audios que llegan).
+- Arreglo: `Archivos::guardarBytes` crea carpetas 2770 y archivos 660 (umask 0007); `deploy/instalar.sh` repara los permisos de `archivos/` en cada actualización. Prueba nueva en prueba_logica.

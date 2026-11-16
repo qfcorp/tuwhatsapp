@@ -36,6 +36,10 @@ fi
 sudo mkdir -p "$APP/config" "$APP/archivos"
 sudo chown -R "$YO":www-data "$APP"
 sudo chmod 2770 "$APP/archivos"   # fotos y audios de los chats: los escribe el programa (www-data)
+# Las carpetas de cada cuenta las crea el programa; el chown -R de arriba las deja de qf, asi que www-data
+# tiene que poder seguir escribiendo por el grupo (si no: "No se pudo crear la carpeta de archivos" al adjuntar)
+sudo find "$APP/archivos" -type d -exec chmod 2770 {} +
+sudo find "$APP/archivos" -type f -exec chmod 660 {} +
 
 echo "== 2b. Sesiones en carpeta propia (la app no vuelve a pedir entrar a cada rato)"
 # Ubuntu borra las sesiones de /var/lib/php/sessions a los 24 minutos; las de WhatsApp Tukan viven aqui 30 dias
