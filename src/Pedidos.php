@@ -299,23 +299,24 @@ final class Pedidos
     }
 
     /** Resumen del pedido para mandar por WhatsApp (con cómo pagar). */
-    public static function resumen(array $linea, array $pedido, array $items, string $enlace = ''): string
+    public static function resumen(array $linea, array $pedido, array $items, string $enlace = '', string $idioma = 'es'): string
     {
         $d = fn (float $v) => '$' . number_format($v, 2, ',', '.');
-        $t = '*Pedido #' . $pedido['numero'] . '* · ' . $linea['nombre'] . "\n";
+        $f = fn (string $k) => FrasesCliente::t($k, $idioma);   // (23 nov 2026) en el idioma del cliente
+        $t = '*' . $f('pedido') . ' #' . $pedido['numero'] . '* · ' . $linea['nombre'] . "\n";
         foreach ($items as $i) {
             $t .= (int) $i['cantidad'] . ' x ' . $i['nombre'] . ' = ' . $d((float) $i['precio'] * (int) $i['cantidad']) . "\n";
         }
         if ((float) $pedido['iva'] > 0) {
-            $t .= 'Subtotal: ' . $d((float) $pedido['subtotal']) . "\nIVA " . rtrim(rtrim(number_format((float) $linea['iva_pct'], 2, ',', ''), '0'), ',') . ' %: ' . $d((float) $pedido['iva']) . "\n";
+            $t .= $f('subtotal') . ': ' . $d((float) $pedido['subtotal']) . "\n" . $f('iva') . ' ' . rtrim(rtrim(number_format((float) $linea['iva_pct'], 2, ',', ''), '0'), ',') . ' %: ' . $d((float) $pedido['iva']) . "\n";
         }
-        $t .= '*Total: ' . $d((float) $pedido['total']) . '*';
+        $t .= '*' . $f('total') . ': ' . $d((float) $pedido['total']) . '*';
         $pago = [];
         if ($enlace !== '') {
-            $pago[] = 'Paga aquí: ' . $enlace;
+            $pago[] = $f('paga_aqui') . ' ' . $enlace;
         }
         if (trim((string) ($linea['pago_transferencia'] ?? '')) !== '') {
-            $pago[] = "Transferencia:\n" . trim((string) $linea['pago_transferencia']);
+            $pago[] = $f('transferencia') . "\n" . trim((string) $linea['pago_transferencia']);
         }
         if ($pago) {
             $t .= "\n\n" . implode("\n\n", $pago);

@@ -89,9 +89,10 @@ final class Lineas
      * El horario en palabras, juntando los días seguidos con la misma hora:
      * "lunes a viernes de 8:00 a 18:00 y sábado de 9:00 a 13:00". Vacío si no atiende ningún día.
      */
-    public static function textoHorario(array $linea): string
+    public static function textoHorario(array $linea, string $idioma = 'es'): string
     {
-        $dias = [1 => 'lunes', 2 => 'martes', 3 => 'miércoles', 4 => 'jueves', 5 => 'viernes', 6 => 'sábado', 7 => 'domingo'];
+        $dias = FrasesCliente::DIAS[$idioma] ?? FrasesCliente::DIAS['es'];   // (23 nov 2026) también en el idioma del cliente
+        $f = fn (string $k, array $v) => FrasesCliente::t($k, $idioma, $v);
         $h = self::horario($linea);
         $hora = fn (string $x) => (int) substr($x, 0, 2) . substr($x, 2);   // "08:00" -> "8:00"
         $partes = [];
@@ -105,15 +106,15 @@ final class Lineas
             while ($fin < 7 && $h[$fin + 1] !== null && $h[$fin + 1] === $h[$d]) {
                 $fin++;
             }
-            $quien = $fin === $d ? $dias[$d] : ($fin === $d + 1 ? $dias[$d] . ' y ' . $dias[$fin] : $dias[$d] . ' a ' . $dias[$fin]);
-            $partes[] = $quien . ' de ' . $hora($h[$d][0]) . ' a ' . $hora($h[$d][1]);
+            $quien = $fin === $d ? $dias[$d] : ($fin === $d + 1 ? $f('h_dos', ['a' => $dias[$d], 'b' => $dias[$fin]]) : $f('h_rango', ['a' => $dias[$d], 'b' => $dias[$fin]]));
+            $partes[] = $f('h_horas', ['dias' => $quien, 'desde' => $hora($h[$d][0]), 'hasta' => $hora($h[$d][1])]);
             $d = $fin + 1;
         }
         if (count($partes) <= 1) {
             return $partes[0] ?? '';
         }
         $ultima = array_pop($partes);
-        return implode(', ', $partes) . ' y ' . $ultima;
+        return $f('h_dos', ['a' => implode(', ', $partes), 'b' => $ultima]);
     }
 
     /** Números de prueba de Meta (sandbox y "Prueba Meta"): empiezan con +1 555 y Meta no cobra nada. */
@@ -189,12 +190,14 @@ final class Lineas
             }
         }
         $opciones = [];
+        $mapa = [];   // índice en el formulario -> índice guardado (para las traducciones)
         foreach ((array) ($d['op_titulo'] ?? []) as $i => $titulo) {
             $titulo = trim((string) $titulo);
             $resp = trim((string) ($d['op_respuesta'][$i] ?? ''));
             if ($titulo === '') {
                 continue;
             }
+            $mapa[$i] = count($opciones);
             if ($resp === '') {
                 throw new RuntimeException('La opción "' . $titulo . '" no tiene respuesta.');
             }
@@ -219,6 +222,18 @@ final class Lineas
                mb_substr($menu, 0, 1000), json_encode($opciones, JSON_UNESCAPED_UNICODE), self::b($d, 'menu_botones'),
                self::b($d, 'callar_al_atender'), $id,
            ]);
+        // (23 nov 2026) Idioma del cliente: solo si el formulario trae esa sección (así no se borra nada desde otras pantallas)
+        if (isset($d['idiomas_form'])) {
+            $idiomas = ['es'];
+            foreach ((array) ($d['idiomas'] ?? []) as $l) {
+                if (in_array($l, Traducir::OTROS, true) && !in_array($l, $idiomas, true)) {
+                    $idiomas[] = $l;
+                }
+            }
+            $db->prepare('UPDATE lineas SET idioma_auto = ?, idiomas = ?, traducciones = ? WHERE id = ?')
+               ->execute([self::b($d, 'idioma_auto'), implode(',', $idiomas),
+                          json_encode(Traducir::limpiarLinea((array) ($d['tr'] ?? []), $mapa), JSON_UNESCAPED_UNICODE), $id]);
+        }
     }
 
     public static function guardarTope(PDO $db, int $id, string $tope, string $avisoPct): void

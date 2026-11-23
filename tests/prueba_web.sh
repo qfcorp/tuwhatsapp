@@ -165,6 +165,23 @@ get "/?r=reglas&p_texto=precio&p_tipo=cliente&p_ya=0&p_dia=2&p_hora=10:00"
 ok 'tiene "Sí se contesta solo" && tiene "Se le envió el menú"' "probador: cliente (sin horario marcado)"
 get "/?r=reglas&p_texto=precio&p_tipo=personal&p_ya=0&p_dia=2&p_hora=10:00"
 ok 'tiene "No se contesta" && tiene "Contacto personal"' "probador: personal"
+echo "== Contestar en el idioma del cliente (Automático)"
+get "/?r=reglas"
+ok 'tiene "Contestar en el idioma del cliente" && tiene "name=\"idiomas\[\]\"" && tiene "name=\"p_idioma\"" && (tiene "Traducir automáticamente a inglés" || tiene "se traducen solos")' "Automático: sección de idioma del cliente y probador con idioma"
+post "/?r=reglas" --data-urlencode "auto_activo=1" --data-urlencode "regla_solo_clientes=1" --data-urlencode "regla_palabras=1" \
+   --data-urlencode "regla_una_vez=1" --data-urlencode "palabras=precio, precios, demo" --data-urlencode "max_auto=3" --data-urlencode "horas_silencio=12" \
+   --data-urlencode "mensaje_menu=Hola, gracias por escribir a Tukán:" \
+   --data-urlencode "op_titulo[0]=Precios" --data-urlencode "op_respuesta[0]=Te cotizamos" \
+   --data-urlencode "op_titulo[1]=Persona" --data-urlencode "op_respuesta[1]=Ya te atiende alguien" --data-urlencode "op_humano[1]=1" \
+   --data-urlencode "idiomas_form=1" --data-urlencode "idioma_auto=1" --data-urlencode "idiomas[]=en" --data-urlencode "idiomas[]=pt" --data-urlencode "idiomas[]=fr" --data-urlencode "idiomas[]=it" \
+   --data-urlencode "tr[en][saludo]=Hi, thanks for writing to Tukán:" --data-urlencode "tr[en][op_titulo][0]=Prices" --data-urlencode "tr[en][op_respuesta][0]=We will send you a quote" \
+   --data-urlencode "tr[en][palabras]=price, pricing" \
+   $(for d in 1 2 3 4 5 6 7; do printf -- '--data-urlencode abre[%s]=08:00 --data-urlencode cierra[%s]=18:00 ' $d $d; done)
+ok 'tiene "Reglas guardadas" && tiene "Hi, thanks for writing to Tukán:" && tiene "(traducido)"' "guardar la traducción al inglés escrita a mano"
+get "/?r=reglas&p_texto=how%20much%20is%20the%20price&p_tipo=cliente&p_idioma=en&p_ya=0&p_dia=2&p_hora=10:00"
+ok 'tiene "Sí se contesta solo" && tiene "(en English)" && tiene "1. Prices" && tiene "2. Persona"' "probador: cliente en inglés recibe el menú en inglés (lo que falta, en español)"
+get "/?r=reglas&p_texto=Prices&p_tipo=cliente&p_idioma=en&p_ya=0&p_dia=2&p_hora=10:00"
+ok 'tiene "We will send you a quote"' "probador: eligió la opción en inglés"
 get "/?r=bandeja";  ok 'tiene "Automático: encendido"' "bandeja muestra encendido"
 
 echo "== Contestar solo de verdad (webhook)"
@@ -816,6 +833,10 @@ ok 'tiene "Chatbot creado con un ejemplo" && tiene "Paso 1" && tiene "Paso 3" &&
 FL=$(grep -o 'name="csrf"' "$P" | head -1 >/dev/null; PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT id FROM flujos ORDER BY id DESC LIMIT 1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}")
 post "/?r=flujo&id=$FL" --data-urlencode "accion=probar" --data-urlencode "entradas=$(printf 'hola\n2')"
 ok 'tiene "Soy el asistente de Tukán ventas" && tiene "en un momento te atiende una persona" && tiene "Aquí pasa a una persona"' "probar el chatbot sin mandar nada"
+get "/?r=flujo&id=$FL"
+ok 'tiene "En otros idiomas" && tiene "Hi! 👋 I&#039;m the assistant of {negocio}" && tiene "See products"' "el chatbot de ejemplo ya viene en inglés (editable)"
+post "/?r=flujo&id=$FL" --data-urlencode "accion=probar" --data-urlencode "p_idioma=en" --data-urlencode "entradas=$(printf 'hello\nTalk to someone')"
+ok 'tiene "the assistant of Tukán ventas" && tiene "someone from our team will be with you shortly" && tiene "Aquí pasa a una persona"' "probar el chatbot como un cliente en inglés"
 post "/?r=flujo&id=$FL" --data-urlencode "accion=agregar_paso" --data-urlencode "nombre=Bienvenida" --data-urlencode "disparador=palabras" --data-urlencode "palabras=hola, info" \
      --data-urlencode "paso[0][id]=p1" --data-urlencode "paso[0][tipo]=botones" --data-urlencode "paso[0][texto]=¿En qué te ayudo?" \
      --data-urlencode "paso[0][op_titulo][0]=Precios" --data-urlencode "paso[0][op_ir][0]=p2" --data-urlencode "paso[0][op_titulo][1]=Asesor" --data-urlencode "paso[0][op_ir][1]=p3" \

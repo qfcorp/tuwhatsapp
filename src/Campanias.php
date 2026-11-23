@@ -19,7 +19,12 @@ final class Campanias
     public const ESTADOS = ['enviando' => 'Enviando', 'pausada' => 'Pausada', 'terminada' => 'Terminada', 'cancelada' => 'Cancelada'];
     public const FILTROS = ['cliente' => 'Solo clientes', 'cliente_desconocido' => 'Clientes y desconocidos'];
     /** Palabras con las que un contacto pide no recibir más promociones. */
-    public const PALABRAS_BAJA = ['baja', 'stop', 'no mas', 'no mas mensajes', 'no quiero mas mensajes', 'no me escriban', 'cancelar suscripcion', 'darme de baja', 'unsubscribe'];
+    public const PALABRAS_BAJA = ['baja', 'stop', 'no mas', 'no mas mensajes', 'no quiero mas mensajes', 'no me escriban', 'cancelar suscripcion', 'darme de baja', 'unsubscribe',
+        // (23 nov 2026) también en inglés, portugués, francés e italiano
+        'stop messages', 'no more messages', 'opt out', 'remove me', 'cancel subscription',
+        'parar', 'sair', 'nao quero mais mensagens', 'cancelar inscricao', 'descadastrar',
+        'arret', 'arreter', 'desabonner', 'desinscrire', 'plus de messages',
+        'basta', 'disiscrivimi', 'cancellami', 'non voglio piu messaggi', 'annulla iscrizione'];
 
     /** ¿El mensaje pide la baja? Solo si es corto y es justo eso (no "dame de baja el pedido de ayer"). */
     public static function pideBaja(string $texto): bool

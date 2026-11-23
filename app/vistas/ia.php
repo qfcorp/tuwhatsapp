@@ -54,6 +54,7 @@
     <form method="post" class="prueba-escribir">
         <?= csrf_campo() ?><input type="hidden" name="accion" value="probar">
         <label class="oculto" for="texto-prueba">Mensaje del cliente</label>
+        <select name="p_idioma" aria-label="Idioma del cliente" class="idioma-prueba"><option value="">🌐 Idioma: el que escriba</option><?php foreach (\TuWhatsApp\IdiomaCliente::IDIOMAS as $l => $n): ?><option value="<?= $l ?>" <?= ($_SESSION['ia_prueba_idioma'] ?? '') === $l ? 'selected' : '' ?>><?= \TuWhatsApp\IdiomaCliente::BANDERAS[$l] ?> <?= e($n) ?></option><?php endforeach; ?></select>
         <input id="texto-prueba" name="texto" maxlength="1000" required placeholder="Escribe como un cliente…" autocomplete="off" <?= $prueba ? 'autofocus' : '' ?>>
         <button class="boton tk-boton" <?= $disponible ? '' : 'disabled' ?>>Enviar</button>
     </form>

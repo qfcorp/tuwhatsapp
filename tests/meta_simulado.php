@@ -43,6 +43,34 @@ if ($ruta === '/v1/messages' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                    'content' => [['type' => 'text', 'text' => "Ayer fue un buen día.\nPara hoy:\n1. Contesta a los que esperan.\n2. Cobra los pendientes.\n3. Devuelve las llamadas perdidas."]],
                    'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 2000, 'output_tokens' => 80]]);
     }
+    if (str_contains($sis, 'TRADUCIR_TUKAN')) {   // traducción automática: "[EN] texto" (y palabras fijas por idioma)
+        $todo = $d['messages'][0]['content'] ?? '';
+        $todo = is_array($todo) ? implode("\n", array_map(fn ($x) => (string) ($x['text'] ?? ''), $todo)) : (string) $todo;
+        $ini = strpos($todo, '{');
+        $fin = strrpos($todo, '}');
+        $fuente = $ini !== false && $fin !== false ? json_decode(substr($todo, $ini, $fin - $ini + 1), true) : null;
+        if (!is_array($fuente) || str_contains($todo, 'ROMPER')) {
+            sale(529, ['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]);
+        }
+        $palabras = ['en' => 'price, how much', 'pt' => 'preço, quanto', 'fr' => 'prix, combien', 'it' => 'prezzo, quanto'];
+        $j = [];
+        foreach ($palabras as $l => $pal) {
+            $trad = function ($v, $k = '') use (&$trad, $l, $pal) {
+                if (is_array($v)) {
+                    $r = [];
+                    foreach ($v as $kk => $vv) {
+                        $r[$kk] = $trad($vv, (string) $kk);
+                    }
+                    return $r;
+                }
+                return $k === 'palabras' ? $pal : ($v === '' ? '' : '[' . strtoupper($l) . '] ' . $v);
+            };
+            $j[$l] = $trad($fuente);
+        }
+        sale(200, ['id' => 'msg_5', 'type' => 'message', 'role' => 'assistant', 'model' => $d['model'] ?? '',
+                   'content' => [['type' => 'text', 'text' => json_encode($j, JSON_UNESCAPED_UNICODE)]],
+                   'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 800, 'output_tokens' => 900]]);
+    }
     if (str_contains($sis, 'AGENTE_IA_TUKAN')) {   // agente con IA: contesta en JSON según lo último que dijo el cliente
         $todo = (string) json_encode($d['messages'] ?? [], JSON_UNESCAPED_UNICODE);
         if (str_contains($todo, 'ROMPER')) {
@@ -52,6 +80,9 @@ if ($ruta === '/v1/messages' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $ultimo = mb_strtolower(end($mm[1]) ?: '');
         preg_match('/\[(\d+)\]/', $sis, $pid);
         $j = ['respuesta' => '¡Hola! Con gusto te ayudo. ¿Qué buscas?', 'persona' => false, 'agregar' => [], 'confirmar' => false];
+        if (str_contains($sis, 'IDIOMA DEL CLIENTE: English')) {   // (23 nov 2026) contesta en el idioma que le dice el sistema
+            $j['respuesta'] = 'Hi! Happy to help. What are you looking for?';
+        }
         if (str_contains($ultimo, 'persona') || str_contains($ultimo, 'reclamo')) {
             $j = ['respuesta' => 'Entiendo, en un momento te atiende una persona del equipo.', 'persona' => true, 'nota' => 'Quiere hablar con una persona del equipo.'];
         } elseif (str_contains($ultimo, 'quiero 2') && $pid) {

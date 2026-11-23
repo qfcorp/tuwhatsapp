@@ -1,6 +1,7 @@
 <?php
 /** @var array $linea @var array $f @var list<array> $pasos @var list<array> $campos @var ?list<array> $prueba @var string $entradas */
-use TuWhatsApp\{Embudo, Flujos};
+use TuWhatsApp\{Embudo, Flujos, Traducir, IdiomaCliente};
+$trF = Traducir::datos($f);
 $etiquetaPaso = function (array $p, int $n): string {
     return 'Paso ' . $n . ': ' . mb_strimwidth(trim(preg_replace('/\s+/', ' ', (string) $p['texto'])) ?: Flujos::TIPOS[$p['tipo']], 0, 34, '…');
 };
@@ -73,6 +74,34 @@ $destinos = function (string $actual, string $sel, bool $conSiguiente = true) us
     </fieldset>
     <?php endforeach; ?>
 
+    <section class="tarjeta tk-tarjeta" id="idiomas">
+        <h2>🌐 En otros idiomas</h2>
+        <input type="hidden" name="tr_form" value="1">
+        <p class="suave pequeno">Si el cliente escribe en inglés, portugués, francés o italiano, el chatbot le contesta en su idioma con estos textos (lo vacío sale en español). Las palabras clave de cada idioma también lo activan. Se enciende o apaga en <a href="<?= e(url('reglas')) ?>#idiomas">Respuestas automáticas</a>.</p>
+        <?php if (modulo('ia')): ?>
+        <p><button class="boton boton-claro tk-boton secundario" name="accion" value="traducir">🌐 Traducir automáticamente a inglés, portugués, francés e italiano</button></p>
+        <p class="suave pequeno">Guarda y traduce todos los pasos con la IA (una sola vez). Después puedes corregir cada texto. Al contestar no se gasta IA.</p>
+        <?php else: ?>
+        <p class="suave pequeno">Escribe las traducciones a mano. <b>Con el extra de IA se traducen solos</b> con un botón.</p>
+        <?php endif; ?>
+        <?php foreach (Traducir::OTROS as $l): $x = (array) ($trF[$l] ?? []); $hay = trim(implode('', array_map(fn ($y) => (string) ($y['texto'] ?? ''), (array) ($x['pasos'] ?? [])))) !== ''; ?>
+        <details class="plegable idioma-tr">
+            <summary><?= IdiomaCliente::BANDERAS[$l] ?> <?= e(IdiomaCliente::IDIOMAS[$l]) ?> <small class="suave"><?= $hay ? '(traducido)' : '(sale en español)' ?></small></summary>
+            <label>Palabras clave en este idioma<input name="tr[<?= $l ?>][palabras]" maxlength="500" value="<?= e((string) ($x['palabras'] ?? '')) ?>" placeholder="hello, info, prices"></label>
+            <?php foreach ($pasos as $i => $p): $xp = (array) ($x['pasos'][$p['id']] ?? []); ?>
+            <fieldset class="opcion-menu">
+                <legend>Paso <?= $i + 1 ?></legend>
+                <p class="suave pequeno"><!--notr--><?= e(mb_strimwidth((string) $p['texto'], 0, 120, '…')) ?><!--/notr--></p>
+                <label>Mensaje<textarea name="tr[<?= $l ?>][paso][<?= e($p['id']) ?>][texto]" rows="2" maxlength="1000"><?= e((string) ($xp['texto'] ?? '')) ?></textarea></label>
+                <?php foreach (($p['opciones'] ?? []) as $k => $o): ?>
+                <label>Opción <?= $k + 1 ?> <small class="suave">(<!--notr--><?= e($o['titulo']) ?><!--/notr-->)</small><input name="tr[<?= $l ?>][paso][<?= e($p['id']) ?>][op][<?= $k ?>]" maxlength="24" value="<?= e((string) ($xp['opciones'][$k] ?? '')) ?>"></label>
+                <?php endforeach; ?>
+            </fieldset>
+            <?php endforeach; ?>
+        </details>
+        <?php endforeach; ?>
+    </section>
+
     <div class="fila-botones">
         <button class="boton tk-boton" name="accion" value="guardar">Guardar</button>
         <button class="boton boton-claro tk-boton secundario" name="accion" value="agregar_paso">+ Agregar paso</button>
@@ -84,6 +113,7 @@ $destinos = function (string $actual, string $sel, bool $conSiguiente = true) us
     <h2>Probar (no manda nada)</h2>
     <form method="post" class="formulario"><?= csrf_campo() ?><input type="hidden" name="accion" value="probar">
         <label>Lo que escribiría el cliente, una línea por mensaje<textarea name="entradas" rows="3" maxlength="2000" placeholder="hola&#10;1&#10;María"><?= e($entradas) ?></textarea></label>
+        <label>Idioma del cliente<select name="p_idioma"><?php foreach (IdiomaCliente::IDIOMAS as $l => $n): ?><option value="<?= $l ?>" <?= ($_POST['p_idioma'] ?? 'es') === $l ? 'selected' : '' ?>><?= IdiomaCliente::BANDERAS[$l] ?> <?= e($n) ?></option><?php endforeach; ?></select></label>
         <button class="boton boton-claro tk-boton secundario">Probar</button></form>
     <?php if ($prueba !== null): ?>
     <ol class="mensajes prueba-flujo">

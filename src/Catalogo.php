@@ -155,18 +155,18 @@ final class Catalogo
         return $t;
     }
 
-    public static function precio(float $v, array $linea): string
+    public static function precio(float $v, array $linea, string $idioma = 'es'): string
     {
         $iva = (float) ($linea['iva_pct'] ?? 0);
-        return '$' . number_format($v, 2, ',', '.') . ($iva > 0 ? ' + IVA' : '');
+        return '$' . number_format($v, 2, ',', '.') . ($iva > 0 ? FrasesCliente::t('mas_iva', $idioma) : '');
     }
 
     /** Filas para la lista de WhatsApp (máximo 10): id "prod:N", título y precio. */
-    public static function filasLista(array $productos, array $linea): array
+    public static function filasLista(array $productos, array $linea, string $idioma = 'es'): array
     {
         $r = [];
         foreach (array_slice($productos, 0, 10) as $p) {
-            $r[] = ['id' => 'prod:' . (int) $p['id'], 'titulo' => mb_substr((string) $p['nombre'], 0, 24), 'descripcion' => self::precio((float) $p['precio'], $linea)];
+            $r[] = ['id' => 'prod:' . (int) $p['id'], 'titulo' => mb_substr((string) $p['nombre'], 0, 24), 'descripcion' => self::precio((float) $p['precio'], $linea, $idioma)];
         }
         return $r;
     }

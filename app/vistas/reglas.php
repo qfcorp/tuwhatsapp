@@ -2,6 +2,8 @@
 /** @var array $linea */
 use TuWhatsApp\Lineas;
 use TuWhatsApp\Reglas;
+use TuWhatsApp\Traducir;
+use TuWhatsApp\IdiomaCliente;
 $horario = Lineas::horario($linea);
 $opciones = Lineas::opciones($linea);
 $interruptor = function (string $campo, string $titulo, string $explica) use ($linea): string {
@@ -15,8 +17,12 @@ if (isset($_GET['p_texto'])) {
     $dia = max(1, min(7, (int) ($_GET['p_dia'] ?? 1)));
     $hora = Lineas::hora($_GET['p_hora'] ?? '') ? $_GET['p_hora'] : '20:00';
     $cuando = (new DateTimeImmutable('monday this week'))->modify('+' . ($dia - 1) . ' days')->modify($hora);
-    $prueba = Reglas::decidir($linea, ['tipo' => $tipo], (string) $_GET['p_texto'], $cuando, (int) ($_GET['p_ya'] ?? 0));
+    $pIdioma = IdiomaCliente::valido((string) ($_GET['p_idioma'] ?? 'es'));
+    $prueba = Reglas::decidir($linea, ['tipo' => $tipo, 'idioma' => $pIdioma], (string) $_GET['p_texto'], $cuando, (int) ($_GET['p_ya'] ?? 0));
 }
+$trLinea = Traducir::datos($linea);
+$idiomasLinea = Traducir::idiomasLinea($linea);
+$conIa = modulo('ia');
 ?>
 <div class="cabeza tk-titulo-pagina"><div class="titulo"><h1>Respuestas automáticas</h1><?= ayuda_inicio() ?>Recibir mensajes es gratis. Solo pagas lo que el sistema contesta solo (unos <?= e(dinero(\TuWhatsApp\Gasto::precios(db())['servicio'], true)) ?> por respuesta). Estas reglas deciden a quién se le contesta.<?= ayuda_fin() ?></div></div>
 
@@ -88,6 +94,44 @@ if (isset($_GET['p_texto'])) {
         <pre class="vista-previa"><?= e(Reglas::textoMenu($linea)) ?></pre>
     </div>
 
+    <h2 class="separador" id="idiomas">🌐 Contestar en el idioma del cliente</h2>
+    <div class="tarjeta tk-tarjeta">
+        <input type="hidden" name="idiomas_form" value="1">
+        <label class="regla"><input type="checkbox" role="switch" name="idioma_auto" value="1" <?= Traducir::idiomaAuto($linea) ? 'checked' : '' ?>>
+            <span><b>Contestar en el idioma del cliente</b><small>Si el cliente escribe en inglés, portugués, francés o italiano, el menú, los chatbots, el agente con IA y los mensajes de pedidos y pagos le llegan en su idioma. El idioma se detecta solo (por lo que escribe y el código de su país) y lo ves en su ficha.</small></span></label>
+        <p><b>Idiomas que contestas</b> <small class="suave">(a un cliente de un idioma sin marcar se le contesta en español)</small></p>
+        <div class="fila-checks">
+            <label class="check"><input type="checkbox" checked disabled> <?= IdiomaCliente::BANDERAS['es'] ?> Español</label>
+            <?php foreach (Traducir::OTROS as $l): ?>
+            <label class="check"><input type="checkbox" name="idiomas[]" value="<?= $l ?>" <?= in_array($l, $idiomasLinea, true) ? 'checked' : '' ?>> <?= IdiomaCliente::BANDERAS[$l] ?> <?= e(IdiomaCliente::IDIOMAS[$l]) ?></label>
+            <?php endforeach; ?>
+        </div>
+        <?php if ($conIa): ?>
+        <p><button class="boton boton-claro tk-boton secundario" name="traducir" value="1">🌐 Traducir automáticamente a inglés, portugués, francés e italiano</button></p>
+        <p class="suave pequeno">Guarda lo que escribiste y traduce el saludo, las opciones y las palabras de negocio con la IA (una sola vez). Después puedes corregir cada traducción abajo. Al contestar no se gasta IA.</p>
+        <?php else: ?>
+        <p class="suave pequeno">Escribe abajo cada traducción a mano (lo que dejes vacío sale en español). <b>Con el extra de IA se traducen solos</b> con un botón.</p>
+        <?php endif; ?>
+        <?php foreach (Traducir::OTROS as $l): $x = (array) ($trLinea[$l] ?? []); ?>
+        <details class="plegable idioma-tr">
+            <summary><?= IdiomaCliente::BANDERAS[$l] ?> <?= e(IdiomaCliente::IDIOMAS[$l]) ?> <?= trim((string) ($x['saludo'] ?? '')) !== '' ? '<small class="suave">(traducido)</small>' : '<small class="suave">(sale en español)</small>' ?></summary>
+            <label>Saludo<textarea name="tr[<?= $l ?>][saludo]" rows="2" maxlength="1000"><!--notr--><?= e((string) ($x['saludo'] ?? '')) ?><!--/notr--></textarea></label>
+            <?php foreach ($opciones as $i => $o): $xo = (array) ($x['opciones'][$i] ?? []); ?>
+            <fieldset class="opcion-menu">
+                <legend>Opción <?= $i + 1 ?> · <!--notr--><?= e($o['titulo']) ?><!--/notr--></legend>
+                <label>Título<input name="tr[<?= $l ?>][op_titulo][<?= $i ?>]" maxlength="60" value="<?= e((string) ($xo['titulo'] ?? '')) ?>"></label>
+                <label>Respuesta<textarea name="tr[<?= $l ?>][op_respuesta][<?= $i ?>]" rows="2" maxlength="1000"><!--notr--><?= e((string) ($xo['respuesta'] ?? '')) ?><!--/notr--></textarea></label>
+            </fieldset>
+            <?php endforeach; ?>
+            <label>Palabras de negocio en este idioma <small class="suave">(además, se entienden palabras comunes como precio, pedido o catálogo en cada idioma)</small><textarea name="tr[<?= $l ?>][palabras]" rows="2"><!--notr--><?= e((string) ($x['palabras'] ?? '')) ?><!--/notr--></textarea></label>
+            <?php if (trim((string) ($x['saludo'] ?? '')) !== ''): ?>
+            <p class="suave pequeno">Así le llega el menú:</p>
+            <pre class="vista-previa"><!--notr--><?= e(Reglas::textoMenu($linea, $l)) ?><!--/notr--></pre>
+            <?php endif; ?>
+        </details>
+        <?php endforeach; ?>
+    </div>
+
     <button class="boton boton-grande boton-fijo">Guardar reglas</button>
 </form>
 
@@ -99,6 +143,9 @@ if (isset($_GET['p_texto'])) {
     <label>Si me escribe<input name="p_texto" value="<?= e($_GET['p_texto'] ?? 'Hola, ¿cuál es el precio?') ?>"></label>
     <div class="fila-doble">
         <label>Que es<select name="p_tipo"><?php foreach (['cliente' => 'Cliente', 'desconocido' => 'Desconocido', 'personal' => 'Personal'] as $t => $n): ?><option value="<?= $t ?>" <?= ($_GET['p_tipo'] ?? 'cliente') === $t ? 'selected' : '' ?>><?= $n ?></option><?php endforeach; ?></select></label>
+        <label>Idioma del cliente<select name="p_idioma"><?php foreach (IdiomaCliente::IDIOMAS as $l => $n): ?><option value="<?= $l ?>" <?= ($_GET['p_idioma'] ?? 'es') === $l ? 'selected' : '' ?>><?= IdiomaCliente::BANDERAS[$l] ?> <?= e($n) ?></option><?php endforeach; ?></select></label>
+    </div>
+    <div class="fila-doble">
         <label>Ya le contestó solo<select name="p_ya"><?php for ($i = 0; $i <= 3; $i++): ?><option value="<?= $i ?>" <?= (int) ($_GET['p_ya'] ?? 0) === $i ? 'selected' : '' ?>><?= $i ?> veces</option><?php endfor; ?></select></label>
     </div>
     <div class="fila-doble">

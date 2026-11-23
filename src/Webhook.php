@@ -292,7 +292,7 @@ final class Webhook
             }
             $mens = new Mensajeria($this->db, $this->ahora);
             $r = !empty($d['botones'])
-                ? $mens->botones($linea, $contacto, (string) ($d['saludo'] ?: 'Elige una opción:'), $d['botones'], 'auto')
+                ? $mens->botones($linea, $contacto, (string) ($d['saludo'] ?: FrasesCliente::t('elige_opcion', (string) ($d['idioma'] ?? 'es'))), $d['botones'], 'auto')
                 : $mens->texto($linea, $contacto, (string) $d['texto'], 'auto');
             if ($r['ok']) {
                 $this->motivo((int) $id, 'Contestado solo: ' . $d['motivo'] . ($r['costo'] > 0 ? ' (' . '$' . number_format($r['costo'], 4, ',', '.') . ')' : ' (gratis)'));
@@ -336,9 +336,17 @@ final class Webhook
         }
     }
 
-    /** Palabras que entiende el carrito sin IA. */
-    public const PALABRAS_CATALOGO = ['catalogo', 'ver catalogo', 'productos', 'ver productos', 'menu de productos', 'lista de precios'];
-    public const PALABRAS_COMPRAR = ['comprar', 'confirmar', 'confirmo', 'pagar', 'finalizar compra', 'terminar compra', 'quiero pagar'];
+    /** Palabras que entiende el carrito sin IA (23 nov 2026: también en inglés, portugués, francés e italiano). */
+    public const PALABRAS_CATALOGO = ['catalogo', 'ver catalogo', 'productos', 'ver productos', 'menu de productos', 'lista de precios',
+        'catalog', 'catalogue', 'products', 'see products', 'product list', 'price list', 'menu',
+        'produtos', 'ver produtos', 'lista de precos',
+        'produits', 'voir les produits', 'liste des prix',
+        'prodotti', 'vedi prodotti', 'listino', 'listino prezzi'];
+    public const PALABRAS_COMPRAR = ['comprar', 'confirmar', 'confirmo', 'pagar', 'finalizar compra', 'terminar compra', 'quiero pagar',
+        'buy', 'checkout', 'check out', 'confirm', 'pay', 'i want to pay', 'place order',
+        'finalizar', 'quero pagar',
+        'acheter', 'confirmer', 'payer', 'je veux payer', 'commander',
+        'acquista', 'acquistare', 'compra', 'conferma', 'confermo', 'pagare', 'voglio pagare'];
 
     /**
      * Carrito por WhatsApp (funciona sin IA): "prod:N" agrega ese producto; "catálogo" manda la lista; "comprar" confirma el
@@ -350,16 +358,18 @@ final class Webhook
         $cid = (int) $contacto['id'];
         $simple = Reglas::simple($texto);
         $mens = new Mensajeria($this->db, $this->ahora);
+        $idioma = Traducir::idiomaPara($linea, $contacto);   // (23 nov 2026) textos del carrito en el idioma del cliente
+        $plata = fn (float $v) => '$' . number_format($v, 2, ',', '.');
         if (preg_match('/^prod:(\d+)$/', $idBoton, $mp)) {
             try {
                 $carrito = Pedidos::agregar($this->db, $linea, $cid, (int) $mp[1], 1, 'chat');
                 $items = Pedidos::items($this->db, (int) $carrito['id']);
                 $n = array_sum(array_map(fn ($i) => (int) $i['cantidad'], $items));
                 $p = Catalogo::buscar($this->db, $lid, (int) $mp[1]);
-                $t = '✅ Agregué *' . ($p['nombre'] ?? 'el producto') . "* a tu carrito.\n🛒 " . $n . ($n === 1 ? ' producto' : ' productos')
-                   . ' · total $' . number_format((float) $carrito['total'], 2, ',', '.') . "\n\nEscribe *comprar* para terminar, o *catálogo* para elegir más.";
+                $t = FrasesCliente::t('agregado', $idioma, ['producto' => $p['nombre'] ?? FrasesCliente::t('el_producto', $idioma),
+                                                            'cuenta' => FrasesCliente::productos($n, $idioma), 'total' => $plata((float) $carrito['total'])]);
             } catch (\RuntimeException $e) {
-                $t = $e->getMessage() . ' Escribe *catálogo* para ver lo disponible.';
+                $t = $e->getMessage() . ' ' . FrasesCliente::t('ver_disponible', $idioma);
             }
             $r = $mens->texto($linea, $contacto, $t, 'auto');
             return $r['ok'] ? 'Eligió un producto del catálogo: se agregó al carrito' : 'No se pudo contestar: ' . $r['error'];
@@ -369,7 +379,8 @@ final class Webhook
             if (!$productos) {
                 return null;
             }
-            $r = $mens->botones($linea, $contacto, 'Estos son nuestros productos. Toca uno para agregarlo a tu carrito 👇', Catalogo::filasLista($productos, $linea), 'auto', null, 'Ver productos', true);
+            $r = $mens->botones($linea, $contacto, FrasesCliente::t('catalogo_lista', $idioma), Catalogo::filasLista($productos, $linea, $idioma), 'auto', null,
+                                FrasesCliente::t('boton_ver', $idioma), true);
             return $r['ok'] ? 'Pidió el catálogo: se le mandó la lista' : 'No se pudo contestar: ' . $r['error'];
         }
         if (in_array($simple, self::PALABRAS_COMPRAR, true)) {
@@ -391,8 +402,8 @@ final class Webhook
             }
             $pedido = Pedidos::buscar($this->db, $lid, (int) $pedido['id']);
             Embudo::mover($this->db, $lid, $cid, 'cotizado', number_format((float) $pedido['total'], 2, '.', ''));
-            $r = $mens->texto($linea, $contacto, Pedidos::resumen($linea, $pedido, Pedidos::items($this->db, (int) $pedido['id']), $enlace)
-                                                 . "\n\nCuando pagues, mándanos el comprobante por aquí. ¡Gracias!", 'auto');
+            $r = $mens->texto($linea, $contacto, Pedidos::resumen($linea, $pedido, Pedidos::items($this->db, (int) $pedido['id']), $enlace, $idioma)
+                                                 . "\n\n" . FrasesCliente::t('manda_comprobante', $idioma), 'auto');
             return $r['ok'] ? 'Confirmó su carrito: pedido #' . $pedido['numero'] . ' pendiente de pago' : 'No se pudo contestar: ' . $r['error'];
         }
         return null;

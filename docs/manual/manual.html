@@ -73,6 +73,7 @@
     <li>App en el celular y avisos <span class="nuevo">NUEVO</span></li>
     <li>Preguntas frecuentes</li>
     <li>La app se queda abierta: recordar el celular y entrar con huella <span class="nuevo">NUEVO</span></li>
+    <li>Contestar en el idioma del cliente <span class="nuevo">NUEVO</span></li>
   </ol>
   <div class="caja azul">
     <b>Lo de siempre sigue igual:</b> conectar tu número con código QR, plantillas de Meta, campañas, seguimientos, embudo, enlaces y QR, integraciones,
@@ -84,6 +85,7 @@
   <h2>1. Novedades de esta versión</h2>
   <table>
     <tr><th>Nuevo</th><th>Para qué te sirve</th><th>Dónde está</th></tr>
+    <tr><td><b>Contesta en el idioma del cliente</b> <span class="nuevo">NUEVO</span></td><td>Si un cliente escribe en <b>inglés, portugués, francés o italiano</b>, el menú, los chatbots, el agente con IA y los mensajes de pedidos, pagos y llamadas le llegan <b>en su idioma</b>. Con el extra de IA, un botón traduce todo solo; sin él, lo escribes a mano.</td><td>Automático (abajo) · Chatbots</td></tr>
     <tr><td><b>La app se queda abierta</b> <span class="nuevo">NUEVO</span></td><td>Entras una vez y no vuelve a pedir la contraseña, como WhatsApp. Si algún día se cierra, entras con tu <b>huella</b>.</td><td>Pantalla de entrar · Mi cuenta</td></tr>
     <tr><td><b>Avisos de la app como WhatsApp</b> <span class="nuevo">NUEVO</span></td><td>Con la app <b>Tukán Mensajes</b> de Google Play los avisos los muestra la propia app (con su nombre), aunque esté cerrada. Solo abres la app, entras y tocas <b>Permitir</b>.</td><td>Menú → App en el celular</td></tr>
     <tr><td><b>Avisos por Telegram</b> <span class="nuevo">NUEVO</span></td><td>Conecta tu Telegram con un toque y te llegan los mensajes de tus clientes al momento, o solo si nadie contesta. Con el botón para abrir el chat.</td><td>Menú → App en el celular</td></tr>
@@ -596,6 +598,8 @@
     <li>Ajustes → <b>Apps → Chrome → Batería → Sin restricciones</b> (y lo mismo para Tukán Mensajes). En <b>Xiaomi</b> enciende también «Inicio automático»; en <b>Samsung</b> saca a Chrome de «Apps en suspensión»; en <b>Huawei</b> pon Chrome en «Administrar manualmente».</li>
     <li>Deja encendido el <b>Respaldo por correo</b>: aunque falle el aviso, te llega el correo si nadie contesta.</li>
   </ol>
+  <h3>Me escriben clientes en inglés, ¿les contesta en inglés? <span class="nuevo">NUEVO</span></h3>
+  <p>Sí. El programa detecta solo el idioma del cliente (por lo que escribe y el código de su país) y le contesta en inglés, portugués, francés o italiano: el menú, los chatbots, el agente con IA y los mensajes fijos (pedido, pago recibido, carrito, catálogo, llamada fuera de horario). Lo que tú escribes (el menú y los chatbots) necesita su traducción: con el extra de IA toca <b>🌐 Traducir automáticamente</b>; sin él, escríbela a mano. Lo que no esté traducido le llega en español. Ver capítulo 22.</p>
   <h3>¿Me pueden llegar los mensajes de los clientes a Telegram?</h3>
   <p>Sí. En <b>Menú → App en el celular → Avisos por Telegram</b> toca <b>Conectar mi Telegram</b> y luego <b>Iniciar</b> en el bot. Eliges si te avisa de
   cada mensaje al momento o solo si nadie contesta en unos minutos. Para dejarlo: <b>Desconectar</b> o escribe <b>/parar</b> al bot.</p>
@@ -651,6 +655,35 @@
   <h3>¿Por qué antes me pedía entrar a cada rato?</h3>
   <p>El servidor borraba las sesiones abiertas después de unos minutos sin uso. Ya está arreglado: ahora las sesiones se guardan aparte y duran 30 días, y además el celular recordado vuelve a entrar solo aunque la sesión se borre. Para que no te vuelva a pasar, deja marcada <b>«Recordar este celular»</b> la próxima vez que entres.</p>
   <div class="caja azul"><b>Importante:</b> los avisos de mensajes nuevos no dependen de tener la app abierta: si los activaste en <b>Menú → App en el celular</b>, llegan igual con la app cerrada.</div>
+</section>
+
+<section class="capitulo" id="cidioma">
+  <h2>22. Contestar en el idioma del cliente <span class="nuevo">NUEVO</span></h2>
+  <p>Cada vez más clientes escriben en otro idioma (turistas, compradores de afuera, extranjeros que viven aquí). WhatsApp Tukán les contesta <b>en su idioma</b>: inglés, portugués, francés o italiano, además del español.</p>
+  <h3>Cómo sabe el idioma</h3>
+  <ul>
+    <li>Lo detecta solo, <b>sin gastar IA</b>: por las palabras que escribe el cliente y por el código de país de su número (+1 Estados Unidos → inglés, +55 Brasil → portugués, +33 Francia → francés, +39 Italia → italiano).</li>
+    <li>Lo ves en la ficha del cliente y lo puedes cambiar a mano si hace falta.</li>
+  </ul>
+  <h3>Qué le llega en su idioma</h3>
+  <table>
+    <tr><th>Qué</th><th>Cómo</th></tr>
+    <tr><td><b>Menú de respuestas automáticas</b></td><td>El saludo, los botones y las respuestas de cada opción, con la traducción que guardaste. Las opciones se reconocen en cualquier idioma: si escribe <i>Prices</i> o <i>Precios</i>, es la misma opción.</td></tr>
+    <tr><td><b>Chatbots</b></td><td>El texto de cada paso y los botones. Las palabras clave de cada idioma también lo activan (por ejemplo <i>hello</i>). El chatbot de ejemplo ya viene en inglés.</td></tr>
+    <tr><td><b>Agente con IA</b> <span class="chip">Extra</span></td><td>Se le dice el idioma del cliente y contesta siempre en ese idioma, aunque lo que sabe del negocio esté en español. En «Pruébalo aquí» puedes elegir el idioma del cliente para probar.</td></tr>
+    <tr><td><b>Mensajes fijos</b></td><td>Ya vienen escritos en los 5 idiomas: resumen del pedido, «Recibimos tu pago», carrito, catálogo, llamada fuera de horario (con tu horario en su idioma) y la cotización en PDF.</td></tr>
+    <tr><td><b>Palabras</b></td><td><i>catalog</i>, <i>buy</i>, <i>acheter</i>, <i>stop</i>, <i>unsubscribe</i>… funcionan como en español (ver catálogo, comprar, no recibir más promociones).</td></tr>
+  </table>
+  <h3>Cómo se activa</h3>
+  <ol>
+    <li>Entra a <b>Automático</b> (Respuestas automáticas) y baja hasta <b>🌐 Contestar en el idioma del cliente</b>. Viene <b>encendido</b>.</li>
+    <li>En <b>Idiomas que contestas</b> marca los idiomas que quieres atender. A un cliente de un idioma que no marcaste se le contesta en español.</li>
+    <li><b>Con el extra de IA:</b> toca <b>🌐 Traducir automáticamente a inglés, portugués, francés e italiano</b>. La IA traduce una sola vez el saludo, las opciones y las palabras de negocio, y todo queda escrito para que lo revises y corrijas. <b>Al contestar no se gasta IA.</b></li>
+    <li><b>Sin el extra de IA:</b> abre cada idioma y escribe la traducción a mano. Lo que dejes vacío sale en español.</li>
+    <li>En cada chatbot, abajo, está <b>🌐 En otros idiomas</b>: el mismo botón para traducir (con IA) o los campos para escribir.</li>
+    <li>Prueba: en <b>Probar las reglas</b> y en el probador del chatbot elige <b>Idioma del cliente</b> y mira cómo le llegaría.</li>
+  </ol>
+  <div class="caja azul"><b>Importante:</b> si cambias el menú o un chatbot en español, vuelve a traducir (o corrige la traducción) para que los clientes de otros idiomas reciban lo nuevo. Si apagas «Contestar en el idioma del cliente», todo vuelve a salir en español.</div>
 </section>
 
 <section class="cap" id="ctufactura">

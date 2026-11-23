@@ -379,7 +379,7 @@ final class Plux
         }
         if ($contacto) {
             try {
-                (new Mensajeria($db))->texto($linea, $contacto, '✅ Recibimos tu pago de ' . $total . ' del pedido #' . $pedido['numero'] . '. ¡Gracias por tu compra!', 'auto');
+                (new Mensajeria($db))->texto($linea, $contacto, FrasesCliente::t('pago_recibido', Traducir::idiomaPara($linea, $contacto), ['total' => $total, 'n' => $pedido['numero']]), 'auto');
             } catch (\Throwable $e) {
                 error_log('tuwhatsapp Plux confirmación: ' . $e->getMessage());
             }

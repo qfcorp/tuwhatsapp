@@ -3142,6 +3142,166 @@ ok(!Fcm::algunoFunciona($db, [$fBeto]) && Fcm::funcionando($db, $fBeto) === 0, '
 ok(!Fcm::configurado($db) && (int) $db->query("SELECT count(*) FROM ajustes WHERE clave IN ('fcm_clave', 'fcm_acceso')")->fetchColumn() === 0, 'quitar la clave borra también el token de acceso');
 putenv('TUWA_FCM_URL=');
 
+// =====================================================================================
+// 23 nov 2026: todo lo que contesta solo habla el idioma del cliente (es, en, pt, fr, it)
+// =====================================================================================
+use TuWhatsApp\Traducir;
+echo "== Contestar en el idioma del cliente\n";
+$FC = \TuWhatsApp\FrasesCliente::class;
+$TR = \TuWhatsApp\Traducir::class;
+$incompletas = array_keys(array_filter($FC::claves(), fn ($x) => count(array_intersect_key($x, array_flip(['es', 'en', 'pt', 'fr', 'it']))) !== 5));
+ok(!$incompletas, 'cada frase fija para el cliente está en los 5 idiomas' . ($incompletas ? ': faltan ' . implode(', ', $incompletas) : ''));
+igual($FC::t('pago_recibido', 'en', ['total' => '$10,00', 'n' => 7]), '✅ We received your payment of $10,00 for order #7. Thank you for your purchase!', 'frase fija en inglés con variables');
+igual($FC::t('pago_recibido', 'de', ['total' => '$1', 'n' => 1]), '✅ Recibimos tu pago de $1 del pedido #1. ¡Gracias por tu compra!', 'idioma desconocido: español');
+igual([$FC::productos(1, 'en'), $FC::productos(3, 'fr')], ['1 item', '3 articles'], 'singular y plural');
+
+// Menú: una línea de prueba (sin base)
+$menuOp = json_encode([['titulo' => 'Precios', 'respuesta' => 'Los precios están en la web.', 'humano' => false],
+                       ['titulo' => 'Hablar con alguien', 'respuesta' => 'Ya te atienden.', 'humano' => true]], JSON_UNESCAPED_UNICODE);
+$menuTr = json_encode(['en' => ['saludo' => 'Hi, choose an option:', 'opciones' => [['titulo' => 'Prices', 'respuesta' => 'Prices are on our website.'], ['titulo' => '', 'respuesta' => '']], 'palabras' => 'pricing']], JSON_UNESCAPED_UNICODE);
+$lm = ['auto_activo' => true, 'regla_solo_clientes' => false, 'regla_horario' => false, 'regla_una_vez' => false, 'regla_palabras' => true,
+       'palabras' => 'precio, catálogo', 'mensaje_menu' => 'Hola, elige una opción:', 'opciones' => $menuOp, 'menu_botones' => true,
+       'traducciones' => $menuTr, 'idioma_auto' => true, 'idiomas' => 'es,en,pt,fr,it', 'max_auto' => 3];
+$hoyM = new DateTimeImmutable('2026-11-23 21:00:00');
+$dEn = Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'en'], 'How much is it?', $hoyM, 0);
+igual([$dEn['responder'], $dEn['saludo'], array_column($dEn['botones'], 'titulo'), $dEn['idioma']],
+      [true, 'Hi, choose an option:', ['Prices', 'Hablar con alguien'], 'en'], 'cliente en inglés: palabra de negocio en inglés, saludo y botones en inglés (lo que falta, en español)');
+ok(str_contains($dEn['motivo'], '(en English)'), 'el motivo dice que se contestó en inglés');
+igual(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'en'], 'Prices', $hoyM, 0)['texto'], 'Prices are on our website.', 'eligió la opción por su nombre en inglés: respuesta en inglés');
+igual(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'es'], 'prices', $hoyM, 0)['texto'], 'Los precios están en la web.', 'el nombre en inglés también vale para un cliente en español');
+$d2 = Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'en'], '2', $hoyM, 0);
+igual([$d2['texto'], $d2['humano']], ['Ya te atienden.', true], 'opción sin traducir: sale en español');
+ok(!Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'es'], 'how much', $hoyM, 0)['responder'], 'las palabras de base en inglés no cambian el filtro de un cliente en español');
+ok(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'es'], 'pricing please', $hoyM, 0)['responder'], 'las palabras traducidas por el negocio valen siempre');
+ok(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'fr'], 'quel est le prix', $hoyM, 0)['responder'], 'palabras de base en francés');
+igual(Reglas::decidir(array_merge($lm, ['idioma_auto' => false]), ['tipo' => 'cliente', 'idioma' => 'en'], 'precio', $hoyM, 0)['saludo'], 'Hola, elige una opción:', 'apagado "contestar en el idioma del cliente": todo en español');
+igual(Reglas::decidir(array_merge($lm, ['idiomas' => 'es,pt']), ['tipo' => 'cliente', 'idioma' => 'en'], 'precio', $hoyM, 0)['saludo'], 'Hola, elige una opción:', 'idioma no marcado: español');
+igual(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'pt'], 'qual o preço', $hoyM, 0)['saludo'], 'Hola, elige una opción:', 'idioma sin traducción: el saludo sale en español');
+igual(Reglas::decidir($lm, ['tipo' => 'cliente', 'telefono' => '14155550100'], 'precio', $hoyM, 0)['idioma'], 'en', 'sin idioma guardado: el del código de país (+1)');
+igual(Reglas::textoMenu($lm, 'en'), "Hi, choose an option:\n1. Prices\n2. Hablar con alguien", 'texto del menú en inglés');
+igual($TR::limpiarLinea(['en' => ['saludo' => ' Hi ', 'op_titulo' => [0 => 'A', 2 => 'C'], 'op_respuesta' => [0 => 'a', 2 => 'c'], 'palabras' => 'Price;  COST']], [0 => 0, 2 => 1])['en'],
+      ['saludo' => 'Hi', 'opciones' => [['titulo' => 'A', 'respuesta' => 'a'], ['titulo' => 'C', 'respuesta' => 'c']], 'palabras' => 'price, cost'], 'traducciones del formulario: limpias y alineadas con las opciones guardadas');
+
+// Chatbot: motor en otro idioma
+$pasosI = [['id' => 'p1', 'tipo' => 'botones', 'texto' => '¿Qué buscas?', 'opciones' => [['titulo' => 'Ropa', 'ir_a' => 'p2'], ['titulo' => 'Zapatos', 'ir_a' => 'p3']]],
+           ['id' => 'p2', 'tipo' => 'pregunta', 'texto' => '¿Tu nombre?', 'guardar' => 'nombre'], ['id' => 'p3', 'tipo' => 'fin', 'texto' => 'Gracias.']];
+$fI = ['id' => 9, 'palabras' => 'ropa', 'pasos' => json_encode($pasosI), 'traducciones' => json_encode(['en' => ['palabras' => 'clothes', 'pasos' => [
+    'p1' => ['texto' => 'What are you looking for?', 'opciones' => ['Clothes', 'Shoes']], 'p2' => ['texto' => 'Your name?', 'opciones' => []], 'p3' => ['texto' => '', 'opciones' => []]]]])];
+$pEn = $TR::pasos($fI, 'en');
+igual([$pEn[0]['texto'], array_column($pEn[0]['opciones'], 'titulo'), $pEn[0]['opciones'][0]['ir_a'], $pEn[2]['texto']],
+      ['What are you looking for?', ['Clothes', 'Shoes'], 'p2', 'Gracias.'], 'pasos en inglés (los destinos no cambian; lo vacío en español)');
+igual($TR::palabrasFlujo($fI), ['ropa', 'clothes'], 'palabras del chatbot en todos los idiomas');
+$x = Flujos::avanzar(9, $pEn, 'p1', 'nada que ver', '', null, '', 'en');
+igual($x['salidas'][0]['texto'] ?? '', 'Please choose one of the options 👇', 'no eligió una opción: se lo pide en inglés');
+$x = Flujos::avanzar(9, $pEn, 'p1', 'Zapatos', '', null, '', 'en');
+igual($x['salidas'][0]['texto'] ?? '', 'Gracias.', 'reconoce la opción por su nombre en español aunque el cliente esté en inglés');
+$x = Flujos::avanzar(9, $pEn, 'p2', '', '', null, '', 'en');
+igual($x['salidas'][0]['texto'] ?? '', "Sorry, I didn't understand. Your name?", 'respuesta vacía: "no te entendí" en inglés');
+$simI = Flujos::simular($fI, ['clothes', '1'], 'Shop', 'en');
+igual([$simI[1]['texto'], $simI[3]['texto']], ["What are you looking for?\n[1] Clothes\n[2] Shoes", 'Your name?'], 'el probador del chatbot en inglés');
+
+// Fijos: pedido, horario, llamadas, bajas, catálogo, cotización
+$resEn = Pedidos::resumen(['nombre' => 'Shop', 'iva_pct' => 12, 'pago_transferencia' => 'Banco 123'], ['numero' => 5, 'iva' => 1.2, 'subtotal' => 10, 'total' => 11.2],
+                          [['cantidad' => 1, 'nombre' => 'Hat', 'precio' => 10]], 'https://pagar.ejemplo/5', 'en');
+ok(str_contains($resEn, '*Order #5* · Shop') && str_contains($resEn, "Subtotal: \$10,00\nVAT 12 %: \$1,20") && str_contains($resEn, '*Total: $11,20*')
+   && str_contains($resEn, 'Pay here: https://pagar.ejemplo/5') && str_contains($resEn, "Bank transfer:\nBanco 123"), 'resumen del pedido en inglés');
+ok(str_starts_with(Pedidos::resumen(['nombre' => 'Shop'], ['numero' => 5, 'iva' => 0, 'total' => 3], []), '*Pedido #5*'), 'resumen en español como siempre');
+$horL = ['horario' => '{"1":["08:00","18:00"],"2":["08:00","18:00"],"3":["08:00","18:00"],"4":["08:00","18:00"],"5":["08:00","18:00"],"6":["09:00","13:00"],"7":null}'];
+igual(Lineas::textoHorario($horL, 'en'), 'Monday to Friday from 8:00 to 18:00 and Saturday from 9:00 to 13:00', 'horario en inglés');
+igual(Lineas::textoHorario($horL, 'fr'), 'du lundi au vendredi de 8:00 à 18:00 et samedi de 9:00 à 13:00', 'horario en francés');
+igual(Lineas::textoHorario($horL), 'lunes a viernes de 8:00 a 18:00 y sábado de 9:00 a 13:00', 'horario en español como siempre');
+$LLc = \TuWhatsApp\Llamadas::class;
+ok(str_contains($LLc::textoFuera($horL + ['llamadas_fuera_texto' => ''], 'en'), "We're closed right now. Our hours are Monday to Friday from 8:00 to 18:00"), 'llamada fuera de horario: mensaje en inglés');
+igual($LLc::textoFuera($horL + ['llamadas_fuera_texto' => 'Cerrado. Horario: {horario}'], 'en'), 'Cerrado. Horario: lunes a viernes de 8:00 a 18:00 y sábado de 9:00 a 13:00', 'texto propio del negocio: va tal cual');
+ok(\TuWhatsApp\Campanias::pideBaja('Unsubscribe') && \TuWhatsApp\Campanias::pideBaja('descadastrar') && \TuWhatsApp\Campanias::pideBaja('Désabonner') && \TuWhatsApp\Campanias::pideBaja('disiscrivimi'), 'pedir la baja en otros idiomas');
+ok(in_array('catalog', Webhook::PALABRAS_CATALOGO, true) && in_array('buy', Webhook::PALABRAS_COMPRAR, true) && in_array('acheter', Webhook::PALABRAS_COMPRAR, true), 'catálogo y comprar en otros idiomas');
+igual(Catalogo::precio(5, ['iva_pct' => 12], 'en'), '$5,00 + VAT', 'precio con IVA en inglés');
+igual([Cotizacion::textos('en')['titulo'], Cotizacion::textos('pt')['titulo'], Cotizacion::textos('xx')['titulo']], ['QUOTE', 'ORÇAMENTO', 'COTIZACIÓN'], 'cotización: textos por idioma');
+$pdfEn = Cotizacion::pdf(['nombre' => 'Shop'], ['numero' => 3, 'iva' => 0, 'subtotal' => 5, 'total' => 5, 'enlace_pago' => '', 'notas' => '', 'cliente_nombre' => 'Ann', 'c_nombre' => 'Ann'], [['cantidad' => 1, 'nombre' => 'Hat', 'precio' => 5]], null, 'en');
+ok(str_starts_with($pdfEn, '%PDF') && (str_contains($pdfEn, '(QUOTE)') || !str_contains($pdfEn, '(COTIZACI')), 'el PDF de la cotización sale en inglés');
+
+// Por WhatsApp: una cuenta nueva
+$eI = Empresas::crear($db, ['nombre' => 'Surf Shop', 'estado' => 'activa', 'admin_correo' => 'surf@shop.ec', 'admin_nombre' => 'Surf', 'max_usuarios' => 3])['empresa_id'];
+$lI = Lineas::guardarConexion($db, null, ['nombre' => 'Surf Shop', 'telefono' => '0996402222', 'phone_number_id' => '410', 'waba_id' => '210', 'token' => 'EAAGtokenSurf12345678901234'], $eI);
+$lineaI = Lineas::buscar($db, $lI);
+ok(Traducir::idiomaAuto($lineaI) && Traducir::idiomasLinea($lineaI) === ['es', 'en', 'pt', 'fr', 'it'], 'número nuevo: contesta en el idioma del cliente, en los 5 idiomas');
+$formI = ['auto_activo' => '1', 'regla_palabras' => '1', 'palabras' => 'precio', 'mensaje_menu' => 'Hola 👋 ¿En qué te ayudo?', 'horas_silencio' => '12', 'max_auto' => '3', 'menu_botones' => '1',
+          'op_titulo' => ['Precios', '', 'Envíos'], 'op_respuesta' => ['Desde $20.', '', 'A todo el país.'],
+          'idiomas_form' => '1', 'idioma_auto' => '1', 'idiomas' => ['en', 'fr'],
+          'tr' => ['en' => ['saludo' => 'Hi 👋 How can I help?', 'op_titulo' => ['Prices', '', 'Shipping'], 'op_respuesta' => ['From $20.', '', 'Nationwide.'], 'palabras' => 'price']]];
+Lineas::guardarReglas($db, $lI, $formI);
+$lineaI = Lineas::buscar($db, $lI);
+$trI = Traducir::datos($lineaI);
+igual([$lineaI['idiomas'], $trI['en']['opciones'][1]['titulo'] ?? null, $trI['en']['saludo'] ?? null, count($trI['en']['opciones'])], ['es,en,fr', 'Shipping', 'Hi 👋 How can I help?', 2],
+      'se guardan los idiomas y las traducciones (alineadas aunque haya una opción vacía en medio)');
+Lineas::guardarReglas($db, $lI, array_diff_key($formI, ['idiomas_form' => 1, 'tr' => 1, 'idiomas' => 1, 'idioma_auto' => 1]));
+ok(Traducir::datos(Lineas::buscar($db, $lI))['en']['saludo'] === 'Hi 👋 How can I help?', 'guardar sin la sección de idiomas no borra las traducciones');
+$salidasI = fn () => array_values(array_filter(sim(), fn ($r) => ($r['ruta'] ?? '') === '/v24.0/410/messages'));
+$entI = fn (string $de, string $t, string $w) => cuerpoMeta(['messaging_product' => 'whatsapp', 'metadata' => ['phone_number_id' => '410'],
+    'contacts' => [['profile' => ['name' => 'John'], 'wa_id' => $de]], 'messages' => [['from' => $de, 'id' => $w, 'timestamp' => (string) $hoyM->getTimestamp(), 'type' => 'text', 'text' => ['body' => $t]]]]);
+$whI = new Webhook($db, $hoyM);
+limpiarSim();
+$whI->procesar($entI('14155550123', 'Hello, what is the price please?', 'wamid.ID1'));
+$sI = $salidasI();
+igual([$sI[0]['cuerpo']['interactive']['body']['text'] ?? null, array_map(fn ($b) => $b['reply']['title'], $sI[0]['cuerpo']['interactive']['action']['buttons'] ?? [])],
+      ['Hi 👋 How can I help?', ['Prices', 'Shipping']], 'un cliente que escribe en inglés recibe el menú en inglés por WhatsApp');
+igual(Contactos::porTelefono($db, $lI, '14155550123')['idioma'], 'en', 'queda guardado que el cliente habla inglés');
+limpiarSim();
+$whI->procesar($entI('14155550123', 'Shipping', 'wamid.ID2'));
+igual($salidasI()[0]['cuerpo']['text']['body'] ?? null, 'Nationwide.', 'eligió "Shipping": la respuesta en inglés');
+limpiarSim();
+$whI->procesar($entI('593981000300', 'Hola, ¿cuál es el precio?', 'wamid.ID3'));
+igual($salidasI()[0]['cuerpo']['interactive']['body']['text'] ?? null, 'Hola 👋 ¿En qué te ayudo?', 'un cliente en español sigue recibiendo el menú en español');
+
+// Chatbot de ejemplo: ya viene en inglés
+$fE = Flujos::crear($db, $lI, 'Welcome', 'palabras', 'hola, info');
+$db->exec("UPDATE flujos SET activo = true WHERE id = $fE");
+igual(Traducir::palabrasFlujo(Flujos::buscar($db, $lI, $fE)), ['hola', 'info', 'hello', 'hi'], 'el chatbot de ejemplo trae palabras en inglés');
+limpiarSim();
+$whI->procesar($entI('14155550199', 'hello there', 'wamid.ID4'));
+$sI = $salidasI();
+igual([$sI[0]['cuerpo']['interactive']['body']['text'] ?? null, array_map(fn ($b) => $b['reply']['title'], $sI[0]['cuerpo']['interactive']['action']['buttons'] ?? [])],
+      ["Hi! 👋 I'm the assistant of Surf Shop. How can I help you?", ['See products', 'Talk to someone']], 'el chatbot le contesta en inglés (activado con una palabra en inglés)');
+ok(str_contains($motivoN('wamid.ID4'), '(en English)'), 'el motivo del chatbot dice que fue en inglés');
+limpiarSim();
+$whI->procesar($entI('14155550199', 'Talk to someone', 'wamid.ID5'));
+igual($salidasI()[0]['cuerpo']['text']['body'] ?? null, 'Great, someone from our team will be with you shortly.', 'eligió la opción escrita en inglés: pasa a una persona en inglés');
+limpiarSim();
+$whI->procesar($entI('593981000301', 'hola', 'wamid.ID6'));
+ok(str_starts_with($salidasI()[0]['cuerpo']['interactive']['body']['text'] ?? '', '¡Hola! 👋 Soy el asistente de Surf Shop'), 'al cliente en español, el mismo chatbot en español');
+$db->exec("UPDATE flujos SET activo = false WHERE id = $fE");
+
+// Traducir con IA (una sola llamada; queda editable) — solo con el extra de IA
+putenv('TUKAN_IA_CLAVE=sk-ant-prueba-buena-0123456789');
+putenv('TUKAN_IA_URL=' . $sim);
+putenv('TUKAN_IA_ESPERA_MS=0');
+putenv('TUKAN_IA_REINTENTOS=0');
+try { Traducir::traducirLinea($db, $lineaI); ok(false, 'sin el extra de IA no traduce'); } catch (RuntimeException $e) { ok(str_contains($e->getMessage(), 'extra de IA'), 'sin el extra de IA no traduce (se escribe a mano)'); }
+Modulos::guardar($db, $eI, ['ia']);
+limpiarSim();
+$trIa = Traducir::traducirLinea($db, $lineaI);
+$lineaI = Lineas::buscar($db, $lI);
+igual([$trIa['en']['saludo'], $trIa['pt']['opciones'][1]['titulo'], $trIa['fr']['palabras'], Traducir::datos($lineaI)['it']['opciones'][0]['respuesta']],
+      ['[EN] Hola 👋 ¿En qué te ayudo?', '[PT] Envíos', 'prix, combien', '[IT] Desde $20.'], 'menú traducido a los 4 idiomas con la IA y guardado');
+igual(count(array_filter(sim(), fn ($r) => ($r['ruta'] ?? '') === '/v1/messages')), 1, 'una sola llamada a la IA para todo el menú');
+$fT = Flujos::buscar($db, $lI, $fE);
+$trF = Traducir::traducirFlujo($db, $lineaI, $fT);
+igual([$trF['fr']['pasos']['p1']['opciones'][1] ?? null, Traducir::datos(Flujos::buscar($db, $lI, $fE))['it']['pasos']['p3']['texto'] ?? null],
+      ['[FR] Hablar con alguien', '[IT] Perfecto, en un momento te atiende una persona del equipo.'], 'chatbot traducido con la IA y guardado');
+limpiarSim();
+$whI->procesar($entI('393331234567', 'Ciao, quanto costa la tavola?', 'wamid.ID7'));
+igual(\TuWhatsApp\Contactos::porTelefono($db, $lI, '393331234567')['idioma'], 'it', 'cliente italiano detectado');
+igual($salidasI()[0]['cuerpo']['interactive']['body']['text'] ?? ($salidasI()[0]['cuerpo']['text']['body'] ?? null), 'Hola 👋 ¿En qué te ayudo?', 'italiano no marcado en "Idiomas que contestas": va en español');
+igual(count(array_filter(sim(), fn ($r) => ($r['ruta'] ?? '') === '/v1/messages')), 0, 'al contestar no se gasta IA');
+
+// Agente con IA: sabe el idioma del cliente
+igual(Bot::idiomaPrueba($lineaI, '', 'Hello, how are you today? I need help'), 'en', 'prueba del agente: detecta inglés en lo que escribe');
+igual(Bot::idiomaPrueba($lineaI, 'it', 'hola'), 'es', 'prueba del agente: un idioma no marcado se contesta en español');
+$pb = Bot::probar($db, $lineaI, [], 'Hello, do you ship to Quito?', 'en');
+igual($pb['respuesta'] ?? '', 'Hi! Happy to help. What are you looking for?', '"Pruébalo aquí": el agente recibe el idioma del cliente y contesta en inglés');
+$pedIa = array_values(array_filter(sim(), fn ($r) => ($r['ruta'] ?? '') === '/v1/messages'));
+ok(str_contains((string) json_encode(end($pedIa)['cuerpo'] ?? [], JSON_UNESCAPED_UNICODE), 'IDIOMA DEL CLIENTE: English'), 'al agente se le dice el idioma del cliente en sus instrucciones');
+
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";
 exit($mal === 0 ? 0 : 1);

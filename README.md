@@ -146,6 +146,21 @@ También aparece en la pantalla de entrar y en las páginas públicas.
   Los diccionarios están en `idiomas/en.php`, `fr.php`, `pt.php` e `it.php`. Lo que no tenga traducción se queda en español.
 - Las páginas legales (términos, privacidad, tratamiento de datos) siguen en español: falta una traducción revisada por un abogado.
 
+## Contestar en el idioma del cliente (23 nov 2026)
+
+Todo lo que contesta solo le habla al cliente **en su idioma** (español, inglés, portugués, francés o italiano).
+
+- El idioma se detecta **sin IA** (`src/IdiomaCliente.php`: palabras del mensaje + código de país) y queda en `contactos.idioma`.
+- **Menú** (Automático) y **chatbots**: el texto en español es el de siempre; la traducción por idioma va en `lineas.traducciones` / `flujos.traducciones` (JSON).
+  Al contestar: texto del idioma → si falta, español (`src/Traducir.php`). Opciones, botones y palabras clave se reconocen en todos los idiomas.
+- **Traducir automáticamente** (botón 🌐, solo con el extra `ia`): una llamada a la IA compartida traduce todo y lo deja editable. Al contestar **no se gasta IA**.
+  Sin el extra, las traducciones se escriben a mano.
+- Por número: **Contestar en el idioma del cliente** (`lineas.idioma_auto`, encendido) e **Idiomas que contestas** (`lineas.idiomas`); un idioma sin marcar recibe español.
+- **Agente con IA**: se le dice el idioma detectado y contesta siempre en él (también en «Pruébalo aquí», con selector de idioma).
+- **Textos fijos** en los 5 idiomas (`src/FrasesCliente.php`): resumen del pedido, pago recibido (Plux), carrito, catálogo, llamada fuera de horario
+  (con el horario en su idioma), cotización en PDF; palabras *catalog/buy/stop/unsubscribe…* en todos los idiomas.
+- El probador de reglas y el del chatbot tienen **Idioma del cliente**.
+
 ## Costos (Ecuador, editables en Gasto → Precios de Meta)
 | Tipo | Precio por mensaje |
 |---|---|

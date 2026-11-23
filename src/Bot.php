@@ -70,7 +70,8 @@ final class Bot
         $catalogo = $vende ? Catalogo::paraIa($db, $lid, $linea) : '';
         $carrito = Pedidos::carrito($db, $linea, $cid, false);
         $itemsCarrito = $carrito ? Pedidos::items($db, (int) $carrito['id']) : [];
-        $sistema = self::sistema($linea, $catalogo, $carrito, $itemsCarrito);
+        $idioma = Traducir::idiomaPara($linea, $contacto);
+        $sistema = self::sistema($linea, $catalogo, $carrito, $itemsCarrito, $idioma);
         $chat = self::conversacion($db, $cid);
         $guardian = new \TukanIaGuardianPdo($db, (string) $linea['empresa_id'], (float) ($empresa['ia_tope'] ?? 3));
         $r = tukan_ia_llamar([
@@ -111,7 +112,7 @@ final class Bot
                         error_log('tuwhatsapp bot enlace de pago: ' . $e->getMessage());
                     }
                     $pedido = Pedidos::buscar($db, $lid, (int) $pedido['id']);
-                    $resumen = Pedidos::resumen($linea, $pedido, Pedidos::items($db, (int) $pedido['id']), $enlace);
+                    $resumen = Pedidos::resumen($linea, $pedido, Pedidos::items($db, (int) $pedido['id']), $enlace, $idioma);
                     Embudo::mover($db, $lid, $cid, 'cotizado', number_format((float) $pedido['total'], 2, '.', ''));
                 } catch (\RuntimeException $e) {
                     $extra[] = $e->getMessage();
@@ -120,7 +121,7 @@ final class Bot
         } elseif ($carrito && !empty($j['agregar'])) {
             $carrito = Pedidos::buscar($db, $lid, (int) $carrito['id']);
             $n = array_sum(array_map(fn ($i) => (int) $i['cantidad'], Pedidos::items($db, (int) $carrito['id'])));
-            $extra[] = '🛒 Tu carrito: ' . $n . ($n === 1 ? ' producto' : ' productos') . ', total $' . number_format((float) $carrito['total'], 2, ',', '.');
+            $extra[] = FrasesCliente::t('tu_carrito', $idioma, ['cuenta' => FrasesCliente::productos($n, $idioma), 'total' => '$' . number_format((float) $carrito['total'], 2, ',', '.')]);
         }
         if ($respuesta === '' && !$extra && $resumen === null) {
             return null;
@@ -143,7 +144,8 @@ final class Bot
                 'motivo' => 'Contestó el agente con IA' . ($resumen !== null ? ' (pedido listo para pagar)' : '') . ($persona ? ' y pasó a una persona' : '')];
     }
 
-    private static function sistema(array $linea, string $catalogo, ?array $carrito, array $items): string
+    /** @param string $idioma idioma del cliente ('' = no se sabe: contesta en el mismo idioma en que escribe) */
+    private static function sistema(array $linea, string $catalogo, ?array $carrito, array $items, string $idioma = ''): string
     {
         $info = trim((string) ($linea['ia_conocimiento'] ?? ''));
         $nombre = trim((string) ($linea['bot_nombre'] ?? ''));
@@ -155,6 +157,10 @@ final class Bot
            . "Atiendes a sus clientes con amabilidad, en mensajes cortos (1 a 4 frases), EN EL MISMO IDIOMA en que escribe el cliente, tuteando si el cliente tutea.\n\n"
            . "Información del negocio (escrita por el negocio):\n" . ($info !== '' ? $info : '(el negocio todavía no escribió información)') . "\n\n"
            . 'Horario de atención de las personas: ' . implode('; ', $horario) . ".\n";
+        if (isset(IdiomaCliente::IDIOMAS[$idioma])) {   // (23 nov 2026) idioma detectado del cliente
+            $s .= 'IDIOMA DEL CLIENTE: ' . IdiomaCliente::IDIOMAS[$idioma] . ' (' . $idioma . '). Responde SIEMPRE en ' . IdiomaCliente::IDIOMAS[$idioma]
+                . ($idioma !== 'es' ? ', aunque la información del negocio y el catálogo estén en español (tradúcelos al contestar)' : '') . ".\n";
+        }
         if (trim((string) ($linea['ia_tono'] ?? '')) !== '') {
             $s .= 'Tono de la marca (respétalo siempre): ' . trim((string) $linea['ia_tono']) . ".\n";
         }
@@ -185,7 +191,7 @@ final class Bot
      * @param list<array{de:string, texto:string}> $historial lo que ya se dijo en la prueba ('cliente' o 'agente')
      * @return array{ok:bool, respuesta:string, persona:bool, nota:string, agregar:list<string>, confirmar:bool, error:string}
      */
-    public static function probar(PDO $db, array $linea, array $historial, string $texto): array
+    public static function probar(PDO $db, array $linea, array $historial, string $texto, string $idioma = ''): array
     {
         $vacio = ['ok' => false, 'respuesta' => '', 'persona' => false, 'nota' => '', 'agregar' => [], 'confirmar' => false, 'error' => ''];
         $texto = trim(mb_substr($texto, 0, 1000));
@@ -209,7 +215,8 @@ final class Bot
         $lineas[] = 'Cliente: ' . $texto;
         $guardian = new \TukanIaGuardianPdo($db, (string) $linea['empresa_id'], (float) ($empresa['ia_tope'] ?? 3));
         $r = tukan_ia_llamar([
-            'sistema' => self::sistema($linea, $catalogo, null, []), 'texto' => tukan_ia_datos('conversacion', implode("\n", $lineas)),
+            // (23 nov 2026) como con un cliente de verdad: el idioma elegido en la prueba, o el que se nota en lo que escribió
+            'sistema' => self::sistema($linea, $catalogo, null, [], self::idiomaPrueba($linea, $idioma, $texto)), 'texto' => tukan_ia_datos('conversacion', implode("\n", $lineas)),
             'modelo' => 'rapido', 'max_tokens' => 500, 'json' => true, 'temperatura' => 0.3,
             'validar' => fn (array $j) => isset($j['respuesta']) && is_string($j['respuesta']) ? $j : null,
         ], ['guardian' => $guardian, 'programa' => Asistente::PROGRAMA, 'funcion' => 'agente_prueba']);
@@ -230,6 +237,16 @@ final class Bot
         return ['ok' => true, 'respuesta' => trim(mb_substr((string) $j['respuesta'], 0, 3000)), 'persona' => $persona,
                 'nota' => $persona ? trim(mb_substr((string) ($j['nota'] ?? ''), 0, 500)) : '', 'agregar' => $nombres,
                 'confirmar' => $vende && !empty($j['confirmar']), 'error' => ''];
+    }
+
+    /** Idioma para "Pruébalo aquí": el elegido, o el detectado en lo que escribió ('' si no se nota). */
+    public static function idiomaPrueba(array $linea, string $elegido, string $texto): string
+    {
+        $i = isset(IdiomaCliente::IDIOMAS[$elegido]) ? $elegido : IdiomaCliente::delTexto($texto);
+        if ($i === '') {
+            return '';
+        }
+        return Traducir::idiomaPara($linea, ['idioma' => $i]);
     }
 
     /** Los últimos mensajes como "Cliente: …" / "Negocio: …". */

@@ -1,5 +1,15 @@
 # WhatsApp Tukán — Estado y pasos para continuar
-*Actualizado: 14 nov 2026*
+*Actualizado: 23 nov 2026*
+
+## 🌐 Contestar en el idioma del cliente (23 nov 2026)
+Pedido (Dimitry): «hay gente que escribe en inglés, que si recibe en inglés responda en inglés; el programa es nuestro, sacar el mayor beneficio».
+- Hecho: menú automático, chatbots, agente con IA y textos fijos (pedido, pago Plux, carrito, catálogo, llamada fuera de horario, cotización PDF) salen en el idioma del cliente (es/en/pt/fr/it).
+- Archivos nuevos: `src/Traducir.php` (traducciones del menú y chatbots + botón con IA) y `src/FrasesCliente.php` (frases fijas en 5 idiomas).
+- Base: `lineas.traducciones`, `lineas.idioma_auto`, `lineas.idiomas`, `flujos.traducciones` (ALTER idempotentes en `db/schema.sql`).
+- Traducir con IA = una sola llamada (`funcion` traducir_menu / traducir_chatbot), solo con el extra `ia`; al contestar no se usa IA.
+- Pruebas: bloque «Contestar en el idioma del cliente» en `tests/prueba_logica.php` y en `tests/prueba_web.sh`; el simulador de IA entiende `TRADUCIR_TUKAN`.
+- Pendiente / ideas: las plantillas de Meta (campañas, tienda) siguen en el idioma con que se aprobaron (hay que aprobar una por idioma);
+  los mensajes de error del carrito (sin stock, etc.) siguen en español; las páginas de pago (Plux) en español.
 
 ## 📱 Avisos NATIVOS en la app de Android, como WhatsApp (14 nov 2026, noche) — Firebase Cloud Messaging
 Problema (Dimitry): en el celular no llegaban los avisos aunque los aprobaba; Android los veía como "página web de Chrome". En App en el

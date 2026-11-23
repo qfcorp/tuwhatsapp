@@ -36,11 +36,18 @@ final class Llamadas
     }
 
     /** El mensaje que le llega a quien llama fuera de horario, con el horario en palabras. */
-    public static function textoFuera(array $linea): string
+    public static function textoFuera(array $linea, string $idioma = 'es'): string
     {
+        // (23 nov 2026) Si el negocio no cambió el texto, sale en el idioma del cliente (con el horario en su idioma).
+        // Si escribió uno propio, va tal cual (con el horario en el mismo idioma que ese texto: español).
         $t = trim((string) ($linea['llamadas_fuera_texto'] ?? ''));
-        $horario = Lineas::textoHorario($linea);
-        return str_replace('{horario}', $horario !== '' ? $horario : 'en nuestro horario de atención', $t !== '' ? $t : self::TEXTO_FUERA);
+        if ($t === '' || $t === self::TEXTO_FUERA) {
+            $t = FrasesCliente::t('fuera_llamada', $idioma);
+        } else {
+            $idioma = 'es';
+        }
+        $horario = Lineas::textoHorario($linea, $idioma);
+        return str_replace('{horario}', $horario !== '' ? $horario : FrasesCliente::t('horario_generico', $idioma), $t);
     }
 
     /** ¿Esta llamada entra fuera de horario? (si el número no tiene ningún día puesto, siempre atiende) */
@@ -172,7 +179,7 @@ final class Llamadas
         $db->prepare("UPDATE llamadas SET estado = 'fuera_horario', terminada = ?, error = ? WHERE id = ?")
            ->execute([$ahora->format('c'), $r['ok'] ? '' : mb_substr((string) ($r['error'] ?? ''), 0, 300), $id]);
         if (($contacto['tipo'] ?? '') !== 'personal') {
-            (new Mensajeria($db, $ahora))->textoTrasLlamada($linea, $contacto, self::textoFuera($linea));
+            (new Mensajeria($db, $ahora))->textoTrasLlamada($linea, $contacto, self::textoFuera($linea, Traducir::idiomaPara($linea, $contacto)));
         }
         try {
             Push::enviar($db, self::quienes($db, $linea, $contacto), ['titulo' => '🌙 Llamada fuera de horario de ' . Contactos::nombre($contacto),

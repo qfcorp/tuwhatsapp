@@ -299,7 +299,8 @@ function enviar_resumen(array $linea, array $contacto, array $pedido): array
         aviso('No se pudo crear el enlace de pago: ' . $ex->getMessage(), 'error');
     }
     $pedido = \TuWhatsApp\Pedidos::buscar(db(), (int) $linea['id'], (int) $pedido['id']);
-    $texto = \TuWhatsApp\Pedidos::resumen($linea, $pedido, \TuWhatsApp\Pedidos::items(db(), (int) $pedido['id']), $enlace);
+    $texto = \TuWhatsApp\Pedidos::resumen($linea, $pedido, \TuWhatsApp\Pedidos::items(db(), (int) $pedido['id']), $enlace,
+                                         \TuWhatsApp\Traducir::idiomaPara($linea, $contacto));   // en el idioma del cliente
     $r = (new Mensajeria(db()))->texto($linea, $contacto, $texto, 'panel', (int) usuario()['id']);
     if ($r['ok']) {
         Contactos::callar(db(), $linea, (int) $contacto['id']);
@@ -310,8 +311,10 @@ function enviar_resumen(array $linea, array $contacto, array $pedido): array
 /** Arma la cotización en PDF y la manda por WhatsApp como documento; el embudo pasa a "Cotizado". */
 function enviar_cotizacion(array $linea, array $contacto, array $pedido): array
 {
-    $archivo = \TuWhatsApp\Cotizacion::archivo(db(), $linea, $pedido);
-    $r = (new Mensajeria(db()))->medio($linea, $contacto, $archivo, 'Cotización N.º ' . $pedido['numero'] . ' · ' . $linea['nombre'], 'panel', (int) usuario()['id']);
+    $idioma = \TuWhatsApp\Traducir::idiomaPara($linea, $contacto);   // (23 nov 2026) el PDF en el idioma del cliente
+    $tx = \TuWhatsApp\Cotizacion::textos($idioma);
+    $archivo = \TuWhatsApp\Cotizacion::archivo(db(), $linea, $pedido, $idioma);
+    $r = (new Mensajeria(db()))->medio($linea, $contacto, $archivo, $tx['nombre'] . ' ' . $tx['numero'] . ' ' . $pedido['numero'] . ' · ' . $linea['nombre'], 'panel', (int) usuario()['id']);
     if ($r['ok']) {
         Contactos::callar(db(), $linea, (int) $contacto['id']);
         if (in_array($contacto['etapa'] ?? null, [null, 'nuevo', 'interesado'], true) && $contacto['tipo'] !== 'personal') {
@@ -544,8 +547,10 @@ try {
                 if (!$prods) {
                     throw new RuntimeException('No hay productos disponibles en el catálogo.');
                 }
-                $r = (new Mensajeria(db()))->botones($linea, $c, 'Estos son nuestros productos. Toca uno para agregarlo a tu carrito 👇',
-                                                    \TuWhatsApp\Catalogo::filasLista($prods, $linea), 'panel', (int) usuario()['id'], 'Ver productos', true);
+                $idiomaC = \TuWhatsApp\Traducir::idiomaPara($linea, $c);   // (23 nov 2026) en el idioma del cliente
+                $r = (new Mensajeria(db()))->botones($linea, $c, \TuWhatsApp\FrasesCliente::t('catalogo_lista', $idiomaC),
+                                                    \TuWhatsApp\Catalogo::filasLista($prods, $linea, $idiomaC), 'panel', (int) usuario()['id'],
+                                                    \TuWhatsApp\FrasesCliente::t('boton_ver', $idiomaC), true);
                 aviso_envio($r, 'Catálogo enviado');
             } elseif (in_array($accion, ['ia_sugerir', 'ia_resumir'], true) && modulo('ia')) {
                 $r = $accion === 'ia_sugerir'
@@ -982,7 +987,8 @@ try {
             if (($_POST['accion'] ?? '') === 'probar') {
                 $hist = $_SESSION['ia_prueba'][$lid] ?? [];
                 $texto = (string) ($_POST['texto'] ?? '');
-                $r = \TuWhatsApp\Bot::probar(db(), Lineas::buscar(db(), $lid), $hist, $texto);
+                $_SESSION['ia_prueba_idioma'] = isset(\TuWhatsApp\IdiomaCliente::IDIOMAS[$_POST['p_idioma'] ?? '']) ? (string) $_POST['p_idioma'] : '';
+                $r = \TuWhatsApp\Bot::probar(db(), Lineas::buscar(db(), $lid), $hist, $texto, $_SESSION['ia_prueba_idioma']);
                 if ($r['ok']) {
                     $hist[] = ['de' => 'cliente', 'texto' => trim($texto)];
                     $hist[] = ['de' => 'agente', 'texto' => $r['respuesta'], 'persona' => $r['persona'], 'nota' => $r['nota'], 'agregar' => $r['agregar'], 'confirmar' => $r['confirmar']];
@@ -1310,7 +1316,7 @@ try {
             if ($accion === 'probar') {
                 $entradas = (string) ($_POST['entradas'] ?? '');
                 $lineasEntrada = array_values(array_filter(array_map('trim', preg_split('/\R/', $entradas) ?: []), fn ($x) => $x !== ''));
-                $prueba = $lineasEntrada ? \TuWhatsApp\Flujos::simular($f, $lineasEntrada, (string) $linea['nombre']) : [];
+                $prueba = $lineasEntrada ? \TuWhatsApp\Flujos::simular($f, $lineasEntrada, (string) $linea['nombre'], \TuWhatsApp\IdiomaCliente::valido((string) ($_POST['p_idioma'] ?? 'es'))) : [];
             } else {
                 $datos = $_POST;
                 if ($accion === 'agregar_paso') {
@@ -1321,6 +1327,14 @@ try {
                 }
                 \TuWhatsApp\Flujos::guardar(db(), $lid, (int) $f['id'], $datos, array_column($camposF, 'clave'));
                 aviso($accion === 'agregar_paso' ? 'Paso agregado al final. El chatbot quedó apagado mientras lo completas: enciéndelo al guardar.' : 'Chatbot guardado.');
+                if ($accion === 'traducir') {   // (23 nov 2026) 🌐 con el extra de IA: una sola llamada, queda editable
+                    try {
+                        \TuWhatsApp\Traducir::traducirFlujo(db(), $linea, \TuWhatsApp\Flujos::buscar(db(), $lid, (int) $f['id']));
+                        aviso('Chatbot guardado y traducido a inglés, portugués, francés e italiano. Revisa las traducciones.');
+                    } catch (RuntimeException $e) {
+                        aviso('Chatbot guardado, pero no se pudo traducir: ' . $e->getMessage(), 'error');
+                    }
+                }
                 redirigir('flujo', ['id' => $f['id']]);
             }
         }
@@ -1628,6 +1642,14 @@ try {
             $nueva = Lineas::buscar(db(), $lid);
             $r = !empty($nueva['llamadas_activo']) ? \TuWhatsApp\Llamadas::encender(db(), $nueva, true) : ['ok' => true];   // el horario también vale para las llamadas
             $r['ok'] ? aviso('Reglas guardadas.') : aviso('Reglas guardadas, pero Meta no aceptó el horario de las llamadas: ' . $r['error'], 'error');
+            if (!empty($_POST['traducir'])) {   // (23 nov 2026) 🌐 Traducir automáticamente (extra de IA): una sola llamada, queda editable
+                try {
+                    \TuWhatsApp\Traducir::traducirLinea(db(), $nueva);
+                    aviso('Reglas guardadas y menú traducido a inglés, portugués, francés e italiano. Revisa las traducciones abajo.');
+                } catch (RuntimeException $e) {
+                    aviso('Reglas guardadas, pero no se pudo traducir: ' . $e->getMessage(), 'error');
+                }
+            }
             redirigir('reglas');
         }
         vista('reglas', 'Respuestas automáticas', ['linea' => $linea]);

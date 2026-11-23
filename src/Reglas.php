@@ -44,10 +44,12 @@ final class Reglas
         if (self::si($linea['regla_horario'] ?? false) && self::enHorario(Lineas::horario($linea), $ahora)) {
             return $no('Estás en horario de atención: contestas tú');
         }
-        $opciones = Lineas::opciones($linea);
+        // (23 nov 2026) En el idioma del cliente: opciones, saludo y botones; las palabras y opciones se entienden en todos los idiomas
+        $idioma = Traducir::idiomaPara($linea, $contacto);
+        $opciones = Traducir::opciones($linea, $idioma);
         $opcion = self::opcionElegida($texto, count($opciones), $opciones);
         if ($opcion === null && self::si($linea['regla_palabras'] ?? false)
-            && !self::tienePalabra($texto, self::listaPalabras((string) ($linea['palabras'] ?? '')))) {
+            && !self::tienePalabra($texto, Traducir::palabrasNegocio($linea, $idioma))) {
             return $no('No habla de negocio (sin palabras clave)');
         }
         if (self::si($linea['regla_una_vez'] ?? false)) {
@@ -61,27 +63,30 @@ final class Reglas
         }
         if ($opcion !== null) {
             $o = $opciones[$opcion - 1];
-            return ['responder' => true, 'motivo' => 'Eligió la opción ' . $opcion . ': ' . $o['titulo'], 'texto' => $o['respuesta'], 'humano' => $o['humano']];
+            $enIdioma = self::enIdioma($linea, $idioma);
+            return ['responder' => true, 'motivo' => 'Eligió la opción ' . $opcion . ': ' . $o['titulo'] . $enIdioma, 'texto' => $o['respuesta'], 'humano' => $o['humano'],
+                    'idioma' => $idioma];
         }
         $botones = self::si($linea['menu_botones'] ?? true) && $opciones;
-        return ['responder' => true, 'motivo' => 'Se le envió el menú' . ($botones ? ' con botones' : ''), 'texto' => self::textoMenu($linea), 'humano' => false,
-                'botones' => $botones ? self::botonesMenu($linea) : null, 'saludo' => trim((string) $linea['mensaje_menu'])];
+        return ['responder' => true, 'motivo' => 'Se le envió el menú' . ($botones ? ' con botones' : '') . self::enIdioma($linea, $idioma),
+                'texto' => self::textoMenu($linea, $idioma), 'humano' => false,
+                'botones' => $botones ? self::botonesMenu($linea, $idioma) : null, 'saludo' => Traducir::saludo($linea, $idioma), 'idioma' => $idioma];
     }
 
-    /** Las opciones del menú como botones de WhatsApp (id op1, op2… para reconocer cuál tocó). */
-    public static function botonesMenu(array $linea): array
+    /** Las opciones del menú como botones de WhatsApp (id op1, op2… para reconocer cuál tocó), en el idioma del cliente. */
+    public static function botonesMenu(array $linea, string $idioma = 'es'): array
     {
         $r = [];
-        foreach (Lineas::opciones($linea) as $i => $o) {
+        foreach (Traducir::opciones($linea, $idioma) as $i => $o) {
             $r[] = ['id' => 'op' . ($i + 1), 'titulo' => $o['titulo']];
         }
         return $r;
     }
 
-    public static function textoMenu(array $linea): string
+    public static function textoMenu(array $linea, string $idioma = 'es'): string
     {
-        $t = trim((string) $linea['mensaje_menu']);
-        foreach (Lineas::opciones($linea) as $i => $o) {
+        $t = Traducir::saludo($linea, $idioma);
+        foreach (Traducir::opciones($linea, $idioma) as $i => $o) {
             $t .= "\n" . ($i + 1) . '. ' . $o['titulo'];
         }
         return $t;
@@ -110,9 +115,12 @@ final class Reglas
         if ($opciones && !preg_match('/^\s*\d/', $texto)) {
             $t = self::simple($texto);
             foreach (array_values($opciones) as $i => $o) {
-                $titulo = self::simple((string) $o['titulo']);
-                if ($t !== '' && ($t === $titulo || $t === self::simple(mb_substr((string) $o['titulo'], 0, 20)))) {   // exacto (o como se ve en el botón)
-                    return $i + 1;
+                // exacto (o como se ve en el botón), también con el nombre en los otros idiomas ('otros', de Traducir)
+                foreach (array_merge([(string) $o['titulo']], (array) ($o['otros'] ?? [])) as $nombre) {
+                    $nombre = (string) $nombre;
+                    if ($t !== '' && ($t === self::simple($nombre) || $t === self::simple(mb_substr($nombre, 0, 20)))) {
+                        return $i + 1;
+                    }
                 }
             }
         }
@@ -152,9 +160,18 @@ final class Reglas
     public static function simple(string $s): string
     {
         $s = mb_strtolower($s);
-        $s = strtr($s, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']);
+        $s = strtr($s, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+                        // (23 nov 2026) también portugués, francés e italiano ("preço" = "preco", "à" = "a")
+                        'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a', 'è' => 'e', 'ê' => 'e', 'ë' => 'e', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+                        'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o', 'ù' => 'u', 'û' => 'u', 'ç' => 'c', 'œ' => 'oe']);
         $s = preg_replace('/[^a-z0-9]+/u', ' ', $s) ?? '';
         return trim($s);
+    }
+
+    /** " (en English)" si se contestó con textos traducidos; '' si salió en español. */
+    private static function enIdioma(array $linea, string $idioma): string
+    {
+        return $idioma !== 'es' && trim((string) (Traducir::datos($linea)[$idioma]['saludo'] ?? '')) !== '' ? ' (en ' . IdiomaCliente::IDIOMAS[$idioma] . ')' : '';
     }
 
     private static function si(mixed $v): bool

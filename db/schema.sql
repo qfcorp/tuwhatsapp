@@ -867,3 +867,10 @@ CREATE INDEX IF NOT EXISTS fcm_registros_ip_ip ON fcm_registros_ip (ip, creado);
 -- =====================================================================
 ALTER TABLE contactos ADD COLUMN IF NOT EXISTS idioma text NOT NULL DEFAULT '';
 ALTER TABLE contactos ADD COLUMN IF NOT EXISTS idioma_fijo boolean NOT NULL DEFAULT false;
+-- Contestar solo en el idioma del cliente (menú, chatbots, agente IA y textos fijos)
+--   traducciones (línea): {"en":{"saludo":"..","opciones":[{"titulo":"..","respuesta":".."}],"palabras":".."}, "pt":{...}}
+--   traducciones (chatbot): {"en":{"palabras":"..","pasos":{"p1":{"texto":"..","opciones":[".."]}}}}
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS traducciones text NOT NULL DEFAULT '{}';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS idioma_auto boolean NOT NULL DEFAULT true;
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS idiomas text NOT NULL DEFAULT 'es,en,pt,fr,it';
+ALTER TABLE flujos ADD COLUMN IF NOT EXISTS traducciones text NOT NULL DEFAULT '{}';

@@ -66,9 +66,15 @@ final class Flujos
             ['id' => 'p2', 'tipo' => 'fin', 'texto' => 'Escribe "catálogo" o dime qué buscas y te ayudo.'],
             ['id' => 'p3', 'tipo' => 'persona', 'texto' => 'Perfecto, en un momento te atiende una persona del equipo.'],
         ];
-        $st = $db->prepare('INSERT INTO flujos (linea_id, nombre, disparador, palabras, pasos) VALUES (?, ?, ?, ?, ?) RETURNING id');
+        // (23 nov 2026) El ejemplo también en inglés, para que se vea cómo contesta a un cliente que escribe en inglés
+        $ingles = ['en' => ['palabras' => 'hello, hi, info', 'pasos' => [
+            'p1' => ['texto' => "Hi! 👋 I'm the assistant of {negocio}. How can I help you?", 'opciones' => ['See products', 'Talk to someone']],
+            'p2' => ['texto' => 'Type "catalog" or tell me what you are looking for and I will help you.', 'opciones' => []],
+            'p3' => ['texto' => 'Great, someone from our team will be with you shortly.', 'opciones' => []],
+        ]]];
+        $st = $db->prepare('INSERT INTO flujos (linea_id, nombre, disparador, palabras, pasos, traducciones) VALUES (?, ?, ?, ?, ?, ?) RETURNING id');
         $st->execute([$lineaId, mb_substr($nombre, 0, 80), in_array($disparador, ['palabras', 'nuevo'], true) ? $disparador : 'palabras',
-                      implode(', ', Reglas::listaPalabras($palabras)), json_encode($ejemplo, JSON_UNESCAPED_UNICODE)]);
+                      implode(', ', Reglas::listaPalabras($palabras)), json_encode($ejemplo, JSON_UNESCAPED_UNICODE), json_encode($ingles, JSON_UNESCAPED_UNICODE)]);
         return (int) $st->fetchColumn();
     }
 
@@ -97,6 +103,10 @@ final class Flujos
         }
         $db->prepare('UPDATE flujos SET nombre = ?, disparador = ?, palabras = ?, pasos = ?, activo = ? WHERE id = ? AND linea_id = ?')
            ->execute([mb_substr($nombre, 0, 80), $disparador, $palabras, json_encode($pasos, JSON_UNESCAPED_UNICODE), $activo ? 't' : 'f', $id, $lineaId]);
+        if (isset($d['tr_form'])) {   // (23 nov 2026) traducciones escritas a mano en el editor
+            $db->prepare('UPDATE flujos SET traducciones = ? WHERE id = ? AND linea_id = ?')
+               ->execute([json_encode(Traducir::limpiarFlujo((array) ($d['tr'] ?? []), $pasos), JSON_UNESCAPED_UNICODE), $id, $lineaId]);
+        }
     }
 
     /**
@@ -191,7 +201,7 @@ final class Flujos
      * @param ?string $esperando paso que esperaba respuesta (null = empezar)
      * @return array{salidas:list<array>, esperando:?string, guardar:list<array{0:string,1:string}>, etiquetas:list<string>, etapa:?string, persona:bool, fin:bool}
      */
-    public static function avanzar(int $flujoId, array $pasos, ?string $esperando, string $texto, string $idBoton = '', ?callable $validar = null, string $negocio = ''): array
+    public static function avanzar(int $flujoId, array $pasos, ?string $esperando, string $texto, string $idBoton = '', ?callable $validar = null, string $negocio = '', string $idioma = 'es'): array
     {
         $r = ['salidas' => [], 'esperando' => null, 'guardar' => [], 'etiquetas' => [], 'etapa' => null, 'persona' => false, 'fin' => false];
         $porId = [];
@@ -210,7 +220,7 @@ final class Flujos
             if ($p['tipo'] === 'botones') {
                 $k = self::opcionTocada($flujoId, $p, $texto, $idBoton);
                 if ($k === null) {   // no eligió una opción: se repite la pregunta
-                    $r['salidas'][] = self::salidaBotones($flujoId, $p, 'Elige una de las opciones 👇', $negocio);
+                    $r['salidas'][] = self::salidaBotones($flujoId, $p, FrasesCliente::t('elige_boton', $idioma), $negocio);
                     $r['esperando'] = $p['id'];
                     return $r;
                 }
@@ -219,7 +229,7 @@ final class Flujos
                 $valor = trim($texto);
                 $error = $validar ? $validar((string) $p['guardar'], $valor) : null;
                 if ($valor === '' || $error !== null) {
-                    $r['salidas'][] = ['tipo' => 'texto', 'texto' => ($error ?? 'No te entendí.') . ' ' . self::rellenar((string) $p['texto'], $negocio)];
+                    $r['salidas'][] = ['tipo' => 'texto', 'texto' => ($error ?? FrasesCliente::t('no_entendi', $idioma)) . ' ' . self::rellenar((string) $p['texto'], $negocio)];
                     $r['esperando'] = $p['id'];
                     return $r;
                 }
@@ -338,7 +348,7 @@ final class Flujos
                     continue;
                 }
                 if (($f['disparador'] === 'nuevo' && $primerMensaje)
-                    || ($f['disparador'] === 'palabras' && Reglas::tienePalabra($texto, Reglas::listaPalabras((string) $f['palabras'])))) {
+                    || ($f['disparador'] === 'palabras' && Reglas::tienePalabra($texto, Traducir::palabrasFlujo($f)))) {   // palabras en todos los idiomas
                     $flujo = $f;
                     $db->prepare('UPDATE flujos SET usos = usos + 1 WHERE id = ?')->execute([$f['id']]);
                     break;
@@ -352,9 +362,10 @@ final class Flujos
         foreach (Campos::lista($db, $lid) as $c) {
             $campos[$c['clave']] = $c;
         }
-        $validar = function (string $guardar, string $valor) use ($campos): ?string {
+        $idioma = Traducir::idiomaPara($linea, $contacto);   // (23 nov 2026) contesta en el idioma del cliente
+        $validar = function (string $guardar, string $valor) use ($campos, $idioma): ?string {
             if ($guardar === 'correo' && !filter_var($valor, FILTER_VALIDATE_EMAIL)) {
-                return 'Ese correo no parece correcto.';
+                return FrasesCliente::t('correo_mal', $idioma);
             }
             if (str_starts_with($guardar, 'campo:') && isset($campos[substr($guardar, 6)])) {
                 try {
@@ -365,7 +376,7 @@ final class Flujos
             }
             return null;
         };
-        $r = self::avanzar((int) $flujo['id'], self::pasos($flujo), $esperando, $texto, $idBoton, $validar, (string) $linea['nombre']);
+        $r = self::avanzar((int) $flujo['id'], Traducir::pasos($flujo, $idioma), $esperando, $texto, $idBoton, $validar, (string) $linea['nombre'], $idioma);
         $cid = (int) $contacto['id'];
 
         foreach ($r['guardar'] as [$donde, $valor]) {
@@ -409,7 +420,8 @@ final class Flujos
             Reparto::alLlegar($db, $linea, Contactos::buscar($db, $lid, $cid), $texto, $ahora);
         }
         return ['enviados' => $enviados, 'persona' => $r['persona'],
-                'motivo' => 'Chatbot "' . $flujo['nombre'] . '"' . ($r['persona'] ? ': pasó a una persona' : ($r['esperando'] !== null ? ': esperando respuesta' : ': terminó'))];
+                'motivo' => 'Chatbot "' . $flujo['nombre'] . '"' . ($r['persona'] ? ': pasó a una persona' : ($r['esperando'] !== null ? ': esperando respuesta' : ': terminó'))
+                            . ($idioma !== 'es' && isset(Traducir::datos($flujo)[$idioma]) ? ' (en ' . IdiomaCliente::IDIOMAS[$idioma] . ')' : '')];
     }
 
     /**
@@ -417,14 +429,14 @@ final class Flujos
      * @param list<string> $entradas lo que escribiría el cliente (la primera arranca el chatbot)
      * @return list<array{de:string, texto:string}>
      */
-    public static function simular(array $flujo, array $entradas, string $negocio = ''): array
+    public static function simular(array $flujo, array $entradas, string $negocio = '', string $idioma = 'es'): array
     {
-        $pasos = self::pasos($flujo);
+        $pasos = Traducir::pasos($flujo, $idioma);
         $esperando = null;
         $r = [];
         foreach (array_slice($entradas, 0, 15) as $i => $e) {
             $r[] = ['de' => 'cliente', 'texto' => $e];
-            $x = self::avanzar((int) $flujo['id'], $pasos, $i === 0 ? null : $esperando, $e, '', null, $negocio);
+            $x = self::avanzar((int) $flujo['id'], $pasos, $i === 0 ? null : $esperando, $e, '', null, $negocio, $idioma);
             foreach ($x['salidas'] as $s) {
                 $r[] = ['de' => 'bot', 'texto' => $s['texto'] . ($s['tipo'] === 'botones' ? "\n" . implode("\n", array_map(fn ($o, $k) => '[' . ($k + 1) . '] ' . $o['titulo'], $s['opciones'], array_keys($s['opciones']))) : '')];
             }
