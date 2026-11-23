@@ -66,6 +66,9 @@ php -d display_errors=1 -d error_reporting=-1 tests/prueba_idioma_cliente.php ||
 echo "######## Lógica"
 php -d display_errors=1 -d error_reporting=-1 tests/prueba_logica.php || exit 1
 
+echo "######## Chatbots de ventas de Tukan (5 idiomas)"
+php -d display_errors=1 -d error_reporting=-1 tests/prueba_chatbots_tukan.php || exit 1
+
 echo "######## Factura electrónica con TuFactura (simulado)"
 php -d display_errors=1 -d error_reporting=-1 tests/prueba_tufactura.php || exit 1
 
