@@ -70,6 +70,18 @@ $pct = $r['respuesta']['total'] > 0 ? (int) round($r['respuesta']['contestados']
     <?php endif; ?>
 </section>
 
+<?php $totIdi = array_sum($r['idiomas'] ?? []); if ($totIdi > 0): ?>
+<section class="tarjeta tk-tarjeta reporte-idiomas">
+    <h2>Conversaciones por idioma del cliente</h2>
+    <ul class="lista-simple">
+        <?php foreach ($r['idiomas'] as $idi => $n): ?>
+        <li><span><b><?= e(\TuWhatsApp\Traductor::etiqueta((string) $idi)) ?></b></span><span class="suave"><?= e($pl((int) $n, 'conversación', 'conversaciones')) ?> · <?= (int) round($n * 100 / $totIdi) ?>%</span></li>
+        <?php endforeach; ?>
+    </ul>
+    <?php if (count($r['idiomas']) > 1): ?><p class="suave pequeno">En el chat ves la bandera de cada cliente<?= modulo('ia') ? ' y puedes traducir sus mensajes con un toque' : '' ?>.</p><?php endif; ?>
+</section>
+<?php endif; ?>
+
 <h2 class="separador">Por persona del equipo</h2>
 <?php if (!$r['agentes']): ?>
 <p class="suave">Nadie del equipo respondió en este período.</p>

@@ -1,6 +1,11 @@
 <?php
 /** @var array $linea @var string $filtro @var string $buscar @var list<array> $conversaciones */
 use TuWhatsApp\Contactos;
+use TuWhatsApp\IdiomaCliente;
+use TuWhatsApp\Traductor;
+/** @var string $idiomaF @var array<string,int> $porIdioma */
+$idiomaF ??= '';
+$porIdioma ??= [];
 $filtros = ['todos' => 'Todos', 'sin_leer' => 'Sin leer', 'mios' => 'Míos', 'sin_asignar' => 'Sin asignar', 'cliente' => 'Clientes', 'desconocido' => 'Desconocidos', 'personal' => 'Personales'];
 if (!modulo('agentes')) {
     unset($filtros['mios'], $filtros['sin_asignar']);
@@ -22,13 +27,26 @@ if (!modulo('agentes')) {
 </form>
 <nav class="pestanas" aria-label="Filtro">
     <?php foreach ($filtros as $k => $n): ?>
-    <a href="<?= e(url('bandeja', ['f' => $k, 'b' => $buscar ?: null])) ?>" class="<?= $filtro === $k ? 'activo' : '' ?>"><?= e($n) ?></a>
+    <a href="<?= e(url('bandeja', ['f' => $k, 'b' => $buscar ?: null, 'i' => $idiomaF ?: null])) ?>" class="<?= $filtro === $k ? 'activo' : '' ?>"><?= e($n) ?></a>
     <?php endforeach; ?>
 </nav>
+<?php if (count($porIdioma) > 1 || $idiomaF !== ''): /* solo si hay clientes en otro idioma */ ?>
+<form class="filtro-idioma" method="get">
+    <input type="hidden" name="r" value="bandeja"><input type="hidden" name="f" value="<?= e($filtro) ?>"><?php if ($buscar !== ''): ?><input type="hidden" name="b" value="<?= e($buscar) ?>"><?php endif; ?>
+    <label for="filtro-idioma">Idioma</label>
+    <select id="filtro-idioma" name="i" onchange="this.form.submit()">
+        <option value="">Todos los idiomas</option>
+        <?php foreach (IdiomaCliente::IDIOMAS as $k => $n): if (!isset($porIdioma[$k]) && $idiomaF !== $k) { continue; } ?>
+        <option value="<?= $k ?>" <?= $idiomaF === $k ? 'selected' : '' ?>><?= e(Traductor::etiqueta($k)) ?> · <?= (int) ($porIdioma[$k] ?? 0) ?></option>
+        <?php endforeach; ?>
+    </select>
+    <noscript><button class="enlace">Filtrar</button></noscript>
+</form>
+<?php endif; ?>
 <?php if (!$conversaciones): ?>
 <div class="vacio">
     <div class="vacio-dibujo" aria-hidden="true">💬</div>
-    <p><b><?= $buscar !== '' || $filtro !== 'todos' ? 'Nada con ese filtro.' : 'Todavía no hay mensajes.' ?></b></p>
+    <p><b><?= $buscar !== '' || $filtro !== 'todos' || $idiomaF !== '' ? 'Nada con ese filtro.' : 'Todavía no hay mensajes.' ?></b></p>
     <p class="suave"><?= $buscar !== '' || $filtro !== 'todos' ? 'Prueba con otro filtro o búsqueda.' : 'Cuando alguien escriba a tu WhatsApp aparecerá aquí. Comparte tu enlace o QR para que te escriban.' ?></p>
     <?php if ($buscar === '' && $filtro === 'todos' && es_admin()): ?><a class="boton boton-claro tk-boton secundario" href="<?= e(url('enlaces')) ?>">Ver mi enlace y QR</a><?php endif; ?>
 </div>
@@ -39,7 +57,7 @@ if (!modulo('agentes')) {
         <a href="<?= e(url('chat', ['c' => $c['id']])) ?>" class="<?= $c['sin_leer'] > 0 ? 'nuevo' : '' ?>">
             <span class="avatar av-<?= color_contacto($c['id']) ?>" aria-hidden="true"><?= u(mb_strtoupper(mb_substr(Contactos::nombre($c), 0, 1))) ?></span>
             <span class="conv-centro">
-                <span class="conv-nombre"><?= u(Contactos::nombre($c)) ?> <small class="chip chip-<?= e($c['tipo']) ?>"><?= e(tipo_contacto($c['tipo'])) ?></small><?php if (!empty($c['asignado_nombre'])): ?> <small class="chip chip-asignado"><?= u(explode(' ', (string) $c['asignado_nombre'])[0]) ?></small><?php endif; ?></span>
+                <span class="conv-nombre"><?= u(Contactos::nombre($c)) ?> <small class="chip chip-<?= e($c['tipo']) ?>"><?= e(tipo_contacto($c['tipo'])) ?></small><?php $ic = (string) ($c['idioma'] ?? ''); if ($ic !== '' && $ic !== 'es' && isset(IdiomaCliente::BANDERAS[$ic])): ?> <small class="bandera" title="<?= e(Traductor::etiqueta($ic)) ?>"><?= IdiomaCliente::BANDERAS[$ic] ?></small><?php endif; ?><?php if (!empty($c['asignado_nombre'])): ?> <small class="chip chip-asignado"><?= u(explode(' ', (string) $c['asignado_nombre'])[0]) ?></small><?php endif; ?></span>
                 <span class="conv-ultimo"><?= $c['ultima_direccion'] === 'sale' ? '<span class="tu">Tú:</span> ' : '' ?><?= u(mb_strimwidth((string) $c['ultimo_texto'], 0, 80, '…')) ?></span>
             </span>
             <span class="conv-lado">

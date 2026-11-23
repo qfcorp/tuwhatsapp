@@ -10,6 +10,24 @@ Pedido (Dimitry): «hay gente que escribe en inglés, que si recibe en inglés r
 - Pruebas: bloque «Contestar en el idioma del cliente» en `tests/prueba_logica.php` y en `tests/prueba_web.sh`; el simulador de IA entiende `TRADUCIR_TUKAN`.
 - Pendiente / ideas: las plantillas de Meta (campañas, tienda) siguen en el idioma con que se aprobaron (hay que aprobar una por idioma);
   los mensajes de error del carrito (sin stock, etc.) siguen en español; las páginas de pago (Plux) en español.
+## 🌍 Atender clientes en otro idioma: bandera y traductor del chat (23 nov 2026)
+Pedido de Dimitry: escribe gente en inglés; sacarle el mayor provecho al programa. Esta parte es la del **equipo que atiende**
+(las respuestas automáticas multilingües — menú, chatbots, agente IA, mensajes fijos — van en otra rama).
+- **Idioma del cliente** (sin IA, todos los planes): bandera + «Habla inglés» en la cabecera del chat, banderita en la bandeja y la lista
+  de chats, selector en la ficha (**Detectar solo** / es / en / pt / fr / it → `IdiomaCliente::fijar`), filtro por idioma en Bandeja (`&i=en`)
+  y Contactos, Reportes → «Conversaciones por idioma del cliente», columna **Idioma** al final de la descarga de contactos, `contacto.idioma`
+  en el webhook de integraciones y `idioma` en la API `accion=contacto` (entrada opcional y salida).
+- **Traductor del chat** (MÓDULO: extra de IA `ia`; `src/Traductor.php`): enlace **Traducir** en los mensajes del cliente que no están en el
+  idioma del panel (se guarda en `mensajes.traduccion` / `traduccion_idioma`, la 2.ª vez no llama a la IA); casilla «Escribo en español, se
+  envía en inglés» (marcada sola si el cliente habla otro idioma, se recuerda por chat en la sesión); al enviar se confirma la traducción
+  (Enviar traducción / Editar / Enviar sin traducir) y el original queda en `mensajes.original` / `original_idioma` («Escrito en español: …»).
+  Si el texto ya está en el idioma del cliente (p. ej. lo propuso Sugerir respuesta), se envía sin traducir y sin gastar.
+  Sugerir respuesta: en el idioma del cliente. Resumir: en el idioma del panel. Sin el extra: «Con el extra de IA traduces los mensajes con un toque».
+- Seguridad: todas las rutas nuevas son POST con CSRF; traducir/guardar original filtran por `linea_id` (y `contacto_id`): otra cuenta no puede.
+- Pruebas: `prueba_logica.php` (bloque «Idioma del cliente y traductor del chat») y `prueba_web.sh` (mismo nombre), con la IA simulada
+  (`tests/meta_simulado.php` → marca `TRADUCTOR_TUKAN_CHAT` devuelve «[EN] texto»).
+- Servidor: solo actualizar con la línea de siempre (`instalar.sh`, no borra nada) (el schema agrega 4 columnas a `mensajes`, idempotente). El traductor usa la misma IA
+  compartida (`/etc/tukan-ia.env`) y el mismo tope por cuenta que el asistente.
 
 ## 📱 Avisos NATIVOS en la app de Android, como WhatsApp (14 nov 2026, noche) — Firebase Cloud Messaging
 Problema (Dimitry): en el celular no llegaban los avisos aunque los aprobaba; Android los veía como "página web de Chrome". En App en el

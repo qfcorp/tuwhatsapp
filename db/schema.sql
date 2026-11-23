@@ -874,3 +874,12 @@ ALTER TABLE lineas ADD COLUMN IF NOT EXISTS traducciones text NOT NULL DEFAULT '
 ALTER TABLE lineas ADD COLUMN IF NOT EXISTS idioma_auto boolean NOT NULL DEFAULT true;
 ALTER TABLE lineas ADD COLUMN IF NOT EXISTS idiomas text NOT NULL DEFAULT 'es,en,pt,fr,it';
 ALTER TABLE flujos ADD COLUMN IF NOT EXISTS traducciones text NOT NULL DEFAULT '{}';
+
+-- =====================================================================
+-- (23 nov 2026) Traductor del chat (extra de IA): traducción guardada de cada mensaje del cliente (para no pagar dos veces)
+-- y el texto original de lo que la persona del equipo escribió en su idioma antes de enviarlo traducido.
+-- =====================================================================
+ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS traduccion text NOT NULL DEFAULT '';
+ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS traduccion_idioma text NOT NULL DEFAULT '';
+ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS original text NOT NULL DEFAULT '';
+ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS original_idioma text NOT NULL DEFAULT '';

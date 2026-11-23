@@ -583,6 +583,82 @@ ok 'tiene "La IA dejó un borrador" && tiene "El plan Pro cuesta"' "la IA deja e
 post "/?r=chat&c=$C" --data-urlencode "accion=ia_resumir"
 ok 'tiene "Resumen (IA)" && tiene "Siguiente paso"' "resumen de la IA"
 get "/?r=ia"; ok 'tiene "Solo lo ve Tukán" && tiene "\$0,0004 de IA este mes" && tiene "Usa la IA compartida"' "Tukán ve el gasto de IA de la cuenta"
+
+echo "== Idioma del cliente y traductor del chat (extra de IA)"
+sqli() { PGPASSWORD="${PGPASSWORD:-}" psql -qtAc "$1" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}"; }
+traducciones() { grep -c "TRADUCTOR_TUKAN_CHAT" "$SIM_LOG"; }
+MSGEN='{"object":"whatsapp_business_account","entry":[{"id":"200","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"phone_number_id":"100"},"contacts":[{"profile":{"name":"Tom Smith"},"wa_id":"14155550123"}],"messages":[{"from":"14155550123","id":"wamid.WEBEN1","timestamp":"'$(date +%s)'","type":"text","text":{"body":"Hello, how much is the Pro plan please?"}}]}}]}]}'
+ok '[ "$(webhook "$MSGEN")" = 200 ]' "escribe un cliente en inglés"
+CT=$(sqli "SELECT id FROM contactos WHERE telefono = '14155550123'")
+MT=$(sqli "SELECT id FROM mensajes WHERE contacto_id = $CT AND direccion = 'entra' ORDER BY id LIMIT 1")
+ok '[ -n "$CT" ] && [ "$(sqli "SELECT idioma FROM contactos WHERE id = $CT")" = en ]' "queda guardado que habla inglés"
+get "/?r=bandeja"
+ok 'tiene "Tom Smith" && tiene "title=\"🇬🇧 Habla inglés\"" && tiene "id=\"filtro-idioma\""' "bandeja: bandera pequeña y filtro por idioma"
+get "/?r=bandeja&i=en"; ok 'tiene "Tom Smith" && ! tiene "Ana Salón Quito"' "bandeja filtrada por inglés"
+get "/?r=bandeja&i=es"; ok '! tiene "Tom Smith"' "bandeja filtrada por español"
+get "/?r=chat&c=$CT"
+ok 'tiene "id=\"idioma-cliente\">🇬🇧 Habla inglés" && tiene "id=\"idioma-sel\"" && tiene "Detectar solo"' "chat: idioma en la cabecera y selector en la ficha"
+ok 'tiene "value=\"traducir_mensaje\"" && tiene "Escribo en español, se envía en inglés" && grep -q "name=\"traducir\" value=\"1\" id=\"traducir\" checked" "$P"' "chat: botón Traducir y casilla activada (el cliente habla otro idioma)"
+N0=$(traducciones)
+post "/?r=chat&c=$CT" --data-urlencode "accion=traducir_mensaje" --data-urlencode "mensaje_id=$MT"
+ok 'tiene "Traducción:" && tiene "\[ES\] Hello, how much is the Pro plan please?"' "traducir el mensaje del cliente"
+ok '[ "$(traducciones)" = $((N0+1)) ] && [ "$(sqli "SELECT traduccion_idioma FROM mensajes WHERE id = $MT")" = es ]' "una llamada a la IA y la traducción queda guardada"
+post "/?r=chat&c=$CT" --data-urlencode "accion=traducir_mensaje" --data-urlencode "mensaje_id=$MT"
+ok '[ "$(traducciones)" = $((N0+1)) ] && tiene "\[ES\] Hello"' "la segunda vez no vuelve a llamar a la IA"
+ENV0=$(grep -c "/v24.0/100/messages" "$SIM_LOG")
+post "/?r=chat&c=$CT" --data-urlencode "accion=enviar" --data-urlencode "texto=Hola, el plan Pro cuesta 45 al mes" --data-urlencode "traducir_hay=1" --data-urlencode "traducir=1"
+ok 'tiene "Revisa la traducción" && tiene "Enviar traducción" && tiene "Enviar sin traducir" && tiene "\[EN\] Hola, el plan Pro cuesta 45 al mes"' "antes de enviar muestra la traducción para confirmar"
+ok '[ "$(grep -c "/v24.0/100/messages" "$SIM_LOG")" = "$ENV0" ]' "todavía no se envió nada a Meta"
+post "/?r=chat&c=$CT" --data-urlencode "accion=enviar_traducido" --data-urlencode "como=editar"
+ok 'tiene "Cambia tu mensaje" && grep -q ">Hola, el plan Pro cuesta 45 al mes</textarea>" "$P"' "Editar: vuelve el texto original a la caja"
+post "/?r=chat&c=$CT" --data-urlencode "accion=enviar" --data-urlencode "texto=Hola, el plan Pro cuesta 45 al mes" --data-urlencode "traducir_hay=1" --data-urlencode "traducir=1"
+post "/?r=chat&c=$CT" --data-urlencode "accion=enviar_traducido" --data-urlencode "como=traduccion" --data-urlencode "traducido=[EN] Hi, the Pro plan is 45 a month"
+ok 'tiene "Enviado" && tiene "Escrito en español:" && tiene "Hola, el plan Pro cuesta 45 al mes"' "envía la traducción y en el chat se ve lo que escribiste"
+ok 'grep -q "\[EN\] Hi, the Pro plan is 45 a month" "$SIM_LOG" && ! grep -q "\"body\":\"Hola, el plan Pro cuesta 45" "$SIM_LOG"' "a Meta (al cliente) le llega el texto traducido"
+ok '[ "$(sqli "SELECT original || '"'"'|'"'"' || original_idioma FROM mensajes WHERE contacto_id = $CT AND direccion = '"'"'sale'"'"' ORDER BY id DESC LIMIT 1")" = "Hola, el plan Pro cuesta 45 al mes|es" ]' "el mensaje enviado guarda el original"
+post "/?r=chat&c=$CT" --data-urlencode "accion=enviar" --data-urlencode "texto=Hello, thank you for your message" --data-urlencode "traducir_hay=1" --data-urlencode "traducir=1"
+ok 'tiene "Enviado" && ! tiene "Revisa la traducción"' "si ya está en su idioma (p. ej. la sugerencia de la IA) se envía sin gastar en traducir"
+post "/?r=chat&c=$CT" --data-urlencode "accion=enviar" --data-urlencode "texto=Gracias, quedo atento" --data-urlencode "traducir_hay=1"
+ok 'tiene "Enviado" && ! grep -q "name=\"traducir\" value=\"1\" id=\"traducir\" checked" "$P"' "sin la casilla se envía tal cual y se recuerda para este chat"
+post "/?r=chat&c=$CT" --data-urlencode "accion=idioma" --data-urlencode "idioma=fr"
+ok 'tiene "Idioma guardado" && tiene "Habla francés" && tiene "elegido a mano"' "cambiar el idioma a mano"
+MSGEN2="${MSGEN//wamid.WEBEN1/wamid.WEBEN2}"
+webhook "$MSGEN2" > /dev/null
+ok '[ "$(sqli "SELECT idioma FROM contactos WHERE id = $CT")" = fr ]' "elegido a mano: no se cambia solo aunque escriba en inglés"
+post "/?r=chat&c=$CT" --data-urlencode "accion=idioma" --data-urlencode "idioma="
+ok 'tiene "se detectará solo" && [ "$(sqli "SELECT idioma_fijo FROM contactos WHERE id = $CT")" = f ]' "volver a Detectar solo"
+sqli "UPDATE contactos SET idioma = 'en' WHERE id = $CT"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" -L -d "accion=idioma&idioma=it" "$W/?r=chat&c=$CT")
+ok 'tiene "Intenta de nuevo" && [ "$(sqli "SELECT idioma FROM contactos WHERE id = $CT")" = en ]' "cambiar idioma sin csrf se rechaza"
+N1=$(traducciones)
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -b "$J" -c "$J" -L -d "accion=traducir_mensaje&mensaje_id=$MT" "$W/?r=chat&c=$CT")
+ok 'tiene "Intenta de nuevo" && [ "$(traducciones)" = "$N1" ]' "traducir sin csrf se rechaza"
+get "/?r=reportes"; ok 'tiene "Conversaciones por idioma del cliente" && tiene "🇬🇧 Habla inglés" && tiene "traducir sus mensajes"' "reportes: conversaciones por idioma"
+get "/?r=contactos&i=en"; ok 'tiene "Tom Smith" && tiene "🇬🇧 EN" && ! tiene "Ana Salón Quito"' "contactos: filtro e idioma de cada uno"
+TIPO=$(curl -s -o "$P" -w '%{content_type}' -b "$J" "$W/?r=integraciones&bajar=contactos")
+ok 'tiene "Idioma" && grep -q "14155550123;.*;en" "$P"' "exportar contactos con la columna Idioma"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "Authorization: Bearer api_token_de_prueba_0123456789abcdef" -d '{"telefono":"0998888888","nombre":"Salón Bella","idioma":"pt"}' "$W/api.php?accion=contacto")
+ok '[ "$CODIGO" = 200 ] && grep -q "\"idioma\":\"pt\"" "$P"' "API: guardar el idioma del contacto"
+CODIGO=$(curl -s -o "$P" -w '%{http_code}' -H "Authorization: Bearer api_token_de_prueba_0123456789abcdef" -d '{"telefono":"0998888888","idioma":"xx"}' "$W/api.php?accion=contacto")
+ok '[ "$CODIGO" = 422 ] && grep -q "Idioma no válido" "$P"' "API: idioma no válido"
+sqli "UPDATE contactos SET idioma = '', idioma_fijo = false WHERE telefono = '593998888888' OR telefono = '0998888888'"
+# Otra cuenta (Salón Bella, sin el extra de IA): ve el idioma pero no traduce, y no toca los chats de Tukán
+LBE=$(sqli "INSERT INTO lineas (empresa_id, nombre, phone_number_id) VALUES ($EMP, 'Bella prueba idioma', '777') RETURNING id" | head -1)
+CBE=$(sqli "INSERT INTO contactos (linea_id, telefono, nombre, tipo, idioma) VALUES ($LBE, '14155550999', 'John Bella', 'cliente', 'en') RETURNING id" | head -1)
+sqli "INSERT INTO mensajes (linea_id, contacto_id, direccion, tipo, texto, origen, estado) VALUES ($LBE, $CBE, 'entra', 'texto', 'Hello, do you have time today?', 'cliente', 'recibido')" > /dev/null
+J="$BELLA_J"
+seguir "/?r=chat&c=$CBE"
+ok 'tiene "🇬🇧 Habla inglés" && tiene "Con el extra de IA traduces los mensajes con un toque" && ! tiene "value=\"traducir_mensaje\"" && ! tiene "name=\"traducir\""' "sin el extra de IA: se ve el idioma, pero sin botones de traducir"
+post "/?r=chat&c=$CBE" --data-urlencode "accion=traducir_mensaje" --data-urlencode "mensaje_id=$MT"
+ok 'tiene "Con el extra de IA traduces" && [ "$(sqli "SELECT count(*) FROM mensajes WHERE contacto_id = $CBE AND traduccion <> '"'"''"'"'")" = 0 ]' "sin el extra de IA no se puede traducir"
+get "/?r=chat&c=$CBE"
+post "/?r=chat&c=$CT" --data-urlencode "accion=idioma" --data-urlencode "idioma=it"
+ok '[ "$(sqli "SELECT idioma || idioma_fijo::int FROM contactos WHERE id = $CT")" = en0 ]' "otra cuenta no puede cambiar el idioma de un contacto de Tukán"
+get "/?r=chat&c=$CBE"
+post "/?r=chat&c=$CT" --data-urlencode "accion=traducir_mensaje" --data-urlencode "mensaje_id=$MT"
+ok '[ "$(sqli "SELECT traduccion_idioma FROM mensajes WHERE id = $MT")" = es ] && [ "$(traducciones)" = "$N1" ]' "otra cuenta no puede traducir mensajes de Tukán"
+J="$TUKAN_J"
+sqli "DELETE FROM lineas WHERE id = $LBE; DELETE FROM contactos WHERE id = $CT" > /dev/null
 get "/?r=enlaces"
 post "/?r=enlaces" --data-urlencode "accion=crear" --data-urlencode "nombre=Volante" --data-urlencode "texto=Hola, vi el volante"
 ok 'tiene "Enlace creado" && tiene "w.php?c=" && tiene "data-qr=" && tiene "boton.js" && tiene "qrcode.js"' "crear enlace con QR y botón web"
