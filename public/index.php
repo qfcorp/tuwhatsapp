@@ -1398,7 +1398,24 @@ try {
                                                  [['id' => \TuWhatsApp\Flujos::idNuevo($actuales), 'tipo' => 'mensaje', 'texto' => '']]);
                     $datos['activo'] = '';   // mientras se arma el paso nuevo, queda apagado
                 }
-                \TuWhatsApp\Flujos::guardar(db(), $lid, (int) $f['id'], $datos, array_column($camposF, 'clave'));
+                // (23 nov 2026) archivo (PDF, foto o video) de cada paso: archivo_paso[id del paso]
+                $nuevosArch = [];
+                foreach ((array) ($_FILES['archivo_paso']['name'] ?? []) as $pid => $nom) {
+                    if ((int) ($_FILES['archivo_paso']['error'][$pid] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE || !preg_match('/^p\d{1,4}$/', (string) $pid)) {
+                        continue;
+                    }
+                    try {
+                        $a = \TuWhatsApp\Archivos::deSubida(['name' => $nom, 'tmp_name' => $_FILES['archivo_paso']['tmp_name'][$pid] ?? '',
+                            'error' => $_FILES['archivo_paso']['error'][$pid] ?? UPLOAD_ERR_NO_FILE, 'size' => $_FILES['archivo_paso']['size'][$pid] ?? 0], (int) $linea['empresa_id']);
+                        if (!in_array($a['tipo'], \TuWhatsApp\Flujos::TIPOS_ARCHIVO, true)) {
+                            throw new RuntimeException('En un paso solo se puede adjuntar un PDF u otro documento, una foto o un video.');
+                        }
+                        $nuevosArch[(string) $pid] = $a;
+                    } catch (RuntimeException $e) {
+                        aviso('No se adjuntó el archivo: ' . $e->getMessage(), 'error');
+                    }
+                }
+                \TuWhatsApp\Flujos::guardar(db(), $lid, (int) $f['id'], $datos, array_column($camposF, 'clave'), $nuevosArch);
                 aviso($accion === 'agregar_paso' ? 'Paso agregado al final. El chatbot quedó apagado mientras lo completas: enciéndelo al guardar.' : 'Chatbot guardado.');
                 if ($accion === 'traducir') {   // (23 nov 2026) 🌐 con el extra de IA: una sola llamada, queda editable
                     try {

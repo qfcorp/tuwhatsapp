@@ -15,6 +15,7 @@ use RuntimeException;
  *   persona  -> manda un texto y pasa la conversación a una persona del equipo (reparto automático)
  *   fin      -> manda un texto y termina
  * Cada paso puede además poner una etiqueta y mover la conversación a una etapa del embudo.
+ * (23 nov 2026) Cada paso puede llevar un archivo (PDF, foto o video): se manda justo antes del texto del paso.
  * "siguiente" vacío = el paso que sigue en la lista; "fin" = terminar.
  *
  * Arranca cuando el cliente escribe una palabra clave (disparador "palabras") o en su primer mensaje (disparador "nuevo").
@@ -27,6 +28,8 @@ final class Flujos
     public const TIPOS = ['mensaje' => 'Mensaje', 'botones' => 'Pregunta con botones', 'pregunta' => 'Pregunta abierta (guarda la respuesta)',
                           'persona' => 'Pasar a una persona', 'fin' => 'Terminar'];
     public const MAX_PASOS = 40;
+    /** Lo que se puede adjuntar a un paso (lo demás de Archivos::TIPOS, como audios o stickers, no). */
+    public const TIPOS_ARCHIVO = ['documento', 'imagen', 'video'];
     private const MAX_SEGUIDOS = 8;
 
     // ------------------------------------------------------------------ guardar y leer
@@ -77,12 +80,13 @@ final class Flujos
     /**
      * Guarda el chatbot con lo que viene del editor. $d['paso'][i] = [id, tipo, texto, siguiente, guardar, etiqueta, etapa, op_titulo[], op_ir[]].
      */
-    public static function guardar(PDO $db, int $lineaId, int $id, array $d, array $camposValidos = []): void
+    public static function guardar(PDO $db, int $lineaId, int $id, array $d, array $camposValidos = [], array $archivosNuevos = []): void
     {
         $f = self::buscar($db, $lineaId, $id);
         if (!$f) {
             throw new RuntimeException('Ese chatbot no existe.');
         }
+        $d['paso'] = self::conArchivos($f, (array) ($d['paso'] ?? []), $archivosNuevos);
         $nombre = trim((string) ($d['nombre'] ?? $f['nombre']));
         $disparador = in_array($d['disparador'] ?? '', ['palabras', 'nuevo'], true) ? (string) $d['disparador'] : 'palabras';
         $palabras = implode(', ', Reglas::listaPalabras((string) ($d['palabras'] ?? '')));
@@ -104,6 +108,54 @@ final class Flujos
             $db->prepare('UPDATE flujos SET traducciones = ? WHERE id = ? AND linea_id = ?')
                ->execute([json_encode(Traducir::limpiarFlujo((array) ($d['tr'] ?? []), $pasos, $mapaOps), JSON_UNESCAPED_UNICODE), $id, $lineaId]);
         }
+    }
+
+    /**
+     * (23 nov 2026) Pone el archivo de cada paso SOLO desde fuentes de confianza: el que ya tenía guardado (por id de paso)
+     * o el que se acaba de subir ($archivosNuevos[id de paso], ya revisado con Archivos::deSubida). Lo que venga escrito
+     * en el formulario se ignora (así nadie apunta a un archivo de otra cuenta). "quitar_archivo" lo saca.
+     */
+    private static function conArchivos(array $flujo, array $crudos, array $archivosNuevos): array
+    {
+        $antes = [];
+        foreach (self::pasos($flujo) as $p) {
+            if (!empty($p['archivo'])) {
+                $antes[(string) $p['id']] = $p['archivo'];
+            }
+        }
+        foreach ($crudos as $k => $p) {
+            if (!is_array($p)) {
+                continue;
+            }
+            unset($p['archivo']);
+            $pid = (string) ($p['id'] ?? '');
+            if (isset($archivosNuevos[$pid])) {
+                $p['archivo'] = $archivosNuevos[$pid];
+            } elseif (empty($p['quitar_archivo']) && isset($antes[$pid])) {
+                $p['archivo'] = $antes[$pid];
+            }
+            $crudos[$k] = $p;
+        }
+        return $crudos;
+    }
+
+    /** El archivo de un paso, limpio, o null si no sirve. */
+    public static function archivoValido(mixed $a): ?array
+    {
+        if (!is_array($a)) {
+            return null;
+        }
+        $ruta = (string) ($a['ruta'] ?? '');
+        $tipo = (string) ($a['tipo'] ?? '');
+        if (!in_array($tipo, self::TIPOS_ARCHIVO, true) || $ruta === '' || str_contains($ruta, '..') || !preg_match('#^[a-z0-9/_\-.]+$#i', $ruta)) {
+            return null;
+        }
+        $mime = (string) ($a['mime'] ?? '');
+        if (!isset(Archivos::TIPOS[$tipo][0][$mime])) {
+            return null;
+        }
+        return ['tipo' => $tipo, 'mime' => $mime, 'nombre' => mb_substr(trim((string) ($a['nombre'] ?? '')) ?: 'archivo', 0, 120),
+                'bytes' => max(0, (int) ($a['bytes'] ?? 0)), 'ruta' => $ruta];
     }
 
     /**
@@ -150,6 +202,9 @@ final class Flujos
                 }
                 $paso['opciones'] = array_slice($ops, 0, 10);
             }
+            if ($archivo = self::archivoValido($p['archivo'] ?? null)) {
+                $paso['archivo'] = $archivo;
+            }
             $etq = Contactos::limpiarEtiquetas((string) ($p['etiqueta'] ?? ''));
             if ($etq !== '') {
                 $paso['etiqueta'] = $etq;
@@ -165,7 +220,7 @@ final class Flujos
         }
         foreach ($pasos as $n => $p) {
             $donde = 'Paso ' . ($n + 1);
-            if ($estricto && $p['texto'] === '' && $p['tipo'] !== 'persona') {
+            if ($estricto && $p['texto'] === '' && $p['tipo'] !== 'persona' && !(isset($p['archivo']) && in_array($p['tipo'], ['mensaje', 'fin'], true))) {
                 throw new RuntimeException($donde . ': escribe el mensaje (o apaga el chatbot mientras lo armas).');
             }
             if ($estricto && $p['tipo'] === 'botones' && count($p['opciones']) < 1) {
@@ -248,6 +303,9 @@ final class Flujos
             if (!empty($p['etapa'])) {
                 $r['etapa'] = (string) $p['etapa'];
             }
+            if (!empty($p['archivo'])) {   // el archivo va antes del texto del paso
+                $r['salidas'][] = ['tipo' => 'archivo', 'archivo' => $p['archivo'], 'texto' => '📎 ' . $p['archivo']['nombre']];
+            }
             $t = self::rellenar((string) $p['texto'], $negocio);
             $tipo = $p['tipo'] === 'botones' && empty($p['opciones']) ? 'mensaje' : $p['tipo'];
             switch ($tipo) {
@@ -267,7 +325,9 @@ final class Flujos
                     $r['fin'] = true;
                     return $r;
                 case 'fin':
-                    $r['salidas'][] = ['tipo' => 'texto', 'texto' => $t];
+                    if (trim($t) !== '' || empty($p['archivo'])) {
+                        $r['salidas'][] = ['tipo' => 'texto', 'texto' => $t];
+                    }
                     $r['fin'] = true;
                     return $r;
                 default:   // mensaje (si está vacío, se salta)
@@ -408,9 +468,16 @@ final class Flujos
         $mens = new Mensajeria($db, $ahora);
         $enviados = 0;
         foreach ($r['salidas'] as $s) {
-            $res = $s['tipo'] === 'botones'
-                ? $mens->botones($linea, $contacto, $s['texto'], $s['opciones'], 'flujo')
-                : $mens->texto($linea, $contacto, $s['texto'], 'flujo');
+            if ($s['tipo'] === 'archivo') {   // (23 nov 2026) PDF, foto o video del paso
+                $res = $mens->medio($linea, $contacto, $s['archivo'], '', 'flujo');
+                if (!$res['ok'] && empty($res['ventana']) && empty($res['bloqueado'])) {
+                    continue;   // si el archivo ya no está o Meta no lo acepta, igual sigue con el texto (queda "falló" en el chat)
+                }
+            } else {
+                $res = $s['tipo'] === 'botones'
+                    ? $mens->botones($linea, $contacto, $s['texto'], $s['opciones'], 'flujo')
+                    : $mens->texto($linea, $contacto, $s['texto'], 'flujo');
+            }
             if (!$res['ok']) {
                 return ['enviados' => $enviados, 'persona' => $r['persona'], 'motivo' => 'Chatbot "' . $flujo['nombre'] . '": ' . (!empty($res['bloqueado']) ? 'llegaste al tope del mes' : $res['error'])];
             }
@@ -455,7 +522,7 @@ final class Flujos
             $r[] = ['de' => 'cliente', 'texto' => $e];
             $x = self::avanzar((int) $flujo['id'], $pasos, $i === 0 ? null : $esperando, $e, '', null, $negocio, $idioma);
             foreach ($x['salidas'] as $s) {
-                $r[] = ['de' => 'bot', 'texto' => $s['texto'] . ($s['tipo'] === 'botones' ? "\n" . implode("\n", array_map(fn ($o, $k) => '[' . ($k + 1) . '] ' . $o['titulo'], $s['opciones'], array_keys($s['opciones']))) : '')];
+                $r[] = ['de' => 'bot', 'texto' => ($s['tipo'] === 'archivo' ? $s['texto'] . ' (' . Archivos::tamanio((int) $s['archivo']['bytes']) . ')' : $s['texto']) . ($s['tipo'] === 'botones' ? "\n" . implode("\n", array_map(fn ($o, $k) => '[' . ($k + 1) . '] ' . $o['titulo'], $s['opciones'], array_keys($s['opciones']))) : '')];
             }
             if ($x['persona']) {
                 $r[] = ['de' => 'sistema', 'texto' => 'Aquí pasa a una persona del equipo.'];

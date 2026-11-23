@@ -20,7 +20,7 @@ $destinos = function (string $actual, string $sel, bool $conSiguiente = true) us
     <div><h1><?= u($f['nombre']) ?></h1><p class="suave"><?= $f['activo'] ? 'Encendido' : 'Apagado' ?> · usado <?= (int) $f['usos'] ?> veces</p></div>
 </div>
 
-<form method="post" class="formulario editor-flujo">
+<form method="post" class="formulario editor-flujo" enctype="multipart/form-data">
     <?= csrf_campo() ?>
     <section class="tarjeta tk-tarjeta">
         <label>Nombre<input name="nombre" maxlength="80" required value="<?= e($f['nombre']) ?>"></label>
@@ -63,6 +63,14 @@ $destinos = function (string $actual, string $sel, bool $conSiguiente = true) us
         </div>
         <?php endforeach; ?>
         <?php endif; ?>
+        <div class="archivo-paso">
+            <?php if (!empty($p['archivo'])): ?>
+            <p class="pequeno">📎 Adjunto: <b><!--notr--><?= e($p['archivo']['nombre']) ?><!--/notr--></b> <span class="suave">(<?= e(\TuWhatsApp\Archivos::tamanio((int) $p['archivo']['bytes'])) ?>) · se manda antes del mensaje</span>
+                <label class="check pequeno"><input type="checkbox" name="<?= $base ?>[quitar_archivo]" value="1"> Quitar el adjunto</label></p>
+            <?php endif; ?>
+            <label class="pequeno"><?= empty($p['archivo']) ? '📎 Adjuntar un PDF, foto o video (opcional)' : 'Cambiar el adjunto' ?>
+                <input type="file" name="archivo_paso[<?= e($p['id']) ?>]" accept="application/pdf,image/jpeg,image/png,video/mp4,.doc,.docx,.xls,.xlsx,.ppt,.pptx"></label>
+        </div>
         <details class="plegable-simple"><summary>Etiqueta y embudo (opcional)</summary>
             <div class="fila-doble">
                 <label>Poner etiqueta<input name="<?= $base ?>[etiqueta]" maxlength="60" value="<?= e($p['etiqueta'] ?? '') ?>" placeholder="interesado"></label>

@@ -1566,6 +1566,27 @@ $whN->procesar($entN('593981000052', $txtN('hola'), 'wamid.FL11'));
 ok(!str_contains($motivoN('wamid.FL11'), 'Chatbot'), 'si alguien del equipo contestó, el chatbot se calla');
 $whN->procesar($entN('593981000053', ['type' => 'interactive', 'interactive' => ['type' => 'button_reply', 'button_reply' => ['id' => 'f' . $fid . ':p2:1', 'title' => 'Asesor']]], 'wamid.FL12'));
 ok(str_contains($motivoN('wamid.FL12'), 'pasó a una persona'), 'botón de un chatbot viejo (más de 24 h): igual funciona');
+// (23 nov 2026) Un paso con PDF: se sube a Meta y se manda como documento, antes del texto
+$db->exec("UPDATE flujos SET activo = false WHERE linea_id = $lN");
+$fPdf = Flujos::crear($db, $lN, 'Catalogo PDF', 'palabras', 'folleto');
+$pdfDoc = \TuWhatsApp\Archivos::guardarBytes("%PDF-1.4\n%prueba\n", 'application/pdf', $eN);
+Flujos::guardar($db, $lN, $fPdf, ['nombre' => 'Catalogo PDF', 'disparador' => 'palabras', 'palabras' => 'folleto', 'activo' => '1',
+    'paso' => [['id' => 'p1', 'tipo' => 'fin', 'texto' => 'Arriba tienes nuestro catálogo.']]], [],
+    ['p1' => ['tipo' => 'documento', 'mime' => 'application/pdf', 'nombre' => 'Catalogo.pdf', 'bytes' => 17, 'ruta' => $pdfDoc]]);
+limpiarSim();
+$whN->procesar($entN('593981000054', $txtN('Quiero el folleto'), 'wamid.FL13'));
+$subidos = array_values(array_filter(sim(), fn ($x) => ($x['metodo'] ?? '') === 'SUBIDO'));
+$env = $salidasN();
+igual([$subidos[0]['subido']['nombre'] ?? null, $env[0]['cuerpo']['type'] ?? null, $env[0]['cuerpo']['document']['filename'] ?? null, $env[1]['cuerpo']['text']['body'] ?? null],
+      ['Catalogo.pdf', 'document', 'Catalogo.pdf', 'Arriba tienes nuestro catálogo.'], 'chatbot con PDF: sube el archivo a Meta, lo manda como documento y después el texto');
+igual($db->query("SELECT count(*) FROM mensajes WHERE wamid IS NOT NULL AND contacto_id = " . (int) $cN('593981000054')['id'] . " AND direccion = 'sale' AND tipo = 'documento' AND media_ruta = " . $db->quote($pdfDoc))->fetchColumn(), 1,
+      'el PDF queda en el chat como documento del chatbot');
+@unlink(\TuWhatsApp\Archivos::carpeta() . '/' . $pdfDoc);
+limpiarSim();
+$whN->procesar($entN('593981000055', $txtN('folleto'), 'wamid.FL14'));
+$env = $salidasN();
+igual([count($env), $env[0]['cuerpo']['text']['body'] ?? null], [1, 'Arriba tienes nuestro catálogo.'], 'si el PDF ya no está en el servidor, igual manda el texto');
+$db->exec("UPDATE flujos SET activo = false WHERE id = $fPdf");
 
 echo "== Agente con IA que contesta solo\n";
 putenv('TUKAN_IA_CLAVE=sk-ant-prueba-buena-0123456789');
