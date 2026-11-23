@@ -386,7 +386,7 @@ if (!function_exists('tukan_ia_llamar')) {
     /**
      * Llama a la IA (Messages API) con control de gasto.
      * $pedido: texto (string) o mensajes (lista {role, content}); sistema; imagenes (lista de ['bytes'] o ['base64','tipo']);
-     *          modelo ('rapido' | 'fuerte' | id); max_tokens (1024); temperatura; json (bool) + validar (callable(array): ?array).
+     *          modelo ('rapido' | 'fuerte' | id); max_tokens (1024); temperatura (se ignora: los modelos 5.5 no la aceptan); json (bool) + validar (callable(array): ?array).
      * $opciones: guardian (TukanIaGuardian | arreglo de funciones), programa (ID, para el tope del programa y los registros),
      *          funcion (para anotar: 'ayuda', 'foto', 'resumen'…), ayuda_nueva (bool), ignorar_pausa (solo para probar).
      * Devuelve ['ok' => true, 'texto', 'json' (si se pidió), 'modelo', 'tokens_entrada', 'tokens_salida', 'costo', 'intentos']
@@ -428,7 +428,8 @@ if (!function_exists('tukan_ia_llamar')) {
         if ($json) $sistema = trim($sistema . "\n\nResponde SOLO con un objeto JSON válido, sin texto antes ni después y sin ```.");
         $cuerpo = ['model' => $modelo, 'max_tokens' => max(1, min(16000, (int) ($pedido['max_tokens'] ?? 1024))), 'messages' => $mensajes];
         if ($sistema !== '') $cuerpo['system'] = $sistema;
-        if (isset($pedido['temperatura'])) $cuerpo['temperature'] = max(0.0, min(1.0, (float) $pedido['temperatura']));
+        // (23 nov 2026) 'temperatura' ya NO se manda: los modelos 5.5 la rechazan («`temperature` is deprecated for this model», HTTP 400)
+        // y con eso fallaban el agente con IA, el copiloto, la ayuda y los traductores. Se acepta en el pedido y se ignora.
 
         $total = ['tokens_entrada' => 0, 'tokens_salida' => 0, 'costo' => 0.0, 'intentos' => 0];
         $vueltas = $json ? 2 : 1;

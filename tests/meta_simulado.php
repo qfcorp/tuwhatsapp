@@ -17,6 +17,9 @@ if ($ruta === '/v1/messages' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         sale(401, ['type' => 'error', 'error' => ['type' => 'authentication_error', 'message' => 'invalid x-api-key']]);
     }
     $d = json_decode($cuerpo, true) ?: [];
+    if (array_key_exists('temperature', $d)) {   // (23 nov 2026) como la API de verdad con los modelos 5.5
+        sale(400, ['type' => 'error', 'error' => ['type' => 'invalid_request_error', 'message' => '`temperature` is deprecated for this model']]);
+    }
     $sis = (string) ($d['system'] ?? '');
     if (str_contains($sis, 'TRADUCTOR_TUKAN_CHAT')) {   // traductor del chat: "[EN] texto" (el código del idioma de destino)
         $todo = (string) ($d['messages'][0]['content'] ?? '');
