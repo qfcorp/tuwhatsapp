@@ -29,7 +29,7 @@
             </div>
             <div id="huella-estado" role="status" aria-live="polite" hidden></div>
             <?php if (!en_app_tienda()): ?>
-            <p class="suave pequeno" style="margin-top:12px">¿Todavía no tienes cuenta? <a href="https://wa.me/593983662181?text=<?= rawurlencode('Hola, quiero probar WhatsApp Tukán') ?>" target="_blank" rel="noopener">Pide tu prueba por WhatsApp</a>.</p>
+            <p class="suave pequeno" style="margin-top:12px">¿Todavía no tienes cuenta? <a href="https://wa.me/593983662181?text=<?= rawurlencode('Hola, quiero WhatsApp Tukán para mi negocio') ?>" target="_blank" rel="noopener">Escríbenos por WhatsApp</a> y te ayudamos a conectar tu número.</p>
             <?php endif; ?>
         </form>
         <p class="suave pequeno" style="text-align:center"><a href="/terminos.php">Términos</a> · <a href="/privacidad.php">Privacidad</a> · <a href="/tratamiento-datos.php">Tratamiento de datos</a></p>

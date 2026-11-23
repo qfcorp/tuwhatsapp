@@ -48,10 +48,10 @@ nueva_empresa() { # nombre estado vence correo [modulos] -> id
 
 echo "== App de iPhone: cómo se reconoce"
 web; : > "$J"; get "/?r=login"
-ok 'tiene "WhatsApp <b>Tukán</b>" && tiene "Pide tu prueba por WhatsApp" && ! tiene "tukan-ios"' "web: igual que antes (nombre, pedir prueba, sin la marca del iPhone)"
+ok 'tiene "WhatsApp <b>Tukán</b>" && tiene "Escríbenos por WhatsApp" && ! tiene "Pide tu prueba" && ! tiene "tukan-ios"' "web: igual que antes (nombre, escribir por WhatsApp sin ofrecer prueba, sin la marca del iPhone)"
 iphone; get "/?r=login"
 ok 'tiene "tukan-ios" && tiene "en-app"' "con TukanIOS en el navegador: <body> con tukan-ios (y en-app)"
-ok 'tiene "Tukán <b>Mensajes</b>" && ! tiene "Pide tu prueba por WhatsApp"' "iPhone: se llama Tukán Mensajes y sin pedir prueba por WhatsApp"
+ok 'tiene "Tukán <b>Mensajes</b>" && ! tiene "Escríbenos por WhatsApp"' "iPhone: se llama Tukán Mensajes y sin el enlace de WhatsApp"
 sin_venta "iPhone entrar"
 web; : > "$J"; get "/?r=login&app=ios"
 ok 'grep -q "canal" "$J"' "?app=ios deja la cookie canal=ios"
