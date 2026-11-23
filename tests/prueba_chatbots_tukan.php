@@ -102,6 +102,8 @@ echo "== Qué chatbot arranca con mensajes reales\n";
 foreach ([
     ['Hola Tukán, quiero una demo de TuSalón para mi peluquería.', 'es', 'Pedir demo'],   // el botón de tukansoftware.com
     ['Hola Tukán, quiero una demo para mi negocio.', 'es', 'Pedir demo'],
+    ['Hola, vengo del anuncio de TuVocalía y quiero una demostración', 'es', 'Pedir demo'],   // (23 nov) mensaje real del anuncio
+    ['¿Tienen versión de prueba?', 'es', 'Pedir demo'],
     ['Hi, I would like a demo', 'en', 'Pedir demo'],
     ['Can I get a free trial?', 'en', 'Pedir demo'],
     ['Quero testar o programa', 'pt', 'Pedir demo'],

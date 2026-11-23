@@ -274,7 +274,7 @@ final class ChatbotsTukan
                 'p20' => ['texto' => 'Grazie! 🙌 Tra un momento una persona del team ti risponde.'],
             ]],
         ];
-        $D[] = ['nombre' => 'Pedir demo', 'palabras' => 'demo, demos, una demo, quiero una demo, pedir demo, solicitar demo, prueba del programa', 'pasos' => $pasos, 'tr' => $tr];
+        $D[] = ['nombre' => 'Pedir demo', 'palabras' => 'demo, demos, una demo, quiero una demo, pedir demo, solicitar demo, prueba del programa, demostracion, demostraciones, una demostracion, quiero una demostracion, demo gratis, prueba gratis, version de prueba, quiero probar', 'pasos' => $pasos, 'tr' => $tr];
 
         // ============================================================ 2. PRECIOS Y PLANES (precios sin IVA, 12 nov 2026) — con el PDF de cada programa
         $sede = "\n• Cada sede extra: \$10 al mes.|\n• Each extra location: \$10 per month.|\n• Cada unidade extra: US\$ 10 por mês.|\n• Chaque site en plus : 10 \$ par mois.|\n• Ogni sede in più: 10 \$ al mese.";
