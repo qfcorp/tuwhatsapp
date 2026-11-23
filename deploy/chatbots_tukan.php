@@ -44,6 +44,10 @@ try {
     foreach ($r['actualizados'] as $n) {
         echo "  Actualizado:  $n\n";
     }
+    echo "  PDF de planes puestos en los pasos: {$r['pdf']}\n";
+    foreach ($r['faltan'] as $n) {
+        echo "  AVISO: falta el PDF $n en deploy/pdf_planes (ese paso sale sin PDF)\n";
+    }
     echo "\nRevisalos en whatsapp.tukanec.com -> Chatbots.\n\n";
     exit(0);
 } catch (Throwable $e) {

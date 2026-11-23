@@ -228,6 +228,18 @@ $r = Flujos::avanzar($fid, $p, null, 'catalogo', '', null, 'Tienda', 'es');
 ok(array_column($r['salidas'], 'tipo') === ['archivo', 'texto'], 'manda el archivo y después el texto');
 Flujos::guardar($db, $l, $fid, ['paso' => [['id' => 'p1', 'tipo' => 'mensaje', 'texto' => 'Sin archivo', 'quitar_archivo' => '1']]] + $form);
 ok(!isset(Flujos::pasos(Flujos::buscar($db, $l, $fid))[0]['archivo']), '"Quitar el adjunto" lo quita');
+// "+ Agregar paso" (revisión): el paso nuevo no hereda el adjunto de uno borrado, y "Quitar el adjunto" se respeta
+Flujos::guardar($db, $l, $fid, ['paso' => [['id' => 'p1', 'tipo' => 'mensaje', 'texto' => 'Uno'], ['id' => 'p2', 'tipo' => 'fin', 'texto' => 'Dos']]] + $form, [], ['p2' => $doc]);
+$fx = Flujos::buscar($db, $l, $fid);
+$dx = Flujos::conPasoNuevo($fx, ['paso' => [['id' => 'p1', 'tipo' => 'mensaje', 'texto' => 'Uno'], ['id' => 'p2', 'tipo' => 'fin', 'texto' => 'Dos', 'borrar' => '1']]] + $form);
+Flujos::guardar($db, $l, $fid, $dx);
+$px = Flujos::pasos(Flujos::buscar($db, $l, $fid));
+ok(count($px) === 2 && $px[1]['id'] === 'p3' && !isset($px[1]['archivo']) && !isset($px[0]['archivo']), 'agregar paso tras borrar uno con adjunto: el nuevo sale vacío (p3, sin adjunto)');
+Flujos::guardar($db, $l, $fid, ['paso' => [['id' => 'p1', 'tipo' => 'mensaje', 'texto' => 'Uno'], ['id' => 'p3', 'tipo' => 'fin', 'texto' => 'Tres']]] + $form, [], ['p1' => $doc]);
+$dx = Flujos::conPasoNuevo(Flujos::buscar($db, $l, $fid), ['paso' => [['id' => 'p1', 'tipo' => 'mensaje', 'texto' => 'Uno', 'quitar_archivo' => '1'], ['id' => 'p3', 'tipo' => 'fin', 'texto' => 'Tres']]] + $form);
+Flujos::guardar($db, $l, $fid, $dx);
+$px = Flujos::pasos($fy = Flujos::buscar($db, $l, $fid));
+ok(count($px) === 3 && !isset($px[0]['archivo']) && $px[2]['id'] === 'p4' && !$fy['activo'], 'agregar paso con "Quitar el adjunto" marcado: lo quita; el chatbot queda apagado');
 ok(Flujos::archivoValido(['tipo' => 'audio', 'mime' => 'audio/ogg', 'ruta' => '1/a.ogg']) === null && Flujos::archivoValido(['tipo' => 'documento', 'mime' => 'application/pdf', 'ruta' => '../x.pdf']) === null
    && Flujos::archivoValido(['tipo' => 'imagen', 'mime' => 'image/png', 'nombre' => 'f.png', 'bytes' => 3, 'ruta' => '1/2026-11/a.png']) !== null, 'solo PDF/documentos, fotos y videos, y nunca rutas con ".."');
 

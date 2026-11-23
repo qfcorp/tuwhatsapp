@@ -1390,13 +1390,7 @@ try {
             } else {
                 $datos = $_POST;
                 if ($accion === 'agregar_paso') {
-                    $actuales = \TuWhatsApp\Flujos::limpiarPasos((array) ($datos['paso'] ?? []), array_column($camposF, 'clave'), false, $mapaOps);
-                    if (isset($datos['tr_form'])) {   // las opciones se renumeran: las traducciones van alineadas con ellas
-                        $datos['tr'] = \TuWhatsApp\Traducir::limpiarFlujo((array) ($datos['tr'] ?? []), $actuales, $mapaOps);
-                    }
-                    $datos['paso'] = array_merge(array_map(fn ($x) => $x + ['op_titulo' => array_column($x['opciones'] ?? [], 'titulo'), 'op_ir' => array_column($x['opciones'] ?? [], 'ir_a')], $actuales),
-                                                 [['id' => \TuWhatsApp\Flujos::idNuevo($actuales), 'tipo' => 'mensaje', 'texto' => '']]);
-                    $datos['activo'] = '';   // mientras se arma el paso nuevo, queda apagado
+                    $datos = \TuWhatsApp\Flujos::conPasoNuevo($f, $datos, array_column($camposF, 'clave'));
                 }
                 // (23 nov 2026) archivo (PDF, foto o video) de cada paso: archivo_paso[id del paso]
                 $nuevosArch = [];

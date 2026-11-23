@@ -235,6 +235,32 @@ final class Flujos
         return $pasos;
     }
 
+    /**
+     * "+ Agregar paso": los pasos del formulario ya limpios + uno nuevo vacío al final, y el chatbot apagado mientras se arma.
+     * (23 nov 2026, revisión) El id nuevo nunca reutiliza el de un paso guardado o marcado para borrar (si no, heredaría su
+     * adjunto), y "Quitar el adjunto" se respeta también aquí.
+     */
+    public static function conPasoNuevo(array $flujo, array $datos, array $camposValidos = []): array
+    {
+        $crudos = (array) ($datos['paso'] ?? []);
+        $quitar = [];
+        foreach ($crudos as $p) {
+            if (is_array($p) && !empty($p['quitar_archivo'])) {
+                $quitar[(string) ($p['id'] ?? '')] = true;
+            }
+        }
+        $actuales = self::limpiarPasos($crudos, $camposValidos, false, $mapaOps);
+        if (isset($datos['tr_form'])) {   // las opciones se renumeran: las traducciones van alineadas con ellas
+            $datos['tr'] = Traducir::limpiarFlujo((array) ($datos['tr'] ?? []), $actuales, $mapaOps);
+        }
+        $nuevo = self::idNuevo(array_merge($actuales, array_filter($crudos, 'is_array'), self::pasos($flujo)));
+        $datos['paso'] = array_merge(array_map(fn ($x) => $x + ['op_titulo' => array_column($x['opciones'] ?? [], 'titulo'), 'op_ir' => array_column($x['opciones'] ?? [], 'ir_a')]
+                                                      + (isset($quitar[$x['id']]) ? ['quitar_archivo' => '1'] : []), $actuales),
+                                     [['id' => $nuevo, 'tipo' => 'mensaje', 'texto' => '']]);
+        $datos['activo'] = '';
+        return $datos;
+    }
+
     /** Id para un paso nuevo (p1, p2…, el siguiente libre). */
     public static function idNuevo(array $pasos): string
     {
