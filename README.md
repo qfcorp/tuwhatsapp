@@ -75,6 +75,13 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 - **Pregúntale a la IA** (como Wati AI, Más → Pregúntale a la IA): preguntas en palabras sobre el negocio ("¿quiénes están listos para comprar?", "arma una campaña para los que no escriben hace un mes", "¿cómo nos fue esta semana?"). Devuelve la respuesta, la lista de clientes con el porqué (se guarda como etiqueta para Campañas) y el texto de la campaña (se abre en Plantillas para la aprobación de Meta). No ve contactos personales ni manda nada sola.
 - **Resumen de cada mañana**: a la hora elegida, aviso al celular de los administradores con cómo fue ayer, lo pendiente y 3 cosas para hoy (lo hace el cron; sin IA manda solo las cifras).
 - **Tono de la marca** (Más → Agente con IA): lo usan el agente, Sugerir respuesta y las campañas.
+- **Traductor del chat** (23 nov 2026): **Traducir** debajo de cada mensaje del cliente que no está en el idioma del panel (la traducción se guarda en `mensajes.traduccion`: no se paga dos veces) y la casilla **«Escribo en español, se envía en inglés»** junto a la caja (marcada sola si el cliente habla otro idioma; se recuerda por chat). Antes de enviar muestra la traducción: **Enviar traducción / Editar / Enviar sin traducir**; el texto original queda en `mensajes.original` y se ve en el chat («Escrito en español: …»). Vale también para las respuestas rápidas. **Sugerir respuesta** propone en el idioma del cliente y **Resumir** siempre en el del panel. Sin el extra: se ve el idioma, y en vez de los botones «Con el extra de IA traduces los mensajes con un toque». Código: `src/Traductor.php` (marca `TRADUCTOR_TUKAN_CHAT`, misma IA compartida y tope por cuenta).
+
+### Idioma del cliente (todos los planes, sin IA)
+- Se detecta solo con cada mensaje (`src/IdiomaCliente.php`: es, en, pt, fr, it; por palabras y, si es muy corto, por el código de país) y se guarda en `contactos.idioma`.
+- Bandera e idioma en la cabecera del chat («🇬🇧 Habla inglés»), banderita en la bandeja y en la lista de chats (si no es español), filtro **Idioma** en la Bandeja y en Contactos (solo si hay clientes en más de un idioma).
+- Ficha del cliente → **Idioma del cliente**: elegirlo a mano lo deja fijo (`contactos.idioma_fijo`); **Detectar solo** lo vuelve automático.
+- Reportes → **Conversaciones por idioma del cliente**. Descarga de contactos con la columna **Idioma** (al final). Los avisos a tu sistema (webhook) traen `contacto.idioma`.
 
 ### Configurar lo nuevo (una vez por número)
 1. **Más → Cobros y cotizaciones**: RUC, dirección, IVA (15 o 0), datos de transferencia y la tarjeta: **Pago Plux** (los 4 datos que da Plux; pasos en [docs/GUIA_PLUX.md](docs/GUIA_PLUX.md)) o el token y Store ID de **Payphone**.
@@ -270,9 +277,9 @@ POST https://whatsapp.tukanec.com/api.php?accion=pendiente
 {"telefono":"0991234567","nombre":"Salón Bella","texto":"Tu demo vence mañana","origen":"tusalon","linea":1}
 
 POST https://whatsapp.tukanec.com/api.php?accion=contacto
-{"telefono":"0991234567","nombre":"Salón Bella","tipo":"cliente"}
+{"telefono":"0991234567","nombre":"Salón Bella","tipo":"cliente","idioma":"en"}
 ```
-`linea` es opcional (por defecto el primer número). Respuestas: 200 `{"ok":true,...}`, 401 token malo, 422 dato malo.
+`linea` es opcional (por defecto el primer número). `idioma` es opcional: `es`, `en`, `pt`, `fr` o `it` (queda fijo) o `""` para que se detecte solo; la respuesta de `contacto` trae `"idioma"`. Respuestas: 200 `{"ok":true,...}`, 401 token malo, 422 dato malo.
 
 ## Agente y asistente con IA (usa la IA compartida de Tukán)
 WhatsApp Tukán **no tiene clave propia**: usa la misma clave de Anthropic que todos los programas Tukán, guardada una sola vez en `/etc/tukan-ia.env` (la librería `src/tukan_ia.php` es copia exacta de `tukan-central/compartido/tukan_ia.php`).

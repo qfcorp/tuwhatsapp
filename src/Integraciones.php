@@ -64,6 +64,7 @@ final class Integraciones
             'contacto' => [
                 'id' => (int) $contacto['id'], 'telefono' => $contacto['telefono'], 'nombre' => Contactos::nombre($contacto),
                 'tipo' => $contacto['tipo'], 'etiquetas' => (string) ($contacto['etiquetas'] ?? ''), 'etapa' => $contacto['etapa'] ?? null,
+                'idioma' => IdiomaCliente::de($contacto),
             ],
             'mensaje' => $mensaje,
             'enviado_en' => date('c'),
@@ -124,7 +125,7 @@ final class Integraciones
         if ($que === 'contactos') {
             $campos = Campos::lista($db, $lineaId);
             $r = [array_merge(['Teléfono', 'Nombre', 'Nombre en WhatsApp', 'Tipo', 'Etiquetas', 'Etapa', 'Valor', 'Promociones', 'Notas', 'Creado', 'Último mensaje', 'Llegó del anuncio'],
-                              array_column($campos, 'nombre'))];
+                              array_column($campos, 'nombre'), ['Idioma'])];
             $st = $db->prepare('SELECT * FROM contactos WHERE linea_id = ? ORDER BY id');
             $st->execute([$lineaId]);
             foreach ($st as $c) {
@@ -132,7 +133,7 @@ final class Integraciones
                 $r[] = array_merge([$c['telefono'], $c['nombre'], $c['nombre_whatsapp'], $c['tipo'], (string) $c['etiquetas'], (string) ($c['etapa'] ?? ''),
                         number_format((float) $c['valor'], 2, ',', ''), (string) $c['marketing'], $c['notas'], self::fecha($c['creado']), self::fecha($c['ultimo_entrante']),
                         (string) ($c['origen_titulo'] ?? $c['origen_id'] ?? '')],
-                        array_map(fn ($cp) => Campos::mostrar($cp, $datos[$cp['clave']] ?? ''), $campos));
+                        array_map(fn ($cp) => Campos::mostrar($cp, $datos[$cp['clave']] ?? ''), $campos), [IdiomaCliente::de($c)]);
             }
             return $r;
         }

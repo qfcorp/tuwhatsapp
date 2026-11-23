@@ -3,6 +3,14 @@
  *  @var list<array> $productos @var ?array $carrito @var list<array> $itemsCarrito @var list<array> $pedidosCliente @var list<array> $campos */
 use TuWhatsApp\Contactos;
 use TuWhatsApp\Telefono;
+use TuWhatsApp\IdiomaCliente;
+use TuWhatsApp\Traductor;
+/** @var string $idiomaCliente @var string $idiomaPanel @var bool $traducirOn @var ?array $traduccion */
+$idiomaCliente ??= IdiomaCliente::de($c);
+$idiomaPanel ??= 'es';
+$otroIdioma = $idiomaCliente !== $idiomaPanel;
+$conIa = modulo('ia');
+$nombresIdioma = ['es' => 'español', 'en' => 'inglés', 'pt' => 'portugués', 'fr' => 'francés', 'it' => 'italiano'];
 $origenes = ['cliente' => '', 'panel' => 'Por el sistema', 'auto' => 'Automático', 'bot' => 'Agente con IA', 'flujo' => 'Chatbot', 'tienda' => 'Tienda en línea', 'campania' => 'Campaña', 'celular' => 'Desde el celular', 'pendiente' => 'Pendiente'];
 $estados = ['enviando' => 'Enviando…', 'enviado' => '✓', 'entregado' => '✓✓', 'leido' => '✓✓ leído', 'fallido' => 'No se envió', 'bloqueado' => 'Bloqueado por el tope'];
 $silencio = !empty($c['silencio_hasta']) && new DateTimeImmutable($c['silencio_hasta']) > new DateTimeImmutable();
@@ -15,7 +23,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         <?php foreach ($lado ?? [] as $x): ?>
         <li><a href="<?= e(url('chat', ['c' => $x['id']])) ?>" class="<?= (int) $x['id'] === (int) $c['id'] ? 'actual' : '' ?> <?= $x['sin_leer'] > 0 ? 'nuevo' : '' ?>" <?= (int) $x['id'] === (int) $c['id'] ? 'aria-current="page"' : '' ?>>
             <span class="avatar av-<?= color_contacto($x['id']) ?>" aria-hidden="true"><?= u(mb_strtoupper(mb_substr(Contactos::nombre($x), 0, 1))) ?></span>
-            <span class="conv-centro"><span class="conv-nombre"><?= u(Contactos::nombre($x)) ?></span>
+            <span class="conv-centro"><span class="conv-nombre"><?= u(Contactos::nombre($x)) ?><?php $ix = (string) ($x['idioma'] ?? ''); if ($ix !== '' && $ix !== 'es' && isset(IdiomaCliente::BANDERAS[$ix])): ?> <small class="bandera" title="<?= e(Traductor::etiqueta($ix)) ?>"><?= IdiomaCliente::BANDERAS[$ix] ?></small><?php endif; ?></span>
                 <span class="conv-ultimo"><?= $x['ultima_direccion'] === 'sale' ? '<span class="tu">Tú:</span> ' : '' ?><?= u(mb_strimwidth((string) $x['ultimo_texto'], 0, 60, '…')) ?></span></span>
             <span class="conv-lado"><time><?= e(hora_corta($x['ultimo_en'])) ?></time><?php if ($x['sin_leer'] > 0): ?><b class="globo"><?= (int) $x['sin_leer'] ?></b><?php endif; ?></span>
         </a></li>
@@ -28,7 +36,7 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <a href="<?= e(url('bandeja')) ?>" class="volver" aria-label="Volver a la bandeja">‹</a>
     <span class="avatar av-<?= color_contacto($c['id']) ?>" aria-hidden="true"><?= u(mb_strtoupper(mb_substr(Contactos::nombre($c), 0, 1))) ?></span>
     <div class="chat-quien">
-        <h1><?= u(Contactos::nombre($c)) ?> <small class="chip chip-<?= e($c['tipo']) ?>"><?= e(tipo_contacto($c['tipo'])) ?></small></h1>
+        <h1><?= u(Contactos::nombre($c)) ?> <small class="chip chip-<?= e($c['tipo']) ?>"><?= e(tipo_contacto($c['tipo'])) ?></small> <small class="chip chip-idioma" id="idioma-cliente"><?= e(Traductor::etiqueta($idiomaCliente)) ?></small></h1>
         <p class="suave"><?= e(Telefono::bonito($c['telefono'])) ?><?= $c['nombre_whatsapp'] !== '' && $c['nombre_whatsapp'] !== Contactos::nombre($c) ? ' · en WhatsApp: ' . e($c['nombre_whatsapp']) : '' ?><?= $c['etiquetas'] !== '' ? ' · ' . e($c['etiquetas']) : '' ?><?= $c['marketing'] === 'baja' ? ' · <b>no quiere promociones</b>' : '' ?></p>
     </div>
     <div class="chat-acciones">
@@ -82,10 +90,35 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
         </span>
         <?php if ($m['error']): ?><span class="motivo motivo-error"><?= e($m['error']) ?></span><?php endif; ?>
         <?php if ($m['direccion'] === 'entra' && $m['motivo']): ?><span class="motivo"><?= e($m['motivo']) ?></span><?php endif; ?>
+        <?php if ($m['direccion'] === 'sale' && (string) ($m['original'] ?? '') !== ''): ?>
+        <span class="original-escrito"><b>Escrito en <?= e($nombresIdioma[$m['original_idioma']] ?? 'español') ?>:</b> <?= '<!--notr-->' . nl2br(e($m['original'])) . '<!--/notr-->' ?></span>
+        <?php endif; ?>
+        <?php if ($m['direccion'] === 'entra' && $conIa && trim((string) $m['texto']) !== '' && !$m['media_ruta'] && !$m['media_id']):
+            $idiMsg = IdiomaCliente::delTexto((string) $m['texto']) ?: $idiomaCliente; ?>
+        <?php if ((string) ($m['traduccion'] ?? '') !== '' && $m['traduccion_idioma'] === $idiomaPanel): ?>
+        <span class="traduccion"><b>Traducción:</b> <?= '<!--notr-->' . nl2br(e($m['traduccion'])) . '<!--/notr-->' ?></span>
+        <?php elseif ($idiMsg !== $idiomaPanel): ?>
+        <form method="post" class="traducir"><?= csrf_campo() ?><input type="hidden" name="accion" value="traducir_mensaje"><input type="hidden" name="mensaje_id" value="<?= (int) $m['id'] ?>"><button class="enlace">Traducir</button></form>
+        <?php endif; ?>
+        <?php endif; ?>
     </li>
     <?php endforeach; ?>
 </ol>
 
+<?php if (!empty($traduccion) && $conIa): ?>
+<form method="post" class="confirmar-traduccion tarjeta tk-tarjeta" id="confirmar-traduccion">
+    <?= csrf_campo() ?><input type="hidden" name="accion" value="enviar_traducido">
+    <p><b>Traducción al <?= e($nombresIdioma[$traduccion['idioma']] ?? 'inglés') ?></b> · revísala antes de enviarla</p>
+    <label class="oculto" for="traducido">Traducción</label>
+    <textarea id="traducido" name="traducido" rows="3" maxlength="4096"><?= e($traduccion['traducido']) ?></textarea>
+    <p class="suave pequeno">Tu mensaje: <?= '<!--notr-->' . e($traduccion['original']) . '<!--/notr-->' ?></p>
+    <div class="fila-botones">
+        <button class="boton tk-boton" name="como" value="traduccion">Enviar traducción</button>
+        <button class="boton boton-claro tk-boton secundario" name="como" value="editar">Editar</button>
+        <button class="boton boton-claro tk-boton secundario" name="como" value="original">Enviar sin traducir</button>
+    </div>
+</form>
+<?php endif; ?>
 <form method="post" class="escribir" id="escribir" enctype="multipart/form-data">
     <?= csrf_campo() ?>
     <label class="oculto" for="texto">Mensaje</label>
@@ -103,6 +136,12 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <?php endif; ?>
     <?php if ($resumenIa !== ''): ?><div class="aviso aviso-info resumen-ia"><b>Resumen (IA):</b><br><?= nl2br(e($resumenIa)) ?></div><?php endif; ?>
     <textarea id="texto" name="texto" rows="3" maxlength="4096" placeholder="Escribe tu respuesta…" required><?= e($borrador) ?></textarea>
+    <?php if ($otroIdioma && $conIa): ?>
+    <label class="traducir-envio"><input type="hidden" name="traducir_hay" value="1"><input type="checkbox" name="traducir" value="1" id="traducir" <?= $traducirOn ? 'checked' : '' ?>>
+        Escribo en <?= e($nombresIdioma[$idiomaPanel]) ?>, se envía en <?= e($nombresIdioma[$idiomaCliente]) ?></label>
+    <?php elseif ($otroIdioma): ?>
+    <p class="suave pequeno nota-traductor">🌐 Con el extra de IA traduces los mensajes con un toque</p>
+    <?php endif; ?>
     <?php if (modulo('ia')): ?>
     <div class="fila-botones ia-botones">
         <button class="boton boton-claro tk-boton secundario" name="accion" value="ia_sugerir" formnovalidate>✨ Sugerir respuesta</button>
@@ -145,6 +184,18 @@ $gratis = !empty($c['gratis_hasta']) && new DateTimeImmutable($c['gratis_hasta']
     <?php foreach (['cliente' => 'Cliente', 'desconocido' => 'Desconocido', 'personal' => 'Personal'] as $t => $n): ?>
     <button name="tipo" value="<?= $t ?>" class="<?= $c['tipo'] === $t ? 'activo seg-' . $t : '' ?>" <?= $c['tipo'] === $t ? 'aria-pressed="true"' : 'aria-pressed="false"' ?>><?= $n ?></button>
     <?php endforeach; ?>
+</form>
+<form method="post" class="idioma-cliente asignar">
+    <?= csrf_campo() ?><input type="hidden" name="accion" value="idioma">
+    <label for="idioma-sel">Idioma del cliente</label>
+    <select id="idioma-sel" name="idioma" onchange="this.form.submit()">
+        <option value="" <?= empty($c['idioma_fijo']) ? 'selected' : '' ?>>Detectar solo</option>
+        <?php foreach (IdiomaCliente::IDIOMAS as $k => $n): ?>
+        <option value="<?= $k ?>" <?= !empty($c['idioma_fijo']) && $c['idioma'] === $k ? 'selected' : '' ?>><?= IdiomaCliente::BANDERAS[$k] ?> <?= '<!--notr-->' . e($n) . '<!--/notr-->' ?></option>
+        <?php endforeach; ?>
+    </select>
+    <noscript><button class="enlace">Cambiar</button></noscript>
+    <span class="suave pequeno"><?= e(Traductor::etiqueta($idiomaCliente)) ?><?= empty($c['idioma_fijo']) ? ' · se detecta solo con sus mensajes' : ' · elegido a mano' ?></span>
 </form>
 <?php if (count($equipo) > 1 && $c['tipo'] !== 'personal'): $yoId = (int) usuario()['id']; ?>
 <?php if (modulo('agentes')): ?>

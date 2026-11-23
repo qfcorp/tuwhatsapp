@@ -84,8 +84,16 @@ final class Reportes
         $st->execute($p);
         $ventas = $st->fetch();
 
+        // Conversaciones por idioma del cliente (personas que escribieron en el período; sin idioma guardado = español)
+        $st = $db->prepare("SELECT COALESCE(NULLIF(c.idioma, ''), 'es') AS idioma, count(DISTINCT m.contacto_id)
+            FROM mensajes m JOIN contactos c ON c.id = m.contacto_id
+            WHERE m.linea_id = ? AND m.creado >= ? AND m.creado <= ? AND m.direccion = 'entra'
+            GROUP BY 1 ORDER BY 2 DESC, 1");
+        $st->execute($p);
+        $idiomas = array_map('intval', $st->fetchAll(PDO::FETCH_KEY_PAIR));
+
         return [
-            'dias' => $dias, 'desde' => $desde, 'hasta' => $ahora,
+            'dias' => $dias, 'desde' => $desde, 'hasta' => $ahora, 'idiomas' => $idiomas,
             'totales' => $tot, 'por_dia' => $porDia,
             'respuesta' => [
                 'total' => (int) $resp['total'], 'contestados' => (int) $resp['contestados'],

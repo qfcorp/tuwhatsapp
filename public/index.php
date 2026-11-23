@@ -424,11 +424,14 @@ try {
     case 'bandeja':
         $filtro = (string) ($_GET['f'] ?? 'todos');
         $buscar = trim((string) ($_GET['b'] ?? ''));
+        $idiomaF = (string) ($_GET['i'] ?? '');
         vista('bandeja', 'Bandeja', [
             'linea' => $linea,
             'filtro' => $filtro,
             'buscar' => $buscar,
-            'conversaciones' => Contactos::bandeja(db(), $lid, $filtro, $buscar, 100, (int) usuario()['id']),
+            'idiomaF' => isset(\TuWhatsApp\IdiomaCliente::IDIOMAS[$idiomaF]) ? $idiomaF : '',
+            'porIdioma' => Contactos::porIdioma(db(), $lid),
+            'conversaciones' => Contactos::bandeja(db(), $lid, $filtro, $buscar, 100, (int) usuario()['id'], $idiomaF),
         ]);
 
     case 'nuevo_chat':
@@ -482,6 +485,47 @@ try {
                 db()->prepare('UPDATE contactos SET silencio_hasta = ? WHERE id = ?')
                     ->execute([$horas > 0 ? (new DateTimeImmutable("+$horas hours"))->format('c') : null, $cid]);
                 aviso($horas > 0 ? "No se le contestará solo durante $horas horas." : 'Se volvió a activar la respuesta automática para esta persona.');
+            } elseif ($accion === 'idioma') {
+                $idi = (string) ($_POST['idioma'] ?? '');
+                \TuWhatsApp\IdiomaCliente::fijar(db(), $lid, $cid, $idi);
+                aviso($idi === '' || !isset(\TuWhatsApp\IdiomaCliente::IDIOMAS[$idi]) ? 'El idioma se detectará solo con sus mensajes.'
+                    : 'Idioma guardado: ' . \TuWhatsApp\IdiomaCliente::IDIOMAS[$idi] . '. Ya no se cambia solo.');
+            } elseif ($accion === 'traducir_mensaje') {
+                if (!modulo('ia')) {
+                    throw new RuntimeException('Con el extra de IA traduces los mensajes con un toque');
+                }
+                $r = \TuWhatsApp\Traductor::traducirMensaje(db(), $linea, $cid, (int) ($_POST['mensaje_id'] ?? 0), \TuWhatsApp\Asistente::codigoPanel());
+                if (!$r['ok']) {
+                    aviso($r['error'], 'error');
+                }
+            } elseif ($accion === 'enviar_traducido') {
+                $tr = $_SESSION['traduccion'][$cid] ?? null;
+                unset($_SESSION['traduccion'][$cid]);
+                if (!is_array($tr)) {
+                    throw new RuntimeException('La traducción ya no está: escribe el mensaje otra vez.');
+                }
+                $como = (string) ($_POST['como'] ?? 'traduccion');
+                if ($como === 'editar') {
+                    $_SESSION['borrador'][$cid] = $tr['original'];
+                    aviso('Cambia tu mensaje y vuelve a enviarlo.', 'info');
+                } else {
+                    $enviarTxt = $como === 'original' ? (string) $tr['original'] : trim((string) ($_POST['traducido'] ?? ''));
+                    if ($enviarTxt === '') {
+                        $enviarTxt = (string) $tr['traducido'];
+                    }
+                    $r = (new Mensajeria(db()))->texto($linea, $c, $enviarTxt, 'panel', (int) usuario()['id']);
+                    if ($r['ok']) {
+                        if ($como !== 'original' && !empty($r['id'])) {
+                            \TuWhatsApp\Traductor::guardarOriginal(db(), $lid, (int) $r['id'], (string) $tr['original'], (string) $tr['mio']);
+                        }
+                        Contactos::tomarSiLibre(db(), $cid, (int) usuario()['id']);
+                        Contactos::callar(db(), $linea, $cid);
+                        aviso('Enviado' . ($r['costo'] > 0 ? ' (' . dinero($r['costo'], true) . ')' : ' (gratis)') . '.');
+                    } else {
+                        $_SESSION['traduccion'][$cid] = $tr;
+                        aviso($r['error'], 'error');
+                    }
+                }
             } elseif ($accion === 'enviar') {
                 $adjunto = $_FILES['archivo'] ?? null;
                 if (is_array($adjunto) && ($adjunto['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
@@ -492,7 +536,26 @@ try {
                         $r = ['ok' => false, 'error' => $ex->getMessage()];
                     }
                 } else {
-                    $r = (new Mensajeria(db()))->texto($linea, $c, (string) ($_POST['texto'] ?? ''), 'panel', (int) usuario()['id']);
+                    // Traductor (extra de IA): "Escribo en mi idioma, se envía en el del cliente" -> primero se muestra la traducción
+                    $txt = (string) ($_POST['texto'] ?? '');
+                    if (isset($_POST['traducir_hay'])) {
+                        $_SESSION['traducir_chat'][$cid] = isset($_POST['traducir']);   // se recuerda para este chat
+                    }
+                    $idiCli = \TuWhatsApp\IdiomaCliente::de($c);
+                    $idiYo = \TuWhatsApp\Asistente::codigoPanel();
+                    if (isset($_POST['traducir']) && modulo('ia') && $idiCli !== $idiYo && trim($txt) !== ''
+                        && \TuWhatsApp\IdiomaCliente::delTexto($txt) !== $idiCli) {   // si ya está en su idioma (p. ej. la sugerencia de la IA), no se gasta
+                        $t = \TuWhatsApp\Traductor::traducir(db(), $linea, $txt, $idiCli, 'traducir_envio');
+                        if (!$t['ok']) {
+                            $_SESSION['borrador'][$cid] = $txt;
+                            aviso($t['error'], 'error');
+                        } else {
+                            $_SESSION['traduccion'][$cid] = ['original' => $txt, 'traducido' => $t['texto'], 'idioma' => $idiCli, 'mio' => $idiYo];
+                            aviso('Revisa la traducción antes de enviarla.', 'info');
+                        }
+                        redirigir('chat', ['c' => $cid]);
+                    }
+                    $r = (new Mensajeria(db()))->texto($linea, $c, $txt, 'panel', (int) usuario()['id']);
                 }
                 if ($r['ok']) {
                     Contactos::tomarSiLibre(db(), $cid, (int) usuario()['id']);
@@ -569,7 +632,12 @@ try {
         unset($_SESSION['borrador'][$cid]);
         $resumenIa = $_SESSION['ia_resumen'][$cid] ?? '';
         unset($_SESSION['ia_resumen'][$cid]);
+        $idiomaCliente = \TuWhatsApp\IdiomaCliente::de($c);
+        $idiomaPanel = \TuWhatsApp\Asistente::codigoPanel();
         vista('chat', Contactos::nombre($c), [
+            'idiomaCliente' => $idiomaCliente, 'idiomaPanel' => $idiomaPanel,
+            'traducirOn' => (bool) ($_SESSION['traducir_chat'][$cid] ?? ($idiomaCliente !== $idiomaPanel)),
+            'traduccion' => $_SESSION['traduccion'][$cid] ?? null,
             'linea' => $linea, 'c' => $c, 'mensajes' => $st->fetchAll(), 'borrador' => $borrador,
             'equipo' => array_values(array_filter(\TuWhatsApp\Empresas::usuarios(db(), (int) empresa_actual()['id']), fn ($x) => $x['activo'])),
             'respuestas' => \TuWhatsApp\Respuestas::lista(db(), $lid),
@@ -1613,13 +1681,15 @@ try {
                 Contactos::cambiarTipo(db(), $lid, (int) ($_POST['id'] ?? 0), (string) ($_POST['tipo'] ?? ''));
                 aviso('Cambiado.');
             }
-            redirigir('contactos', array_filter(['t' => $_GET['t'] ?? null, 'b' => $_GET['b'] ?? null]));
+            redirigir('contactos', array_filter(['t' => $_GET['t'] ?? null, 'b' => $_GET['b'] ?? null, 'i' => $_GET['i'] ?? null]));
         }
         $tipo = (string) ($_GET['t'] ?? '');
         $buscar = trim((string) ($_GET['b'] ?? ''));
+        $idiomaF = (string) ($_GET['i'] ?? '');
         vista('contactos', 'Contactos', [
-            'linea' => $linea, 'tipo' => $tipo, 'buscar' => $buscar,
-            'contactos' => Contactos::lista(db(), $lid, $tipo, $buscar), 'cuenta' => Contactos::contar(db(), $lid),
+            'linea' => $linea, 'tipo' => $tipo, 'buscar' => $buscar, 'idiomaF' => $idiomaF,
+            'contactos' => Contactos::lista(db(), $lid, $tipo, $buscar, $idiomaF), 'cuenta' => Contactos::contar(db(), $lid),
+            'porIdioma' => Contactos::porIdioma(db(), $lid),
         ]);
 
     case 'reglas':

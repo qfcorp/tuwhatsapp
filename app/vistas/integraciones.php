@@ -37,4 +37,7 @@ $base = rtrim((string) (getenv('TUWA_URL') ?: ''), '/');
     <h2>API (para que otro programa mande mensajes)</h2>
     <p class="suave pequeno">Crea tu token en <a href="<?= e(url('cuenta')) ?>">Mi cuenta</a>. Ejemplo para dejar un mensaje en Pendientes:</p>
     <pre class="codigo">curl -H "Authorization: Bearer TU_TOKEN" -d '{"telefono":"0991234567","texto":"Hola"}' <?= e($base) ?>/api.php?accion=pendiente</pre>
+    <p class="suave pequeno">Guardar un contacto (el idioma es opcional: es, en, pt, fr o it; vacío = se detecta solo con sus mensajes):</p>
+    <pre class="codigo">curl -H "Authorization: Bearer TU_TOKEN" -d '{"telefono":"0991234567","nombre":"Ana","idioma":"en"}' <?= e($base) ?>/api.php?accion=contacto</pre>
+    <p class="suave pequeno">Los avisos a tu sistema y el archivo de contactos traen también el idioma de cada cliente.</p>
 </section>

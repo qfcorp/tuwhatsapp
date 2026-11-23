@@ -18,6 +18,20 @@ if ($ruta === '/v1/messages' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $d = json_decode($cuerpo, true) ?: [];
     $sis = (string) ($d['system'] ?? '');
+    if (str_contains($sis, 'TRADUCTOR_TUKAN_CHAT')) {   // traductor del chat: "[EN] texto" (el código del idioma de destino)
+        $todo = (string) ($d['messages'][0]['content'] ?? '');
+        if (is_array($d['messages'][0]['content'] ?? null)) {
+            $todo = implode(' ', array_map(fn ($b) => (string) ($b['text'] ?? ''), $d['messages'][0]['content']));
+        }
+        $t = preg_match('/<texto[^>]*>(.*)<\/texto>/su', $todo, $mt) ? trim($mt[1]) : trim($todo);
+        if (str_contains($t, 'ROMPER')) {
+            sale(529, ['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]);
+        }
+        preg_match('/\(código ([a-z]{2})\)/u', $sis, $mc);
+        sale(200, ['id' => 'msg_tr', 'type' => 'message', 'role' => 'assistant', 'model' => $d['model'] ?? '',
+                   'content' => [['type' => 'text', 'text' => '[' . strtoupper($mc[1] ?? 'xx') . '] ' . $t]],
+                   'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 120, 'output_tokens' => 60]]);
+    }
     if (str_contains($sis, 'COPILOTO_TUKAN')) {   // "Pregúntale a la IA": JSON según la pregunta, con ids que vienen en los datos
         $texto = (string) ($d['messages'][0]['content'] ?? '');
         if (is_array($d['messages'][0]['content'] ?? null)) {

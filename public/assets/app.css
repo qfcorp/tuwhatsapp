@@ -727,3 +727,16 @@ body.tk { --fuente: var(--tk-letra); font-family: var(--tk-letra); font-size: 15
 .lista-dispositivos { list-style: none; padding: 0; margin: 0 0 12px; }
 .lista-dispositivos li { display: flex; gap: 8px; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--linea, #e5e7eb); }
 .borde-arriba { border-top: 1px solid var(--linea, #e5e7eb); padding-top: 14px; margin-top: 14px; }
+
+/* Idioma del cliente y traductor del chat (23 nov 2026) */
+.chip-idioma { background: #eef4ff; color: #1d3f8a; }
+.bandera { font-size: .85em; }
+.burbuja .traduccion, .burbuja .original-escrito { display: block; margin-top: .35rem; padding-top: .3rem; border-top: 1px dashed rgba(0,0,0,.15); font-size: .9em; }
+.burbuja .original-escrito { opacity: .8; }
+.burbuja form.traducir { display: inline; }
+.burbuja form.traducir .enlace { font-size: .85em; }
+.traducir-envio { display: flex; gap: .4rem; align-items: center; font-size: .9em; margin: .3rem 0; }
+.confirmar-traduccion { margin: .5rem 0; }
+.confirmar-traduccion textarea { width: 100%; }
+.idioma-cliente { margin-top: .6rem; }
+.filtro-idioma { display: flex; gap: .4rem; align-items: center; margin: .3rem 0; font-size: .9em; }

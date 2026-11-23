@@ -73,6 +73,7 @@
     <li>App en el celular y avisos <span class="nuevo">NUEVO</span></li>
     <li>Preguntas frecuentes</li>
     <li>La app se queda abierta: recordar el celular y entrar con huella <span class="nuevo">NUEVO</span></li>
+    <li>Atender clientes en otro idioma: bandera y traductor del chat <span class="nuevo">NUEVO</span></li>
   </ol>
   <div class="caja azul">
     <b>Lo de siempre sigue igual:</b> conectar tu número con código QR, plantillas de Meta, campañas, seguimientos, embudo, enlaces y QR, integraciones,
@@ -84,6 +85,7 @@
   <h2>1. Novedades de esta versión</h2>
   <table>
     <tr><th>Nuevo</th><th>Para qué te sirve</th><th>Dónde está</th></tr>
+    <tr><td><b>Clientes en otro idioma</b> <span class="nuevo">NUEVO</span></td><td>Cada chat muestra en qué idioma escribe el cliente (🇬🇧 inglés, 🇧🇷 portugués, 🇫🇷 francés, 🇮🇹 italiano o 🇪🇸 español). Con el extra de IA: <b>Traducir</b> sus mensajes con un toque y escribir en tu idioma para que le llegue en el suyo.</td><td>Chat · Bandeja · Contactos · Reportes</td></tr>
     <tr><td><b>La app se queda abierta</b> <span class="nuevo">NUEVO</span></td><td>Entras una vez y no vuelve a pedir la contraseña, como WhatsApp. Si algún día se cierra, entras con tu <b>huella</b>.</td><td>Pantalla de entrar · Mi cuenta</td></tr>
     <tr><td><b>Avisos de la app como WhatsApp</b> <span class="nuevo">NUEVO</span></td><td>Con la app <b>Tukán Mensajes</b> de Google Play los avisos los muestra la propia app (con su nombre), aunque esté cerrada. Solo abres la app, entras y tocas <b>Permitir</b>.</td><td>Menú → App en el celular</td></tr>
     <tr><td><b>Avisos por Telegram</b> <span class="nuevo">NUEVO</span></td><td>Conecta tu Telegram con un toque y te llegan los mensajes de tus clientes al momento, o solo si nadie contesta. Con el botón para abrir el chat.</td><td>Menú → App en el celular</td></tr>
@@ -576,6 +578,8 @@
 
 <section class="capitulo">
   <h2>20. Preguntas frecuentes</h2>
+  <h3>Me escribe un cliente en inglés y no lo hablo, ¿cómo le contesto? <span class="nuevo">NUEVO</span></h3>
+  <p>Abre su chat: arriba dice <b>🇬🇧 Habla inglés</b>. Con el extra de IA toca <b>Traducir</b> debajo de su mensaje para leerlo en español, escribe tu respuesta en español con la casilla <b>«Escribo en español, se envía en inglés»</b> marcada y toca <b>Enviar</b>: primero ves la traducción y la confirmas con <b>Enviar traducción</b>. Al cliente le llega en inglés y tú ves debajo lo que escribiste. Sin el extra de IA igual ves el idioma de cada cliente. Más detalles en el capítulo 22.</p>
   <h3>¿Dónde veo mi plan y cómo cancelo?</h3>
   <p>En <b>Mi cuenta</b> (el muñequito 👤 arriba): tu plan, cuánto cuesta, qué incluye y la próxima renovación. El administrador tiene <b>Cancelar mi plan</b>: sigues usando todo hasta el fin del período que ya pagaste y no se renueva. Si cambias de idea, toca <b>Seguir con mi plan</b>. Tus chats y contactos se guardan 90 días por si vuelves. En la demo no hay nada que cancelar.</p>
   <p><b>Pagar con tarjeta, tú mismo</b> <span class="nuevo">NUEVO</span> (cuando Tukán lo tiene activado, en la página web; dentro de la app de Android no aparece): en <b>Mi cuenta</b> el administrador elige su plan (con o sin inteligencia artificial) y toca <b>Pagar con tarjeta</b>. Se abre la página segura de pagos, pones tu tarjeta y listo: no hay que esperar a que Tukán te mande un enlace.</p>
@@ -651,6 +655,31 @@
   <h3>¿Por qué antes me pedía entrar a cada rato?</h3>
   <p>El servidor borraba las sesiones abiertas después de unos minutos sin uso. Ya está arreglado: ahora las sesiones se guardan aparte y duran 30 días, y además el celular recordado vuelve a entrar solo aunque la sesión se borre. Para que no te vuelva a pasar, deja marcada <b>«Recordar este celular»</b> la próxima vez que entres.</p>
   <div class="caja azul"><b>Importante:</b> los avisos de mensajes nuevos no dependen de tener la app abierta: si los activaste en <b>Menú → App en el celular</b>, llegan igual con la app cerrada.</div>
+</section>
+
+<section class="capitulo" id="cidioma">
+  <h2>22. Atender clientes en otro idioma: bandera y traductor del chat <span class="nuevo">NUEVO</span></h2>
+  <p>WhatsApp Tukán reconoce solo, sin gastar, en qué idioma te escribe cada cliente: <b>español, inglés, portugués, francés o italiano</b> (por sus palabras y, si el mensaje es muy corto, por el código de país del número).</p>
+  <h3>Dónde ves el idioma</h3>
+  <ul>
+    <li><b>Chat:</b> arriba, junto al nombre, por ejemplo <b>🇬🇧 Habla inglés</b>.</li>
+    <li><b>Bandeja y lista de chats:</b> una banderita junto al nombre de quien no habla español. Si tienes clientes en varios idiomas aparece el filtro <b>Idioma</b> para ver, por ejemplo, solo a los que hablan inglés.</li>
+    <li><b>Contactos:</b> el idioma de cada uno (🇬🇧 EN) y el mismo filtro. Al <b>descargar los contactos para Excel</b> sale la columna <b>Idioma</b>.</li>
+    <li><b>Reportes:</b> <b>Conversaciones por idioma del cliente</b>: cuántas personas te escribieron en cada idioma en el período.</li>
+  </ul>
+  <h3>Cambiar el idioma a mano</h3>
+  <p>En la <b>ficha del cliente</b> (botón <i>Ficha</i> en el celular) está <b>Idioma del cliente</b>. Elige el idioma y queda <b>fijo</b>: ya no se cambia solo aunque escriba en otro. Para que vuelva a detectarse solo, elige <b>Detectar solo</b>.</p>
+  <h3>Traductor del chat <span class="chip">Extra de IA</span></h3>
+  <ol>
+    <li><b>Leer:</b> debajo de cada mensaje del cliente que no está en tu idioma aparece <b>Traducir</b>. Al tocarlo ves la traducción debajo. Queda guardada: la próxima vez sale al instante, sin volver a gastar.</li>
+    <li><b>Contestar:</b> si el cliente habla otro idioma, junto a la caja de respuesta aparece marcada la casilla <b>«Escribo en español, se envía en inglés»</b> (con el idioma de cada cliente). Escribe en tu idioma y toca <b>Enviar</b>.</li>
+    <li><b>Confirmar:</b> antes de enviar ves la traducción. Puedes corregirla y tocar <b>Enviar traducción</b>, volver a tu texto con <b>Editar</b> o mandar tu mensaje tal cual con <b>Enviar sin traducir</b>.</li>
+    <li>Al cliente le llega el mensaje en su idioma. En el chat, debajo, ves <b>«Escrito en español: …»</b> con lo que escribiste tú.</li>
+    <li><b>Respuestas rápidas:</b> elígelas como siempre; con la casilla marcada también se envían traducidas.</li>
+    <li><b>✨ Sugerir respuesta</b> propone la respuesta directamente en el idioma del cliente (no se vuelve a traducir) y <b>Resumir</b> te resume la conversación siempre en tu idioma.</li>
+  </ol>
+  <div class="caja">Tu idioma es el del panel (botón 🌐 arriba): si cambias el panel a inglés, el traductor te muestra todo en inglés. Si desmarcas la casilla en un chat, se recuerda para ese chat.</div>
+  <div class="caja azul">Sin el extra de IA ves igual el idioma de cada cliente; en lugar de los botones aparece <b>«Con el extra de IA traduces los mensajes con un toque»</b>. Pídelo a Tukán.</div>
 </section>
 
 <section class="cap" id="ctufactura">

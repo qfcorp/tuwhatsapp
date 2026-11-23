@@ -67,7 +67,16 @@ try {
             if (isset($d['etiquetas'])) {
                 \TuWhatsApp\Contactos::guardarEtiquetas(db(), (int) $linea['id'], (int) $c['id'], (string) $d['etiquetas']);
             }
-            responder(200, ['ok' => true, 'id' => (int) $c['id'], 'telefono' => $c['telefono'], 'tipo' => $c['tipo']]);
+            if (isset($d['idioma'])) {   // es, en, pt, fr, it (queda fijo) o "" para que se detecte solo
+                $idi = (string) $d['idioma'];
+                if ($idi !== '' && !isset(\TuWhatsApp\IdiomaCliente::IDIOMAS[$idi])) {
+                    throw new \RuntimeException('Idioma no válido (usa es, en, pt, fr o it)');
+                }
+                \TuWhatsApp\IdiomaCliente::fijar(db(), (int) $linea['id'], (int) $c['id'], $idi);
+                $c = \TuWhatsApp\Contactos::buscar(db(), (int) $linea['id'], (int) $c['id']) ?? $c;
+            }
+            responder(200, ['ok' => true, 'id' => (int) $c['id'], 'telefono' => $c['telefono'], 'tipo' => $c['tipo'],
+                            'idioma' => \TuWhatsApp\IdiomaCliente::de($c)]);
         default:
             responder(400, ['ok' => false, 'error' => 'Acción no válida (usa pendiente o contacto)']);
     }

@@ -2,18 +2,37 @@
 /** @var array $linea @var string $tipo @var string $buscar @var list<array> $contactos @var array $cuenta */
 use TuWhatsApp\Contactos;
 use TuWhatsApp\Telefono;
+use TuWhatsApp\IdiomaCliente;
+use TuWhatsApp\Traductor;
+/** @var string $idiomaF @var array<string,int> $porIdioma */
+$idiomaF ??= '';
+$porIdioma ??= [];
 ?>
 <div class="cabeza tk-titulo-pagina"><div class="titulo"><h1>Contactos</h1><?= ayuda_inicio() ?><b>Cliente</b>: puede recibir respuestas automáticas. <b>Personal</b> (familia, amigos): nunca se le contesta solo. <b>Desconocido</b>: alguien nuevo que todavía no clasificas.<?= ayuda_fin() ?></div></div>
 <nav class="pestanas" aria-label="Tipo">
-    <a href="<?= e(url('contactos', ['b' => $buscar ?: null])) ?>" class="<?= $tipo === '' ? 'activo' : '' ?>">Todos</a>
-    <a href="<?= e(url('contactos', ['t' => 'cliente', 'b' => $buscar ?: null])) ?>" class="<?= $tipo === 'cliente' ? 'activo' : '' ?>">Clientes (<?= (int) $cuenta['cliente'] ?>)</a>
-    <a href="<?= e(url('contactos', ['t' => 'desconocido', 'b' => $buscar ?: null])) ?>" class="<?= $tipo === 'desconocido' ? 'activo' : '' ?>">Desconocidos (<?= (int) $cuenta['desconocido'] ?>)</a>
-    <a href="<?= e(url('contactos', ['t' => 'personal', 'b' => $buscar ?: null])) ?>" class="<?= $tipo === 'personal' ? 'activo' : '' ?>">Personales (<?= (int) $cuenta['personal'] ?>)</a>
+    <a href="<?= e(url('contactos', ['b' => $buscar ?: null, 'i' => $idiomaF ?: null])) ?>" class="<?= $tipo === '' ? 'activo' : '' ?>">Todos</a>
+    <a href="<?= e(url('contactos', ['t' => 'cliente', 'b' => $buscar ?: null, 'i' => $idiomaF ?: null])) ?>" class="<?= $tipo === 'cliente' ? 'activo' : '' ?>">Clientes (<?= (int) $cuenta['cliente'] ?>)</a>
+    <a href="<?= e(url('contactos', ['t' => 'desconocido', 'b' => $buscar ?: null, 'i' => $idiomaF ?: null])) ?>" class="<?= $tipo === 'desconocido' ? 'activo' : '' ?>">Desconocidos (<?= (int) $cuenta['desconocido'] ?>)</a>
+    <a href="<?= e(url('contactos', ['t' => 'personal', 'b' => $buscar ?: null, 'i' => $idiomaF ?: null])) ?>" class="<?= $tipo === 'personal' ? 'activo' : '' ?>">Personales (<?= (int) $cuenta['personal'] ?>)</a>
 </nav>
 <form class="buscar" method="get">
     <input type="hidden" name="r" value="contactos"><input type="hidden" name="t" value="<?= e($tipo) ?>">
     <input type="search" name="b" value="<?= e($buscar) ?>" placeholder="Buscar nombre o número" aria-label="Buscar">
+    <?php if ($idiomaF !== ''): ?><input type="hidden" name="i" value="<?= e($idiomaF) ?>"><?php endif; ?>
 </form>
+<?php if (count($porIdioma) > 1 || $idiomaF !== ''): ?>
+<form class="filtro-idioma" method="get">
+    <input type="hidden" name="r" value="contactos"><input type="hidden" name="t" value="<?= e($tipo) ?>"><?php if ($buscar !== ''): ?><input type="hidden" name="b" value="<?= e($buscar) ?>"><?php endif; ?>
+    <label for="filtro-idioma">Idioma</label>
+    <select id="filtro-idioma" name="i" onchange="this.form.submit()">
+        <option value="">Todos los idiomas</option>
+        <?php foreach (IdiomaCliente::IDIOMAS as $k => $n): if (!isset($porIdioma[$k]) && $idiomaF !== $k) { continue; } ?>
+        <option value="<?= $k ?>" <?= $idiomaF === $k ? 'selected' : '' ?>><?= e(Traductor::etiqueta($k)) ?> · <?= (int) ($porIdioma[$k] ?? 0) ?></option>
+        <?php endforeach; ?>
+    </select>
+    <noscript><button class="enlace">Filtrar</button></noscript>
+</form>
+<?php endif; ?>
 
 <details class="tarjeta tk-tarjeta plegable">
     <summary>Agregar un contacto</summary>
@@ -103,7 +122,7 @@ use TuWhatsApp\Telefono;
     <li>
         <a href="<?= e(url('chat', ['c' => $c['id']])) ?>" class="lc-nombre">
             <b><?= u(Contactos::nombre($c)) ?></b>
-            <span class="suave"><?= e(Telefono::bonito($c['telefono'])) ?></span>
+            <span class="suave"><?= e(Telefono::bonito($c['telefono'])) ?><?php $ic = (string) ($c['idioma'] ?? ''); if ($ic !== '' && isset(IdiomaCliente::BANDERAS[$ic])): ?> · <span class="idioma-contacto" title="<?= e(Traductor::etiqueta($ic)) ?>"><?= IdiomaCliente::BANDERAS[$ic] ?> <?= strtoupper($ic) ?></span><?php endif; ?></span>
         </a>
         <form method="post" class="lc-tipo">
             <?= csrf_campo() ?><input type="hidden" name="accion" value="tipo"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">

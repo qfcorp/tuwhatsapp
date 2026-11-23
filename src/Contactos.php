@@ -185,10 +185,14 @@ final class Contactos
     }
 
     /** Conversaciones para la bandeja: el último mensaje de cada contacto, lo más nuevo arriba. */
-    public static function bandeja(PDO $db, int $lineaId, string $filtro = 'todos', string $buscar = '', int $limite = 100, ?int $usuarioId = null): array
+    public static function bandeja(PDO $db, int $lineaId, string $filtro = 'todos', string $buscar = '', int $limite = 100, ?int $usuarioId = null, string $idioma = ''): array
     {
         $donde = 'c.linea_id = :l';
         $p = ['l' => $lineaId];
+        if (isset(IdiomaCliente::IDIOMAS[$idioma])) {   // filtro por idioma del cliente (sin idioma guardado = español)
+            $donde .= " AND COALESCE(NULLIF(c.idioma, ''), 'es') = :idi";
+            $p['idi'] = $idioma;
+        }
         if (in_array($filtro, self::TIPOS, true)) {
             $donde .= ' AND c.tipo = :t';
             $p['t'] = $filtro;
@@ -223,10 +227,14 @@ final class Contactos
     }
 
     /** Todos los contactos (para la pantalla Contactos). */
-    public static function lista(PDO $db, int $lineaId, string $tipo = '', string $buscar = ''): array
+    public static function lista(PDO $db, int $lineaId, string $tipo = '', string $buscar = '', string $idioma = ''): array
     {
         $donde = 'linea_id = :l';
         $p = ['l' => $lineaId];
+        if (isset(IdiomaCliente::IDIOMAS[$idioma])) {
+            $donde .= " AND COALESCE(NULLIF(idioma, ''), 'es') = :idi";
+            $p['idi'] = $idioma;
+        }
         if (in_array($tipo, self::TIPOS, true)) {
             $donde .= ' AND tipo = :t';
             $p['t'] = $tipo;
@@ -240,6 +248,14 @@ final class Contactos
         $st = $db->prepare("SELECT * FROM contactos WHERE $donde ORDER BY tipo, lower(COALESCE(NULLIF(nombre, ''), nombre_whatsapp, telefono)) LIMIT 1000");
         $st->execute($p);
         return $st->fetchAll();
+    }
+
+    /** Cuántos contactos hay por idioma (para mostrar el filtro solo si hay clientes en otro idioma). @return array<string,int> */
+    public static function porIdioma(PDO $db, int $lineaId): array
+    {
+        $st = $db->prepare("SELECT COALESCE(NULLIF(idioma, ''), 'es') AS i, count(*) FROM contactos WHERE linea_id = ? GROUP BY 1 ORDER BY 2 DESC");
+        $st->execute([$lineaId]);
+        return array_map('intval', $st->fetchAll(PDO::FETCH_KEY_PAIR));
     }
 
     public static function contar(PDO $db, int $lineaId): array
