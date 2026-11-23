@@ -11,6 +11,8 @@ seguir() { CODIGO=$(curl -s -L -o "$P" -w '%{http_code}' -b "$J" -c "$J" "$W$1")
 csrf() { grep -o 'name="csrf" value="[^"]*"' "$P" | head -1 | sed 's/.*value="//;s/"$//'; }
 post() { local r="$1"; shift; CODIGO=$(curl -s -L -o "$P" -w '%{http_code}' -b "$J" -c "$J" --data-urlencode "csrf=$(csrf)" "$@" "$W$r"); }
 tiene() { grep -q -- "$1" "$P"; }
+# Ningún <textarea> ni <input> de la página tiene marcas <!--notr--> (el navegador las manda como texto al guardar)
+sin_notr_en_campos() { php -r '$h = file_get_contents($argv[1]); preg_match_all("~<textarea.*?</textarea>|<input\\b[^>]*>~s", $h, $m); foreach ($m[0] as $x) { if (str_contains($x, "notr")) { exit(1); } } exit(0);' "$P"; }
 firmar() { printf '%s' "$1" | openssl dgst -sha256 -hmac secreto_de_prueba | sed 's/^.* //'; }
 webhook() { curl -s -o /dev/null -w '%{http_code}' -H "Content-Type: application/json" -H "X-Hub-Signature-256: sha256=$(firmar "$1")" --data-binary "$1" "$W/webhook.php"; }
 
@@ -178,6 +180,8 @@ post "/?r=reglas" --data-urlencode "auto_activo=1" --data-urlencode "regla_solo_
    --data-urlencode "tr[en][palabras]=price, pricing" \
    $(for d in 1 2 3 4 5 6 7; do printf -- '--data-urlencode abre[%s]=08:00 --data-urlencode cierra[%s]=18:00 ' $d $d; done)
 ok 'tiene "Reglas guardadas" && tiene "Hi, thanks for writing to Tukán:" && tiene "(traducido)"' "guardar la traducción al inglés escrita a mano"
+ok 'sin_notr_en_campos' "ningún textarea ni campo de Automático trae marcas <!--notr--> (se guardarían como texto)"
+ok '! PGPASSWORD="${PGPASSWORD:-}" psql -tAc "SELECT traducciones FROM lineas" -d "${TUWA_DB_PRUEBA:-tuwhatsapp_prueba}" | grep -q notr' "las traducciones guardadas no tienen marcas <!--notr-->"
 get "/?r=reglas&p_texto=how%20much%20is%20the%20price&p_tipo=cliente&p_idioma=en&p_ya=0&p_dia=2&p_hora=10:00"
 ok 'tiene "Sí se contesta solo" && tiene "(en English)" && tiene "1. Prices" && tiene "2. Persona"' "probador: cliente en inglés recibe el menú en inglés (lo que falta, en español)"
 get "/?r=reglas&p_texto=Prices&p_tipo=cliente&p_idioma=en&p_ya=0&p_dia=2&p_hora=10:00"
@@ -910,9 +914,9 @@ FL=$(grep -o 'name="csrf"' "$P" | head -1 >/dev/null; PGPASSWORD="${PGPASSWORD:-
 post "/?r=flujo&id=$FL" --data-urlencode "accion=probar" --data-urlencode "entradas=$(printf 'hola\n2')"
 ok 'tiene "Soy el asistente de Tukán ventas" && tiene "en un momento te atiende una persona" && tiene "Aquí pasa a una persona"' "probar el chatbot sin mandar nada"
 get "/?r=flujo&id=$FL"
-ok 'tiene "En otros idiomas" && tiene "Hi! 👋 I&#039;m the assistant of {negocio}" && tiene "See products"' "el chatbot de ejemplo ya viene en inglés (editable)"
-post "/?r=flujo&id=$FL" --data-urlencode "accion=probar" --data-urlencode "p_idioma=en" --data-urlencode "entradas=$(printf 'hello\nTalk to someone')"
-ok 'tiene "the assistant of Tukán ventas" && tiene "someone from our team will be with you shortly" && tiene "Aquí pasa a una persona"' "probar el chatbot como un cliente en inglés"
+ok 'tiene "En otros idiomas" && tiene "(sale en español)" && sin_notr_en_campos' "el chatbot de ejemplo viene sin traducciones (se escriben o se traducen cuando está listo) y sin marcas en los campos"
+post "/?r=flujo&id=$FL" --data-urlencode "accion=probar" --data-urlencode "p_idioma=en" --data-urlencode "entradas=$(printf 'hola\n2')"
+ok 'tiene "Soy el asistente de Tukán ventas" && tiene "Aquí pasa a una persona"' "probar como cliente en inglés sin traducción: sale en español"
 post "/?r=flujo&id=$FL" --data-urlencode "accion=agregar_paso" --data-urlencode "nombre=Bienvenida" --data-urlencode "disparador=palabras" --data-urlencode "palabras=hola, info" \
      --data-urlencode "paso[0][id]=p1" --data-urlencode "paso[0][tipo]=botones" --data-urlencode "paso[0][texto]=¿En qué te ayudo?" \
      --data-urlencode "paso[0][op_titulo][0]=Precios" --data-urlencode "paso[0][op_ir][0]=p2" --data-urlencode "paso[0][op_titulo][1]=Asesor" --data-urlencode "paso[0][op_ir][1]=p3" \

@@ -73,7 +73,25 @@ final class Traducir
     public static function datos(array $fila): array
     {
         $d = json_decode((string) ($fila['traducciones'] ?? '{}'), true);
-        return is_array($d) ? $d : [];
+        if (!is_array($d)) {
+            return [];
+        }
+        array_walk_recursive($d, function (&$v): void {   // por si quedó alguna marca vieja <!--notr--> guardada
+            if (is_string($v) && str_contains($v, 'notr-->')) {
+                $v = self::texto($v, 100000);
+            }
+        });
+        return $d;
+    }
+
+    /**
+     * Texto escrito en el editor, limpio: sin las marcas <!--notr--> del traductor del panel (un textarea viejo las
+     * mandaba como texto), sin espacios de más y recortado. Lo que queda vacío = sin traducción (sale en español).
+     */
+    public static function texto(mixed $v, int $max): string
+    {
+        $t = (string) preg_replace('~<!--\s*/?\s*notr\s*-->~iu', '', is_scalar($v) ? (string) $v : '');
+        return mb_substr(trim($t), 0, $max);
     }
 
     public static function saludo(array $linea, string $idioma): string
@@ -121,10 +139,9 @@ final class Traducir
      */
     public static function palabrasNegocio(array $linea, string $idioma = 'es'): array
     {
-        $r = Reglas::listaPalabras((string) ($linea['palabras'] ?? ''));
-        $tr = self::datos($linea);
-        foreach (self::OTROS as $l) {
-            $r = array_merge($r, Reglas::listaPalabras((string) ($tr[$l]['palabras'] ?? '')));
+        $r = Reglas::listaPalabras((string) ($linea['palabras'] ?? ''));   // las del español valen para todos
+        if ($idioma !== 'es') {   // las de otro idioma, solo para clientes de ese idioma
+            $r = array_merge($r, Reglas::listaPalabras((string) (self::datos($linea)[$idioma]['palabras'] ?? '')));
         }
         if ($r && $idioma !== 'es' && self::idiomaAuto($linea)) {   // si el negocio no usa palabras, no se inventan
             $r = array_merge($r, self::PALABRAS_BASE[$idioma] ?? []);
@@ -172,13 +189,12 @@ final class Traducir
         return $r;
     }
 
-    /** Palabras que activan el chatbot, en todos los idiomas. */
-    public static function palabrasFlujo(array $flujo): array
+    /** Palabras que activan el chatbot: las del español (para todos) + las del idioma del cliente. */
+    public static function palabrasFlujo(array $flujo, string $idioma = 'es'): array
     {
         $r = Reglas::listaPalabras((string) ($flujo['palabras'] ?? ''));
-        $tr = self::datos($flujo);
-        foreach (self::OTROS as $l) {
-            $r = array_merge($r, Reglas::listaPalabras((string) ($tr[$l]['palabras'] ?? '')));
+        if ($idioma !== 'es') {
+            $r = array_merge($r, Reglas::listaPalabras((string) (self::datos($flujo)[$idioma]['palabras'] ?? '')));
         }
         return array_values(array_unique($r));
     }
@@ -196,18 +212,21 @@ final class Traducir
             $x = (array) ($tr[$l] ?? []);
             $ops = [];
             foreach ($mapa as $i => $nuevo) {
-                $ops[$nuevo] = ['titulo' => mb_substr(trim((string) ($x['op_titulo'][$i] ?? '')), 0, 60),
-                                'respuesta' => mb_substr(trim((string) ($x['op_respuesta'][$i] ?? '')), 0, 1000)];
+                $ops[$nuevo] = ['titulo' => self::texto($x['op_titulo'][$i] ?? '', 60), 'respuesta' => self::texto($x['op_respuesta'][$i] ?? '', 1000)];
             }
             ksort($ops);
-            $r[$l] = ['saludo' => mb_substr(trim((string) ($x['saludo'] ?? '')), 0, 1000), 'opciones' => array_values($ops),
-                      'palabras' => implode(', ', Reglas::listaPalabras((string) ($x['palabras'] ?? '')))];
+            $r[$l] = ['saludo' => self::texto($x['saludo'] ?? '', 1000), 'opciones' => array_values($ops),
+                      'palabras' => implode(', ', Reglas::listaPalabras(self::texto($x['palabras'] ?? '', 2000)))];
         }
         return $r;
     }
 
-    /** Limpia las traducciones de un chatbot: $tr[idioma] = [palabras, paso[id] = [texto, op[k]]]. Solo pasos que existen. */
-    public static function limpiarFlujo(array $tr, array $pasos): array
+    /**
+     * Limpia las traducciones de un chatbot: $tr[idioma] = [palabras, paso[id] = [texto, op[k]]]. Van por el id del paso
+     * (borrar o mover pasos no las desordena) y, en cada paso, por la opción: $mapaOps[id][k del formulario] = índice guardado
+     * (como el $mapa del menú). Sin $mapaOps (traducción con IA) el índice es el mismo.
+     */
+    public static function limpiarFlujo(array $tr, array $pasos, ?array $mapaOps = null): array
     {
         $r = [];
         foreach (self::OTROS as $l) {
@@ -216,13 +235,17 @@ final class Traducir
             foreach ($pasos as $p) {
                 $id = (string) $p['id'];
                 $y = (array) ($x['paso'][$id] ?? $x['pasos'][$id] ?? []);
-                $ops = [];
-                foreach (array_keys($p['opciones'] ?? []) as $k) {
-                    $ops[] = mb_substr(trim((string) ($y['op'][$k] ?? $y['opciones'][$k] ?? '')), 0, 24);
+                $fuente = (array) ($y['op'] ?? $y['opciones'] ?? []);
+                $mapa = $mapaOps !== null ? (array) ($mapaOps[$id] ?? []) : array_combine(array_keys($p['opciones'] ?? []), array_keys($p['opciones'] ?? []));
+                $ops = array_fill(0, count($p['opciones'] ?? []), '');
+                foreach ($mapa as $k => $nuevo) {
+                    if (isset($ops[$nuevo])) {
+                        $ops[$nuevo] = self::texto($fuente[$k] ?? '', 24);
+                    }
                 }
-                $ps[$id] = ['texto' => mb_substr(trim((string) ($y['texto'] ?? '')), 0, 1000), 'opciones' => $ops];
+                $ps[$id] = ['texto' => self::texto($y['texto'] ?? '', 1000), 'opciones' => $ops];
             }
-            $r[$l] = ['palabras' => implode(', ', Reglas::listaPalabras((string) ($x['palabras'] ?? ''))), 'pasos' => $ps];
+            $r[$l] = ['palabras' => implode(', ', Reglas::listaPalabras(self::texto($x['palabras'] ?? '', 2000))), 'pasos' => $ps];
         }
         return $r;
     }

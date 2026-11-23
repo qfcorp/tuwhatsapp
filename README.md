@@ -78,7 +78,7 @@ Los precios están en `src/Modulos.php` (PLANES y PRECIOS) y se cambian ahí. La
 - **Traductor del chat** (23 nov 2026): **Traducir** debajo de cada mensaje del cliente que no está en el idioma del panel (la traducción se guarda en `mensajes.traduccion`: no se paga dos veces) y la casilla **«Escribo en español, se envía en inglés»** junto a la caja (marcada sola si el cliente habla otro idioma; se recuerda por chat). Antes de enviar muestra la traducción: **Enviar traducción / Editar / Enviar sin traducir**; el texto original queda en `mensajes.original` y se ve en el chat («Escrito en español: …»). Vale también para las respuestas rápidas. **Sugerir respuesta** propone en el idioma del cliente y **Resumir** siempre en el del panel. Sin el extra: se ve el idioma, y en vez de los botones «Con el extra de IA traduces los mensajes con un toque». Código: `src/Traductor.php` (marca `TRADUCTOR_TUKAN_CHAT`, misma IA compartida y tope por cuenta).
 
 ### Idioma del cliente (todos los planes, sin IA)
-- Se detecta solo con cada mensaje (`src/IdiomaCliente.php`: es, en, pt, fr, it; por palabras y, si es muy corto, por el código de país) y se guarda en `contactos.idioma`.
+- Se detecta solo con cada mensaje (`src/IdiomaCliente.php`: es, en, pt, fr, it; por palabras; el código de país solo desempata; sin idioma guardado = español) y se guarda en `contactos.idioma`.
 - Bandera e idioma en la cabecera del chat («🇬🇧 Habla inglés»), banderita en la bandeja y en la lista de chats (si no es español), filtro **Idioma** en la Bandeja y en Contactos (solo si hay clientes en más de un idioma).
 - Ficha del cliente → **Idioma del cliente**: elegirlo a mano lo deja fijo (`contactos.idioma_fijo`); **Detectar solo** lo vuelve automático.
 - Reportes → **Conversaciones por idioma del cliente**. Descarga de contactos con la columna **Idioma** (al final). Los avisos a tu sistema (webhook) traen `contacto.idioma`.
@@ -157,7 +157,9 @@ También aparece en la pantalla de entrar y en las páginas públicas.
 
 Todo lo que contesta solo le habla al cliente **en su idioma** (español, inglés, portugués, francés o italiano).
 
-- El idioma se detecta **sin IA** (`src/IdiomaCliente.php`: palabras del mensaje + código de país) y queda en `contactos.idioma`.
+- El idioma se detecta **sin IA** (`src/IdiomaCliente.php`) solo con texto escrito por el cliente (no botones, archivos ni datos que pide un chatbot).
+  El texto en español manda; el código de país solo desempata (Caribe hispano = español); cambiar un idioma guardado pide 2 palabras propias.
+  Queda en `contactos.idioma` (vacío = español). Pruebas: `php tests/prueba_idioma_cliente.php` (≈170 mensajes reales).
 - **Menú** (Automático) y **chatbots**: el texto en español es el de siempre; la traducción por idioma va en `lineas.traducciones` / `flujos.traducciones` (JSON).
   Al contestar: texto del idioma → si falta, español (`src/Traducir.php`). Opciones, botones y palabras clave se reconocen en todos los idiomas.
 - **Traducir automáticamente** (botón 🌐, solo con el extra `ia`): una llamada a la IA compartida traduce todo y lo deja editable. Al contestar **no se gasta IA**.

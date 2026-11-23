@@ -883,3 +883,7 @@ ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS traduccion text NOT NULL DEFAULT '
 ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS traduccion_idioma text NOT NULL DEFAULT '';
 ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS original text NOT NULL DEFAULT '';
 ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS original_idioma text NOT NULL DEFAULT '';
+-- (23 nov 2026, revisión) Un textarea viejo mandaba las marcas <!--notr--><!--/notr--> como texto y quedaban guardadas en las
+-- traducciones (al cliente le llegaban como saludo). Se borran (en JSON la barra puede venir como \/). Idempotente.
+UPDATE lineas SET traducciones = regexp_replace(traducciones, '<!--\\?/?notr-->', '', 'g') WHERE traducciones LIKE '%notr-->%';
+UPDATE flujos SET traducciones = regexp_replace(traducciones, '<!--\\?/?notr-->', '', 'g') WHERE traducciones LIKE '%notr-->%';

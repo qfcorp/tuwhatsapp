@@ -3231,12 +3231,14 @@ igual(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'es'], 'prices', $h
 $d2 = Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'en'], '2', $hoyM, 0);
 igual([$d2['texto'], $d2['humano']], ['Ya te atienden.', true], 'opción sin traducir: sale en español');
 ok(!Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'es'], 'how much', $hoyM, 0)['responder'], 'las palabras de base en inglés no cambian el filtro de un cliente en español');
-ok(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'es'], 'pricing please', $hoyM, 0)['responder'], 'las palabras traducidas por el negocio valen siempre');
+ok(!Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'es'], 'pricing please', $hoyM, 0)['responder'], 'las palabras traducidas al inglés no valen para un cliente en español');
+ok(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'en'], 'pricing please', $hoyM, 0)['responder'], 'las palabras traducidas al inglés valen para un cliente en inglés');
+ok(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'en'], 'precio', $hoyM, 0)['responder'], 'las palabras en español valen para todos');
 ok(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'fr'], 'quel est le prix', $hoyM, 0)['responder'], 'palabras de base en francés');
 igual(Reglas::decidir(array_merge($lm, ['idioma_auto' => false]), ['tipo' => 'cliente', 'idioma' => 'en'], 'precio', $hoyM, 0)['saludo'], 'Hola, elige una opción:', 'apagado "contestar en el idioma del cliente": todo en español');
 igual(Reglas::decidir(array_merge($lm, ['idiomas' => 'es,pt']), ['tipo' => 'cliente', 'idioma' => 'en'], 'precio', $hoyM, 0)['saludo'], 'Hola, elige una opción:', 'idioma no marcado: español');
 igual(Reglas::decidir($lm, ['tipo' => 'cliente', 'idioma' => 'pt'], 'qual o preço', $hoyM, 0)['saludo'], 'Hola, elige una opción:', 'idioma sin traducción: el saludo sale en español');
-igual(Reglas::decidir($lm, ['tipo' => 'cliente', 'telefono' => '14155550100'], 'precio', $hoyM, 0)['idioma'], 'en', 'sin idioma guardado: el del código de país (+1)');
+igual(Reglas::decidir($lm, ['tipo' => 'cliente', 'telefono' => '14155550100'], 'precio', $hoyM, 0)['idioma'], 'es', 'sin idioma guardado: español (el +1 no impone idioma)');
 igual(Reglas::textoMenu($lm, 'en'), "Hi, choose an option:\n1. Prices\n2. Hablar con alguien", 'texto del menú en inglés');
 igual($TR::limpiarLinea(['en' => ['saludo' => ' Hi ', 'op_titulo' => [0 => 'A', 2 => 'C'], 'op_respuesta' => [0 => 'a', 2 => 'c'], 'palabras' => 'Price;  COST']], [0 => 0, 2 => 1])['en'],
       ['saludo' => 'Hi', 'opciones' => [['titulo' => 'A', 'respuesta' => 'a'], ['titulo' => 'C', 'respuesta' => 'c']], 'palabras' => 'price, cost'], 'traducciones del formulario: limpias y alineadas con las opciones guardadas');
@@ -3249,7 +3251,7 @@ $fI = ['id' => 9, 'palabras' => 'ropa', 'pasos' => json_encode($pasosI), 'traduc
 $pEn = $TR::pasos($fI, 'en');
 igual([$pEn[0]['texto'], array_column($pEn[0]['opciones'], 'titulo'), $pEn[0]['opciones'][0]['ir_a'], $pEn[2]['texto']],
       ['What are you looking for?', ['Clothes', 'Shoes'], 'p2', 'Gracias.'], 'pasos en inglés (los destinos no cambian; lo vacío en español)');
-igual($TR::palabrasFlujo($fI), ['ropa', 'clothes'], 'palabras del chatbot en todos los idiomas');
+igual([$TR::palabrasFlujo($fI), $TR::palabrasFlujo($fI, 'en'), $TR::palabrasFlujo($fI, 'fr')], [['ropa'], ['ropa', 'clothes'], ['ropa']], 'palabras del chatbot: las del español para todos, las del inglés solo para clientes en inglés');
 $x = Flujos::avanzar(9, $pEn, 'p1', 'nada que ver', '', null, '', 'en');
 igual($x['salidas'][0]['texto'] ?? '', 'Please choose one of the options 👇', 'no eligió una opción: se lo pide en inglés');
 $x = Flujos::avanzar(9, $pEn, 'p1', 'Zapatos', '', null, '', 'en');
@@ -3312,10 +3314,16 @@ limpiarSim();
 $whI->procesar($entI('593981000300', 'Hola, ¿cuál es el precio?', 'wamid.ID3'));
 igual($salidasI()[0]['cuerpo']['interactive']['body']['text'] ?? null, 'Hola 👋 ¿En qué te ayudo?', 'un cliente en español sigue recibiendo el menú en español');
 
-// Chatbot de ejemplo: ya viene en inglés
+// Chatbot de ejemplo: viene sin traducciones (no quedan desfasadas); el negocio escribe la del inglés en el editor
 $fE = Flujos::crear($db, $lI, 'Welcome', 'palabras', 'hola, info');
-$db->exec("UPDATE flujos SET activo = true WHERE id = $fE");
-igual(Traducir::palabrasFlujo(Flujos::buscar($db, $lI, $fE)), ['hola', 'info', 'hello', 'hi'], 'el chatbot de ejemplo trae palabras en inglés');
+igual([Traducir::datos(Flujos::buscar($db, $lI, $fE)), Traducir::palabrasFlujo(Flujos::buscar($db, $lI, $fE), 'en')], [[], ['hola', 'info']], 'el chatbot de ejemplo viene sin traducciones ni palabras en otros idiomas');
+$pasosE = Flujos::pasos(Flujos::buscar($db, $lI, $fE));
+Flujos::guardar($db, $lI, $fE, ['nombre' => 'Welcome', 'disparador' => 'palabras', 'palabras' => 'hola, info', 'activo' => '1',
+    'paso' => array_map(fn ($x) => $x + ['op_titulo' => array_column($x['opciones'] ?? [], 'titulo'), 'op_ir' => array_column($x['opciones'] ?? [], 'ir_a')], $pasosE),
+    'tr_form' => '1', 'tr' => ['en' => ['palabras' => 'hello, hi', 'paso' => [
+        'p1' => ['texto' => "Hi! 👋 I'm the assistant of {negocio}. How can I help you?", 'op' => ['See products', 'Talk to someone']],
+        'p2' => ['texto' => 'Type "catalog" or tell me what you need.'],
+        'p3' => ['texto' => 'Great, someone from our team will be with you shortly.']]]]]);
 limpiarSim();
 $whI->procesar($entI('14155550199', 'hello there', 'wamid.ID4'));
 $sI = $salidasI();
@@ -3360,6 +3368,48 @@ $pb = Bot::probar($db, $lineaI, [], 'Hello, do you ship to Quito?', 'en');
 igual($pb['respuesta'] ?? '', 'Hi! Happy to help. What are you looking for?', '"Pruébalo aquí": el agente recibe el idioma del cliente y contesta en inglés');
 $pedIa = array_values(array_filter(sim(), fn ($r) => ($r['ruta'] ?? '') === '/v1/messages'));
 ok(str_contains((string) json_encode(end($pedIa)['cuerpo'] ?? [], JSON_UNESCAPED_UNICODE), 'IDIOMA DEL CLIENTE: English'), 'al agente se le dice el idioma del cliente en sus instrucciones');
+
+echo "== Idioma del cliente: revisión (marcas viejas, botones, datos del chatbot)\n";
+$basuraJ = '<!--notr--><!--\/notr-->';
+$db->prepare('UPDATE lineas SET traducciones = ? WHERE id = ?')->execute(['{"en":{"saludo":"' . $basuraJ . '","opciones":[{"titulo":"","respuesta":"' . $basuraJ . 'Hi' . '"}],"palabras":"' . $basuraJ . '"}}', $lI]);
+preg_match_all('/^UPDATE (lineas|flujos) SET traducciones = regexp_replace.*$/m', file_get_contents(dirname(__DIR__) . '/db/schema.sql'), $mig);
+igual(count($mig[0]), 2, 'schema.sql trae la limpieza de marcas para líneas y chatbots');
+foreach ($mig[0] as $q) {
+    $db->exec($q);
+    $db->exec($q);   // idempotente
+}
+igual(json_decode((string) $db->query("SELECT traducciones FROM lineas WHERE id = $lI")->fetchColumn(), true)['en'], ['saludo' => '', 'opciones' => [['titulo' => '', 'respuesta' => 'Hi']], 'palabras' => ''], 'la migración borra las marcas ya guardadas');
+Lineas::guardarReglas($db, $lI, array_merge($formI, ['tr' => ['en' => ['saludo' => '<!--notr-->Hi<!--/notr-->', 'op_titulo' => ['<!--notr--><!--/notr-->', '', 'Shipping'], 'op_respuesta' => ['<!--notr--><!--/notr-->', '', 'Nationwide.'], 'palabras' => '<!--notr--><!--/notr-->']]]));
+$trG = Traducir::datos(Lineas::buscar($db, $lI));
+ok(!str_contains((string) $db->query("SELECT traducciones FROM lineas WHERE id = $lI")->fetchColumn(), 'notr') && $trG['en']['saludo'] === 'Hi' && $trG['en']['opciones'][0] === ['titulo' => '', 'respuesta' => ''],
+   'guardar desde el navegador nunca deja marcas <!--notr--> en las traducciones');
+// Botón tocado, foto con texto y dato pedido por el chatbot: no cambian el idioma guardado
+$cB = Contactos::guardar($db, $lI, '0981000400', 'Bea', 'cliente');
+$db->exec("UPDATE contactos SET idioma = 'es' WHERE id = {$cB['id']}");
+$entIx = fn (string $de, array $msg, string $w) => cuerpoMeta(['messaging_product' => 'whatsapp', 'metadata' => ['phone_number_id' => '410'],
+    'contacts' => [['profile' => ['name' => 'Bea'], 'wa_id' => $de]], 'messages' => [['from' => $de, 'id' => $w, 'timestamp' => (string) $hoyM->getTimestamp()] + $msg]]);
+$whI->procesar($entIx('593981000400', ['type' => 'interactive', 'interactive' => ['type' => 'button_reply', 'button_reply' => ['id' => 'op9', 'title' => 'Help desk and shipping info']]], 'wamid.RV1'));
+$whI->procesar($entIx('593981000400', ['type' => 'button', 'button' => ['text' => 'Yes I want it please', 'payload' => 'x']], 'wamid.RV2'));
+$whI->procesar($entIx('593981000400', ['type' => 'image', 'image' => ['id' => 'm1', 'mime_type' => 'image/jpeg', 'caption' => 'Hello, how much is this one?']], 'wamid.RV3'));
+igual(Contactos::porTelefono($db, $lI, '593981000400')['idioma'], 'es', 'botones tocados, plantillas y fotos con texto en inglés no cambian el idioma');
+$fQ = Flujos::crear($db, $lI, 'Datos', 'palabras', 'registro');
+Flujos::guardar($db, $lI, $fQ, ['nombre' => 'Datos', 'disparador' => 'palabras', 'palabras' => 'registro', 'activo' => '1',
+    'paso' => [['id' => 'p1', 'tipo' => 'pregunta', 'texto' => '¿Tu nombre completo?', 'guardar' => 'nombre'], ['id' => 'p2', 'tipo' => 'fin', 'texto' => 'Gracias']]]);
+$whI->procesar($entI('593981000400', 'registro', 'wamid.RV4'));
+ok(Flujos::esperaDato($db, $lineaI, Contactos::porTelefono($db, $lI, '593981000400'), $hoyM), 'el chatbot espera un dato');
+$whI->procesar($entI('593981000400', 'John Thomas Smith the third', 'wamid.RV5'));
+$cB = Contactos::porTelefono($db, $lI, '593981000400');
+igual([$cB['idioma'], $cB['nombre']], ['es', 'John Thomas Smith the third'], 'el dato que pide el chatbot (un nombre) no cambia el idioma');
+$db->exec("UPDATE flujos SET activo = false WHERE id = $fQ");
+// Chatbot: borrar una opción no desalinea las traducciones
+$fA = Flujos::crear($db, $lI, 'Alinear', 'palabras', 'alinear');
+Flujos::guardar($db, $lI, $fA, ['nombre' => 'Alinear', 'disparador' => 'palabras', 'palabras' => 'alinear', 'activo' => '',
+    'paso' => [['id' => 'p1', 'tipo' => 'botones', 'texto' => 'Elige', 'op_titulo' => ['Ropa', '', 'Zapatos'], 'op_ir' => ['', '', ''], 'borrar' => ''],
+               ['id' => 'p2', 'tipo' => 'fin', 'texto' => 'Fin', 'borrar' => '1']],
+    'tr_form' => '1', 'tr' => ['en' => ['paso' => ['p1' => ['texto' => 'Choose', 'op' => ['Clothes', 'nada', 'Shoes']], 'p2' => ['texto' => 'End']]]]]);
+$trA = Traducir::datos(Flujos::buscar($db, $lI, $fA));
+igual([$trA['en']['pasos']['p1']['opciones'], isset($trA['en']['pasos']['p2'])], [['Clothes', 'Shoes'], false], 'opción vacía y paso borrado: cada traducción sigue con su opción');
+igual(array_column(Traducir::pasos(Flujos::buscar($db, $lI, $fA), 'en')[0]['opciones'], 'titulo'), ['Clothes', 'Shoes'], '…y así le llega al cliente');
 
 echo "\nResultado: $bien bien, $mal mal\n";
 echo $mal === 0 ? "TODO BIEN\n" : "HAY FALLAS\n";

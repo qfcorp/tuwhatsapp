@@ -66,15 +66,11 @@ final class Flujos
             ['id' => 'p2', 'tipo' => 'fin', 'texto' => 'Escribe "catálogo" o dime qué buscas y te ayudo.'],
             ['id' => 'p3', 'tipo' => 'persona', 'texto' => 'Perfecto, en un momento te atiende una persona del equipo.'],
         ];
-        // (23 nov 2026) El ejemplo también en inglés, para que se vea cómo contesta a un cliente que escribe en inglés
-        $ingles = ['en' => ['palabras' => 'hello, hi, info', 'pasos' => [
-            'p1' => ['texto' => "Hi! 👋 I'm the assistant of {negocio}. How can I help you?", 'opciones' => ['See products', 'Talk to someone']],
-            'p2' => ['texto' => 'Type "catalog" or tell me what you are looking for and I will help you.', 'opciones' => []],
-            'p3' => ['texto' => 'Great, someone from our team will be with you shortly.', 'opciones' => []],
-        ]]];
-        $st = $db->prepare('INSERT INTO flujos (linea_id, nombre, disparador, palabras, pasos, traducciones) VALUES (?, ?, ?, ?, ?, ?) RETURNING id');
+        // Sin traducciones: si el negocio cambia el español, una traducción hecha de antemano quedaría desfasada.
+        // Las traducciones se escriben (o se traducen con IA) cuando el chatbot ya está listo.
+        $st = $db->prepare('INSERT INTO flujos (linea_id, nombre, disparador, palabras, pasos) VALUES (?, ?, ?, ?, ?) RETURNING id');
         $st->execute([$lineaId, mb_substr($nombre, 0, 80), in_array($disparador, ['palabras', 'nuevo'], true) ? $disparador : 'palabras',
-                      implode(', ', Reglas::listaPalabras($palabras)), json_encode($ejemplo, JSON_UNESCAPED_UNICODE), json_encode($ingles, JSON_UNESCAPED_UNICODE)]);
+                      implode(', ', Reglas::listaPalabras($palabras)), json_encode($ejemplo, JSON_UNESCAPED_UNICODE)]);
         return (int) $st->fetchColumn();
     }
 
@@ -91,7 +87,8 @@ final class Flujos
         $disparador = in_array($d['disparador'] ?? '', ['palabras', 'nuevo'], true) ? (string) $d['disparador'] : 'palabras';
         $palabras = implode(', ', Reglas::listaPalabras((string) ($d['palabras'] ?? '')));
         $activo = !empty($d['activo']);
-        $pasos = self::limpiarPasos((array) ($d['paso'] ?? []), $camposValidos, $activo);
+        $mapaOps = [];   // por paso: índice de la opción en el formulario -> índice guardado (para alinear las traducciones)
+        $pasos = self::limpiarPasos((array) ($d['paso'] ?? []), $camposValidos, $activo, $mapaOps);
         if ($nombre === '') {
             throw new RuntimeException('Escribe un nombre para el chatbot.');
         }
@@ -105,7 +102,7 @@ final class Flujos
            ->execute([mb_substr($nombre, 0, 80), $disparador, $palabras, json_encode($pasos, JSON_UNESCAPED_UNICODE), $activo ? 't' : 'f', $id, $lineaId]);
         if (isset($d['tr_form'])) {   // (23 nov 2026) traducciones escritas a mano en el editor
             $db->prepare('UPDATE flujos SET traducciones = ? WHERE id = ? AND linea_id = ?')
-               ->execute([json_encode(Traducir::limpiarFlujo((array) ($d['tr'] ?? []), $pasos), JSON_UNESCAPED_UNICODE), $id, $lineaId]);
+               ->execute([json_encode(Traducir::limpiarFlujo((array) ($d['tr'] ?? []), $pasos, $mapaOps), JSON_UNESCAPED_UNICODE), $id, $lineaId]);
         }
     }
 
@@ -113,8 +110,9 @@ final class Flujos
      * Valida los pasos del editor y los deja limpios. Lanza errores claros (en qué paso está el problema).
      * $estricto (chatbot encendido): cada paso necesita su mensaje y cada pregunta con botones, al menos una opción.
      */
-    public static function limpiarPasos(array $crudos, array $camposValidos = [], bool $estricto = true): array
+    public static function limpiarPasos(array $crudos, array $camposValidos = [], bool $estricto = true, ?array &$mapaOps = null): array
     {
+        $mapaOps = [];
         $pasos = [];
         $ids = [];
         foreach (array_values($crudos) as $p) {
@@ -145,6 +143,9 @@ final class Flujos
                         continue;
                     }
                     $ir = (string) ($p['op_ir'][$k] ?? '');
+                    if (count($ops) < 10) {
+                        $mapaOps[$id][$k] = count($ops);
+                    }
                     $ops[] = ['titulo' => mb_substr($t, 0, 24), 'ir_a' => $ir === 'fin' || preg_match('/^p\d{1,4}$/', $ir) ? $ir : ''];
                 }
                 $paso['opciones'] = array_slice($ops, 0, 10);
@@ -326,6 +327,7 @@ final class Flujos
     public static function responder(PDO $db, array $linea, array $contacto, string $texto, string $idBoton, DateTimeImmutable $ahora, bool $primerMensaje): ?array
     {
         $lid = (int) $linea['id'];
+        $idioma = Traducir::idiomaPara($linea, $contacto);   // (23 nov 2026) contesta en el idioma del cliente
         $flujo = null;
         $esperando = null;
         if (!empty($contacto['flujo_id']) && !empty($contacto['flujo_hasta']) && new DateTimeImmutable($contacto['flujo_hasta']) > $ahora) {
@@ -348,7 +350,7 @@ final class Flujos
                     continue;
                 }
                 if (($f['disparador'] === 'nuevo' && $primerMensaje)
-                    || ($f['disparador'] === 'palabras' && Reglas::tienePalabra($texto, Traducir::palabrasFlujo($f)))) {   // palabras en todos los idiomas
+                    || ($f['disparador'] === 'palabras' && Reglas::tienePalabra($texto, Traducir::palabrasFlujo($f, $idioma)))) {   // las del español + las de su idioma
                     $flujo = $f;
                     $db->prepare('UPDATE flujos SET usos = usos + 1 WHERE id = ?')->execute([$f['id']]);
                     break;
@@ -362,7 +364,6 @@ final class Flujos
         foreach (Campos::lista($db, $lid) as $c) {
             $campos[$c['clave']] = $c;
         }
-        $idioma = Traducir::idiomaPara($linea, $contacto);   // (23 nov 2026) contesta en el idioma del cliente
         $validar = function (string $guardar, string $valor) use ($campos, $idioma): ?string {
             if ($guardar === 'correo' && !filter_var($valor, FILTER_VALIDATE_EMAIL)) {
                 return FrasesCliente::t('correo_mal', $idioma);
@@ -422,6 +423,22 @@ final class Flujos
         return ['enviados' => $enviados, 'persona' => $r['persona'],
                 'motivo' => 'Chatbot "' . $flujo['nombre'] . '"' . ($r['persona'] ? ': pasó a una persona' : ($r['esperando'] !== null ? ': esperando respuesta' : ': terminó'))
                             . ($idioma !== 'es' && isset(Traducir::datos($flujo)[$idioma]) ? ' (en ' . IdiomaCliente::IDIOMAS[$idioma] . ')' : '')];
+    }
+
+    /** ¿El chatbot está esperando que este cliente escriba un dato (pregunta abierta: nombre, correo, talla…)? */
+    public static function esperaDato(PDO $db, array $linea, array $contacto, DateTimeImmutable $ahora): bool
+    {
+        if (empty($contacto['flujo_id']) || empty($contacto['flujo_paso']) || empty($contacto['flujo_hasta'])
+            || new DateTimeImmutable((string) $contacto['flujo_hasta']) <= $ahora) {
+            return false;
+        }
+        $f = self::buscar($db, (int) $linea['id'], (int) $contacto['flujo_id']);
+        foreach ($f ? self::pasos($f) : [] as $p) {
+            if (($p['id'] ?? '') === $contacto['flujo_paso']) {
+                return ($p['tipo'] ?? '') === 'pregunta';
+            }
+        }
+        return false;
     }
 
     /**

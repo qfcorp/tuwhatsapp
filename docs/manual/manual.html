@@ -603,7 +603,7 @@
     <li>Deja encendido el <b>Respaldo por correo</b>: aunque falle el aviso, te llega el correo si nadie contesta.</li>
   </ol>
   <h3>Me escriben clientes en inglés, ¿les contesta en inglés? <span class="nuevo">NUEVO</span></h3>
-  <p>Sí. El programa detecta solo el idioma del cliente (por lo que escribe y el código de su país) y le contesta en inglés, portugués, francés o italiano: el menú, los chatbots, el agente con IA y los mensajes fijos (pedido, pago recibido, carrito, catálogo, llamada fuera de horario). Lo que tú escribes (el menú y los chatbots) necesita su traducción: con el extra de IA toca <b>🌐 Traducir automáticamente</b>; sin él, escríbela a mano. Lo que no esté traducido le llega en español. Ver capítulo 22.</p>
+  <p>Sí. El programa detecta solo el idioma del cliente (por las palabras que escribe) y le contesta en inglés, portugués, francés o italiano: el menú, los chatbots, el agente con IA y los mensajes fijos (pedido, pago recibido, carrito, catálogo, llamada fuera de horario). Lo que tú escribes (el menú y los chatbots) necesita su traducción: con el extra de IA toca <b>🌐 Traducir automáticamente</b>; sin él, escríbela a mano. Lo que no esté traducido le llega en español. Ver capítulo 22.</p>
   <h3>¿Me pueden llegar los mensajes de los clientes a Telegram?</h3>
   <p>Sí. En <b>Menú → App en el celular → Avisos por Telegram</b> toca <b>Conectar mi Telegram</b> y luego <b>Iniciar</b> en el bot. Eliges si te avisa de
   cada mensaje al momento o solo si nadie contesta en unos minutos. Para dejarlo: <b>Desconectar</b> o escribe <b>/parar</b> al bot.</p>
@@ -666,14 +666,19 @@
   <p>Cada vez más clientes escriben en otro idioma (turistas, compradores de afuera, extranjeros que viven aquí). WhatsApp Tukán les contesta <b>en su idioma</b>: inglés, portugués, francés o italiano, además del español.</p>
   <h3>Cómo sabe el idioma</h3>
   <ul>
-    <li>Lo detecta solo, <b>sin gastar IA</b>: por las palabras que escribe el cliente y por el código de país de su número (+1 Estados Unidos → inglés, +55 Brasil → portugués, +33 Francia → francés, +39 Italia → italiano).</li>
+    <li>Lo detecta solo, <b>sin gastar IA</b>, por las <b>palabras que escribe</b> el cliente. Si escribe en español («Hola», «precio», «buen día»), es español aunque su número sea de otro país.</li>
+    <li>Un mensaje sin palabras claras («ok», «1», un emoji, un correo o un número) <b>no cambia nada</b>: se queda el idioma que ya tenía (o español).</li>
+    <li>El <b>código de país</b> solo ayuda cuando hay duda: un «Hi» desde un número de Estados Unidos (+1) cuenta como inglés, pero desde Ecuador no. República Dominicana y Puerto Rico (+1 809, 829, 849, 787, 939) cuentan como español.</li>
+    <li>Para <b>cambiar</b> un idioma ya guardado hacen falta al menos dos palabras claras del idioma nuevo: no salta de idioma por una palabra suelta.</li>
+    <li>No se cambia con los <b>botones que toca</b> el cliente (sus textos son tuyos), con fotos, archivos o ubicaciones, ni cuando un chatbot le pide un dato (su nombre, correo…).</li>
+    <li>Un cliente que todavía no escribió nada cuenta como español.</li>
     <li>Lo ves en la ficha del cliente y lo puedes cambiar a mano si hace falta.</li>
   </ul>
   <h3>Qué le llega en su idioma</h3>
   <table>
     <tr><th>Qué</th><th>Cómo</th></tr>
     <tr><td><b>Menú de respuestas automáticas</b></td><td>El saludo, los botones y las respuestas de cada opción, con la traducción que guardaste. Las opciones se reconocen en cualquier idioma: si escribe <i>Prices</i> o <i>Precios</i>, es la misma opción.</td></tr>
-    <tr><td><b>Chatbots</b></td><td>El texto de cada paso y los botones. Las palabras clave de cada idioma también lo activan (por ejemplo <i>hello</i>). El chatbot de ejemplo ya viene en inglés.</td></tr>
+    <tr><td><b>Chatbots</b></td><td>El texto de cada paso y los botones. Las palabras clave que escribas para un idioma (por ejemplo <i>hello</i> en inglés) lo activan para los clientes de ese idioma; las del español valen para todos. El chatbot de ejemplo viene solo en español: tradúcelo cuando lo tengas listo.</td></tr>
     <tr><td><b>Agente con IA</b> <span class="chip">Extra</span></td><td>Se le dice el idioma del cliente y contesta siempre en ese idioma, aunque lo que sabe del negocio esté en español. En «Pruébalo aquí» puedes elegir el idioma del cliente para probar.</td></tr>
     <tr><td><b>Mensajes fijos</b></td><td>Ya vienen escritos en los 5 idiomas: resumen del pedido, «Recibimos tu pago», carrito, catálogo, llamada fuera de horario (con tu horario en su idioma) y la cotización en PDF.</td></tr>
     <tr><td><b>Palabras</b></td><td><i>catalog</i>, <i>buy</i>, <i>acheter</i>, <i>stop</i>, <i>unsubscribe</i>… funcionan como en español (ver catálogo, comprar, no recibir más promociones).</td></tr>
@@ -688,8 +693,11 @@
     <li>Prueba: en <b>Probar las reglas</b> y en el probador del chatbot elige <b>Idioma del cliente</b> y mira cómo le llegaría.</li>
   </ol>
   <div class="caja azul"><b>Importante:</b> si cambias el menú o un chatbot en español, vuelve a traducir (o corrige la traducción) para que los clientes de otros idiomas reciban lo nuevo. Si apagas «Contestar en el idioma del cliente», todo vuelve a salir en español.</div>
+</section>
+
+<section class="capitulo" id="ctraductor">
   <h2>23. Atender clientes en otro idioma: bandera y traductor del chat <span class="nuevo">NUEVO</span></h2>
-  <p>WhatsApp Tukán reconoce solo, sin gastar, en qué idioma te escribe cada cliente: <b>español, inglés, portugués, francés o italiano</b> (por sus palabras y, si el mensaje es muy corto, por el código de país del número).</p>
+  <p>WhatsApp Tukán reconoce solo, sin gastar, en qué idioma te escribe cada cliente: <b>español, inglés, portugués, francés o italiano</b> (por sus palabras; el código de país solo ayuda cuando hay duda; ver capítulo 22).</p>
   <h3>Dónde ves el idioma</h3>
   <ul>
     <li><b>Chat:</b> arriba, junto al nombre, por ejemplo <b>🇬🇧 Habla inglés</b>.</li>
@@ -703,7 +711,7 @@
   <ol>
     <li><b>Leer:</b> debajo de cada mensaje del cliente que no está en tu idioma aparece <b>Traducir</b>. Al tocarlo ves la traducción debajo. Queda guardada: la próxima vez sale al instante, sin volver a gastar.</li>
     <li><b>Contestar:</b> si el cliente habla otro idioma, junto a la caja de respuesta aparece marcada la casilla <b>«Escribo en español, se envía en inglés»</b> (con el idioma de cada cliente). Escribe en tu idioma y toca <b>Enviar</b>.</li>
-    <li><b>Confirmar:</b> antes de enviar ves la traducción. Puedes corregirla y tocar <b>Enviar traducción</b>, volver a tu texto con <b>Editar</b> o mandar tu mensaje tal cual con <b>Enviar sin traducir</b>.</li>
+    <li><b>Confirmar:</b> antes de enviar ves la traducción (solo se envía directo si lo que escribiste ya está, sin duda, en el idioma del cliente: tres palabras o más y muy claro). Puedes corregirla y tocar <b>Enviar traducción</b>, volver a tu texto con <b>Editar</b> o mandar tu mensaje tal cual con <b>Enviar sin traducir</b>.</li>
     <li>Al cliente le llega el mensaje en su idioma. En el chat, debajo, ves <b>«Escrito en español: …»</b> con lo que escribiste tú.</li>
     <li><b>Respuestas rápidas:</b> elígelas como siempre; con la casilla marcada también se envían traducidas.</li>
     <li><b>✨ Sugerir respuesta</b> propone la respuesta directamente en el idioma del cliente (no se vuelve a traducir) y <b>Resumir</b> te resume la conversación siempre en tu idioma.</li>

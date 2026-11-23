@@ -1002,7 +1002,7 @@ return [
     'hay que abrir la app de nuevo' => 'é preciso abrir o app de novo',
     // (23 nov 2026) Contestar en el idioma del cliente
     'Contestar en el idioma del cliente' => 'Responder no idioma do cliente',
-    'Si el cliente escribe en inglés, portugués, francés o italiano, el menú, los chatbots, el agente con IA y los mensajes de pedidos y pagos le llegan en su idioma. El idioma se detecta solo (por lo que escribe y el código de su país) y lo ves en su ficha.' => 'Se o cliente escrever em inglês, português, francês ou italiano, o menu, os chatbots, o agente com IA e as mensagens de pedidos e pagamentos chegam no idioma dele. O idioma é detectado sozinho (pelo que escreve e pelo código do país) e você o vê na ficha.',
+    'Si el cliente escribe en inglés, portugués, francés o italiano, el menú, los chatbots, el agente con IA y los mensajes de pedidos y pagos le llegan en su idioma. El idioma se detecta solo por lo que escribe (un «ok» o un emoji no lo cambian) y lo ves en su ficha.' => 'Se o cliente escrever em inglês, português, francês ou italiano, o menu, os chatbots, o agente com IA e as mensagens de pedidos e pagamentos chegam no idioma dele. O idioma é detectado sozinho pelo que ele escreve (um «ok» ou um emoji não o mudam) e você o vê na ficha.',
     'Idiomas que contestas' => 'Idiomas em que você responde',
     '(a un cliente de un idioma sin marcar se le contesta en español)' => '(um cliente de um idioma não marcado recebe resposta em espanhol)',
     'Traducir automáticamente a inglés, portugués, francés e italiano' => 'Traduzir automaticamente para inglês, português, francês e italiano',

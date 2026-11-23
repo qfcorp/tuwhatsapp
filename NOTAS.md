@@ -1,6 +1,20 @@
 # WhatsApp Tukán — Estado y pasos para continuar
 *Actualizado: 23 nov 2026*
 
+## 🔎 Idioma del cliente: arreglos de la revisión independiente (23 nov 2026, rama idioma-arreglos)
+- CRÍTICO arreglado: en Automático los textarea de traducciones tenían marcas `<!--notr-->` que el navegador guardaba como texto
+  (al cliente le llegaba como saludo). Quitadas de los campos; `Traducir::texto()` las borra al guardar y al leer; `db/schema.sql`
+  limpia las ya guardadas en `lineas.traducciones` y `flujos.traducciones` (idempotente).
+- Detección (`src/IdiomaCliente.php`): el texto en español manda; sin señal ("ok", "1", emoji, correo, enlace, número) no cambia nada;
+  otro idioma pide 2 palabras propias o 1 + código de país de ese idioma; cambiar un idioma guardado pide 2; Caribe hispano (+1 809/829/849/787/939)
+  = español; "info" neutra; sin idioma guardado = español (también en bandeja, contactos, reportes y ficha).
+- Webhook: solo detecta con mensajes de texto (no botones, plantillas, fotos, archivos, ubicación) ni cuando el chatbot espera un dato.
+- Agente IA: "Responde SIEMPRE en X" solo si X no es español y la función está encendida; si no, la regla de siempre.
+- Chatbot de ejemplo sin traducciones; palabras de un idioma solo valen para clientes de ese idioma (las del español, para todos).
+- Carrito: sin "menu", "compra", "finalizar". Traductor del chat: solo envía sin confirmar si el texto está muy claro en el idioma del cliente.
+- Traducciones de opciones de chatbots alineadas por paso y opción (`$mapaOps`), como el menú.
+- Pruebas nuevas: `tests/prueba_idioma_cliente.php` (en correr.sh) + bloques en prueba_logica y prueba_web.
+
 ## 🌐 Contestar en el idioma del cliente (23 nov 2026)
 Pedido (Dimitry): «hay gente que escribe en inglés, que si recibe en inglés responda en inglés; el programa es nuestro, sacar el mayor beneficio».
 - Hecho: menú automático, chatbots, agente con IA y textos fijos (pedido, pago Plux, carrito, catálogo, llamada fuera de horario, cotización PDF) salen en el idioma del cliente (es/en/pt/fr/it).

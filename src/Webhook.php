@@ -210,8 +210,11 @@ final class Webhook
         }
         Embudo::entrar($this->db, (int) $contacto['id']);   // conversación nueva -> etapa "Nuevo" (los personales no)
         $contacto = Contactos::buscar($this->db, (int) $linea['id'], (int) $contacto['id']);
-        if (trim($texto) !== '' && ($contacto['tipo'] ?? '') !== 'personal') {
-            $contacto['idioma'] = IdiomaCliente::alLlegar($this->db, $contacto, $texto);   // para contestarle en su idioma
+        // Idioma del cliente, para contestarle en su idioma. Solo con texto escrito por él: no con botones tocados (el título
+        // es del negocio), archivos, ubicaciones ni historial, ni cuando el chatbot le pidió un dato (nombre, correo...).
+        if (($m['type'] ?? '') === 'text' && trim($texto) !== '' && ($contacto['tipo'] ?? '') !== 'personal'
+            && !Flujos::esperaDato($this->db, $linea, $contacto, $ahora)) {
+            $contacto['idioma'] = IdiomaCliente::alLlegar($this->db, $contacto, $texto);
         }
         Integraciones::avisar($this->db, $linea, $contacto, [
             'id' => (int) $id, 'wamid' => $wamid, 'tipo' => self::tipoDe($m), 'texto' => mb_substr($texto, 0, 4096), 'creado' => $cuando->format('c'),
@@ -336,17 +339,18 @@ final class Webhook
         }
     }
 
-    /** Palabras que entiende el carrito sin IA (23 nov 2026: también en inglés, portugués, francés e italiano). */
+    /** Palabras que entiende el carrito sin IA (23 nov 2026: también en inglés, portugués, francés e italiano; sin "menu", "compra"
+     *  ni "finalizar", que en español se escriben por otras cosas). */
     public const PALABRAS_CATALOGO = ['catalogo', 'ver catalogo', 'productos', 'ver productos', 'menu de productos', 'lista de precios',
-        'catalog', 'catalogue', 'products', 'see products', 'product list', 'price list', 'menu',
+        'catalog', 'catalogue', 'products', 'see products', 'product list', 'price list',
         'produtos', 'ver produtos', 'lista de precos',
         'produits', 'voir les produits', 'liste des prix',
         'prodotti', 'vedi prodotti', 'listino', 'listino prezzi'];
     public const PALABRAS_COMPRAR = ['comprar', 'confirmar', 'confirmo', 'pagar', 'finalizar compra', 'terminar compra', 'quiero pagar',
         'buy', 'checkout', 'check out', 'confirm', 'pay', 'i want to pay', 'place order',
-        'finalizar', 'quero pagar',
+        'quero pagar',
         'acheter', 'confirmer', 'payer', 'je veux payer', 'commander',
-        'acquista', 'acquistare', 'compra', 'conferma', 'confermo', 'pagare', 'voglio pagare'];
+        'acquista', 'acquistare', 'conferma', 'confermo', 'pagare', 'voglio pagare'];
 
     /**
      * Carrito por WhatsApp (funciona sin IA): "prod:N" agrega ese producto; "catálogo" manda la lista; "comprar" confirma el

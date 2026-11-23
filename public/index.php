@@ -546,8 +546,10 @@ try {
                     }
                     $idiCli = \TuWhatsApp\IdiomaCliente::de($c);
                     $idiYo = \TuWhatsApp\Asistente::codigoPanel();
+                    // Solo se salta la traducción si el texto está CLARAMENTE en el idioma del cliente (3+ palabras y mucha ventaja,
+                    // p. ej. la sugerencia de la IA); si hay duda, se traduce y se muestra para confirmar.
                     if (isset($_POST['traducir']) && modulo('ia') && $idiCli !== $idiYo && trim($txt) !== ''
-                        && \TuWhatsApp\IdiomaCliente::delTexto($txt) !== $idiCli) {   // si ya está en su idioma (p. ej. la sugerencia de la IA), no se gasta
+                        && \TuWhatsApp\IdiomaCliente::seguro($txt) !== $idiCli) {
                         $t = \TuWhatsApp\Traductor::traducir(db(), $linea, $txt, $idiCli, 'traducir_envio');
                         if (!$t['ok']) {
                             $_SESSION['borrador'][$cid] = $txt;
@@ -1388,7 +1390,10 @@ try {
             } else {
                 $datos = $_POST;
                 if ($accion === 'agregar_paso') {
-                    $actuales = \TuWhatsApp\Flujos::limpiarPasos((array) ($datos['paso'] ?? []), array_column($camposF, 'clave'), false);
+                    $actuales = \TuWhatsApp\Flujos::limpiarPasos((array) ($datos['paso'] ?? []), array_column($camposF, 'clave'), false, $mapaOps);
+                    if (isset($datos['tr_form'])) {   // las opciones se renumeran: las traducciones van alineadas con ellas
+                        $datos['tr'] = \TuWhatsApp\Traducir::limpiarFlujo((array) ($datos['tr'] ?? []), $actuales, $mapaOps);
+                    }
                     $datos['paso'] = array_merge(array_map(fn ($x) => $x + ['op_titulo' => array_column($x['opciones'] ?? [], 'titulo'), 'op_ir' => array_column($x['opciones'] ?? [], 'ir_a')], $actuales),
                                                  [['id' => \TuWhatsApp\Flujos::idNuevo($actuales), 'tipo' => 'mensaje', 'texto' => '']]);
                     $datos['activo'] = '';   // mientras se arma el paso nuevo, queda apagado

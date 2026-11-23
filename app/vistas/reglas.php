@@ -98,7 +98,7 @@ $conIa = modulo('ia');
     <div class="tarjeta tk-tarjeta">
         <input type="hidden" name="idiomas_form" value="1">
         <label class="regla"><input type="checkbox" role="switch" name="idioma_auto" value="1" <?= Traducir::idiomaAuto($linea) ? 'checked' : '' ?>>
-            <span><b>Contestar en el idioma del cliente</b><small>Si el cliente escribe en inglés, portugués, francés o italiano, el menú, los chatbots, el agente con IA y los mensajes de pedidos y pagos le llegan en su idioma. El idioma se detecta solo (por lo que escribe y el código de su país) y lo ves en su ficha.</small></span></label>
+            <span><b>Contestar en el idioma del cliente</b><small>Si el cliente escribe en inglés, portugués, francés o italiano, el menú, los chatbots, el agente con IA y los mensajes de pedidos y pagos le llegan en su idioma. El idioma se detecta solo por lo que escribe (un «ok» o un emoji no lo cambian) y lo ves en su ficha.</small></span></label>
         <p><b>Idiomas que contestas</b> <small class="suave">(a un cliente de un idioma sin marcar se le contesta en español)</small></p>
         <div class="fila-checks">
             <label class="check"><input type="checkbox" checked disabled> <?= IdiomaCliente::BANDERAS['es'] ?> Español</label>
@@ -115,15 +115,15 @@ $conIa = modulo('ia');
         <?php foreach (Traducir::OTROS as $l): $x = (array) ($trLinea[$l] ?? []); ?>
         <details class="plegable idioma-tr">
             <summary><?= IdiomaCliente::BANDERAS[$l] ?> <?= e(IdiomaCliente::IDIOMAS[$l]) ?> <?= trim((string) ($x['saludo'] ?? '')) !== '' ? '<small class="suave">(traducido)</small>' : '<small class="suave">(sale en español)</small>' ?></summary>
-            <label>Saludo<textarea name="tr[<?= $l ?>][saludo]" rows="2" maxlength="1000"><!--notr--><?= e((string) ($x['saludo'] ?? '')) ?><!--/notr--></textarea></label>
+            <label>Saludo<textarea name="tr[<?= $l ?>][saludo]" rows="2" maxlength="1000"><?= e((string) ($x['saludo'] ?? '')) ?></textarea></label>
             <?php foreach ($opciones as $i => $o): $xo = (array) ($x['opciones'][$i] ?? []); ?>
             <fieldset class="opcion-menu">
                 <legend>Opción <?= $i + 1 ?> · <!--notr--><?= e($o['titulo']) ?><!--/notr--></legend>
                 <label>Título<input name="tr[<?= $l ?>][op_titulo][<?= $i ?>]" maxlength="60" value="<?= e((string) ($xo['titulo'] ?? '')) ?>"></label>
-                <label>Respuesta<textarea name="tr[<?= $l ?>][op_respuesta][<?= $i ?>]" rows="2" maxlength="1000"><!--notr--><?= e((string) ($xo['respuesta'] ?? '')) ?><!--/notr--></textarea></label>
+                <label>Respuesta<textarea name="tr[<?= $l ?>][op_respuesta][<?= $i ?>]" rows="2" maxlength="1000"><?= e((string) ($xo['respuesta'] ?? '')) ?></textarea></label>
             </fieldset>
             <?php endforeach; ?>
-            <label>Palabras de negocio en este idioma <small class="suave">(además, se entienden palabras comunes como precio, pedido o catálogo en cada idioma)</small><textarea name="tr[<?= $l ?>][palabras]" rows="2"><!--notr--><?= e((string) ($x['palabras'] ?? '')) ?><!--/notr--></textarea></label>
+            <label>Palabras de negocio en este idioma <small class="suave">(además, se entienden palabras comunes como precio, pedido o catálogo en cada idioma)</small><textarea name="tr[<?= $l ?>][palabras]" rows="2"><?= e((string) ($x['palabras'] ?? '')) ?></textarea></label>
             <?php if (trim((string) ($x['saludo'] ?? '')) !== ''): ?>
             <p class="suave pequeno">Así le llega el menú:</p>
             <pre class="vista-previa"><!--notr--><?= e(Reglas::textoMenu($linea, $l)) ?><!--/notr--></pre>

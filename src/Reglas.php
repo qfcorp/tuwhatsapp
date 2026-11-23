@@ -49,7 +49,7 @@ final class Reglas
         $opciones = Traducir::opciones($linea, $idioma);
         $opcion = self::opcionElegida($texto, count($opciones), $opciones);
         if ($opcion === null && self::si($linea['regla_palabras'] ?? false)
-            && !self::tienePalabra($texto, Traducir::palabrasNegocio($linea, $idioma))) {
+            && !self::tienePalabra($texto, Traducir::palabrasNegocio($linea, Traducir::idiomaAuto($linea) ? IdiomaCliente::de($contacto) : 'es'))) {
             return $no('No habla de negocio (sin palabras clave)');
         }
         if (self::si($linea['regla_una_vez'] ?? false)) {

@@ -157,9 +157,11 @@ final class Bot
            . "Atiendes a sus clientes con amabilidad, en mensajes cortos (1 a 4 frases), EN EL MISMO IDIOMA en que escribe el cliente, tuteando si el cliente tutea.\n\n"
            . "Información del negocio (escrita por el negocio):\n" . ($info !== '' ? $info : '(el negocio todavía no escribió información)') . "\n\n"
            . 'Horario de atención de las personas: ' . implode('; ', $horario) . ".\n";
-        if (isset(IdiomaCliente::IDIOMAS[$idioma])) {   // (23 nov 2026) idioma detectado del cliente
+        // (23 nov 2026) Solo si se detectó otro idioma y "Contestar en el idioma del cliente" está encendido; si no, queda la regla
+        // de siempre ("en el mismo idioma en que escribe el cliente"): nunca se fuerza el español.
+        if ($idioma !== 'es' && isset(IdiomaCliente::IDIOMAS[$idioma]) && Traducir::idiomaAuto($linea)) {
             $s .= 'IDIOMA DEL CLIENTE: ' . IdiomaCliente::IDIOMAS[$idioma] . ' (' . $idioma . '). Responde SIEMPRE en ' . IdiomaCliente::IDIOMAS[$idioma]
-                . ($idioma !== 'es' ? ', aunque la información del negocio y el catálogo estén en español (tradúcelos al contestar)' : '') . ".\n";
+                . ', aunque la información del negocio y el catálogo estén en español (tradúcelos al contestar).' . "\n";
         }
         if (trim((string) ($linea['ia_tono'] ?? '')) !== '') {
             $s .= 'Tono de la marca (respétalo siempre): ' . trim((string) $linea['ia_tono']) . ".\n";
