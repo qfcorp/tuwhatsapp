@@ -861,3 +861,9 @@ CREATE TABLE IF NOT EXISTS fcm_registros_ip (
     creado timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS fcm_registros_ip_ip ON fcm_registros_ip (ip, creado);
+
+-- =====================================================================
+-- (23 nov 2026) Idioma del cliente: contestarle en su idioma (es, en, pt, fr, it)
+-- =====================================================================
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS idioma text NOT NULL DEFAULT '';
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS idioma_fijo boolean NOT NULL DEFAULT false;

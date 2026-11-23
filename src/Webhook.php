@@ -210,6 +210,9 @@ final class Webhook
         }
         Embudo::entrar($this->db, (int) $contacto['id']);   // conversación nueva -> etapa "Nuevo" (los personales no)
         $contacto = Contactos::buscar($this->db, (int) $linea['id'], (int) $contacto['id']);
+        if (trim($texto) !== '' && ($contacto['tipo'] ?? '') !== 'personal') {
+            $contacto['idioma'] = IdiomaCliente::alLlegar($this->db, $contacto, $texto);   // para contestarle en su idioma
+        }
         Integraciones::avisar($this->db, $linea, $contacto, [
             'id' => (int) $id, 'wamid' => $wamid, 'tipo' => self::tipoDe($m), 'texto' => mb_substr($texto, 0, 4096), 'creado' => $cuando->format('c'),
             'archivo' => $mediaId !== null ? ['mime' => $mediaMime, 'nombre' => $mediaNombre] : null,
