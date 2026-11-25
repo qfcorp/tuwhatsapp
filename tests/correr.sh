@@ -76,6 +76,10 @@ echo "######## Panel Tukán Central v2"
 dropdb "$DB" && createdb "$DB" && psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null || exit 1
 php -d display_errors=1 -d error_reporting=-1 tests/prueba_central_v2.php || exit 1
 
+echo "######## Súper usuario en el login (Panel Tukán de mentira)"
+dropdb "$DB" && createdb "$DB" && psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null || exit 1
+php -d display_errors=1 -d error_reporting=-1 tests/prueba_super_login.php || exit 1
+
 echo "######## Pantallas"
 dropdb "$DB" && createdb "$DB" && psql -q -v ON_ERROR_STOP=1 -d "$DB" -f db/schema.sql > /dev/null || exit 1
 export WEB_URL="http://127.0.0.1:$WEB_PUERTO"
