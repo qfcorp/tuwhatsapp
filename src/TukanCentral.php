@@ -181,6 +181,45 @@ final class TukanCentral
         return false;
     }
 
+    /**
+     * Súper usuario por el login normal (PROTOCOLO_V2 Anexo C): manda correo, clave y código de 2 pasos al Panel Tukán (super_api.php),
+     * que los revisa. Este programa NUNCA revisa esa clave. Devuelve ['ok' => bool, 'codigo' => 'ok'|'codigo'|'credenciales'|'bloqueado'|'sin_2fa'|'rol'|'red'|..., 'error' => texto, 'email', 'nombre'].
+     * Sin conector, sin curl, falla de red o respuesta rota: codigo 'red'.
+     */
+    public static function verificarSuper(string $email, string $clave, string $codigo, string $ip): array
+    {
+        $red = ['ok' => false, 'codigo' => 'red', 'error' => 'No se pudo hablar con el Panel Tukán. Intenta de nuevo.'];
+        $c = self::config();
+        if ($c === null || !function_exists('curl_init')) {
+            return $red;
+        }
+        $cuerpo = json_encode(['email' => $email, 'clave' => $clave, 'codigo' => $codigo, 'ip' => $ip], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $ahora = time();
+        $token = self::firmar(['v' => 2, 'tipo' => 'super', 'inst' => $c['id'], 'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : 'sistema@tukanec.com',
+            'nombre' => 'Ingreso', 'rol' => 'dueno', 'iat' => $ahora, 'exp' => $ahora + 30, 'nonce' => bin2hex(random_bytes(16)),
+            'bh' => self::b64(hash('sha256', (string) $cuerpo, true))], $c['secreto']);
+        $ch = curl_init(self::urlCentral() . '/super_api.php');
+        curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $cuerpo, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 4, CURLOPT_TIMEOUT => 8,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'X-Tukan-Token: ' . $token]]);
+        $r = curl_exec($ch);
+        curl_close($ch);
+        if ($r === false) {
+            return $red;
+        }
+        $j = json_decode((string) $r, true);
+        if (!is_array($j) || !array_key_exists('ok', $j)) {
+            return $red;
+        }
+        if ($j['ok'] === true) {
+            $mail = strtolower(trim((string) ($j['email'] ?? '')));
+            if (!filter_var($mail, FILTER_VALIDATE_EMAIL)) {
+                return $red;
+            }
+            return ['ok' => true, 'codigo' => 'ok', 'error' => '', 'email' => $mail, 'nombre' => (string) ($j['nombre'] ?? '')];
+        }
+        return ['ok' => false, 'codigo' => (string) ($j['codigo'] ?? 'credenciales'), 'error' => (string) ($j['error'] ?? 'Correo o contraseña incorrectos.')];
+    }
+
     /** El usuario de Tukán con ese correo (lo crea la primera vez, con una contraseña que nadie conoce). */
     public function superUsuario(array $p): int
     {

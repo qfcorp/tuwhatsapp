@@ -1,5 +1,12 @@
 # WhatsApp Tukán — Estado y pasos para continuar
-*Actualizado: 23 nov 2026*
+*Actualizado: 25 nov 2026*
+
+## 🔑 Súper usuario entra por el login normal con su clave y código de 2 pasos del Panel Tukán (25 nov 2026, rama super-login-central)
+- Antes: el personal de Tukán solo entraba con el botón «Entrar» del Panel Tukán Central (y con `TUKAN_SOLO_CENTRAL=1` el login normal lo rechazaba).
+- Ahora: si el ingreso normal falla y el programa está conectado al Panel Tukán, `?r=login` (`public/index.php`) le pregunta al panel (`TukanCentral::verificarSuper`, POST firmado v2 tipo `super` a `/super_api.php`, Anexo C del protocolo). WhatsApp Tukán NO compara esa clave: la revisa el panel (misma clave, mismo código de 2 pasos, mismo bloqueo de 5 fallos/15 min). Si es correcto crea o reutiliza al personal de Tukán (`superUsuario`, igual que el SSO) y abre «Clientes de Tukán». Con `TUKAN_SOLO_CENTRAL=1` el personal ya no entra con la clave guardada aquí, solo con la del panel.
+- Si falta el código, la pantalla pide «Código de 2 pasos» (no cuenta como intento fallido). Si el panel está caído, el mensaje de siempre. Un cliente que entra bien nunca toca el panel; el correo de un cliente nunca se vuelve personal de Tukán. Sin cambios en la huella ni en «Recordar este celular».
+- Archivos: `src/TukanCentral.php`, `public/index.php`, `app/vistas/login.php`. Pruebas: `tests/prueba_super_login.php` (36, con PostgreSQL y un panel de mentira `tests/panel_super_simulado.php`; se corre desde `tests/correr.sh`).
+- **Falta:** poner en el servidor el `location = /super_api.php` en nginx del Panel Central (los servidores ya instalados lo necesitan a mano) y desplegar primero el Panel Central. La app de iPhone no se recompila.
 
 ## 🔎 Idioma del cliente: arreglos de la revisión independiente (23 nov 2026, rama idioma-arreglos)
 - CRÍTICO arreglado: en Automático los textarea de traducciones tenían marcas `<!--notr-->` que el navegador guardaba como texto

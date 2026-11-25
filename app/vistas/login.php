@@ -1,4 +1,4 @@
-<?php /** @var ?string $error @var bool $hayUsuarios */ ?>
+<?php /** @var ?string $error @var bool $hayUsuarios @var bool $pedirCodigo */ ?>
 <section class="entrada">
     <div class="entrada-marca entrar-marca">
         <svg viewBox="0 0 32 32" width="56" height="56" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#F28C28"/><path d="M8 24.5l1.7-4.6a8.6 8.6 0 1 1 3.3 3.2z" fill="#14211F"/></svg>
@@ -21,6 +21,10 @@
             <?= csrf_campo() ?>
             <label>Correo<input type="email" name="correo" required autocomplete="username" value="<?= e($_POST['correo'] ?? '') ?>"></label>
             <label>Contraseña<input type="password" name="clave" required autocomplete="current-password"></label>
+            <?php if (!empty($pedirCodigo)): ?>
+            <label>Código de 2 pasos<input type="text" name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="20" autofocus>
+                <small class="suave pequeno">Escribe otra vez tu contraseña y el código de 6 dígitos de tu app (o uno de respaldo).</small></label>
+            <?php endif; ?>
             <label class="casilla"><input type="checkbox" name="recordar" value="1" checked> Recordar este celular (no vuelve a pedir la contraseña)</label>
             <button class="boton boton-grande tk-boton grande">Entrar</button>
             <div data-huella hidden>

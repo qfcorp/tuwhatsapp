@@ -117,6 +117,7 @@ Como WhatsApp: se entra una vez y no vuelve a pedir la contraseña.
   de entrar con contraseña y **Mi cuenta → Activar huella en este celular / Quitar**. `public/assets/huella.js`. El dominio de la huella es
   el de la página (whatsapp.tukanec.com); la huella nunca sale del celular.
 - El personal de Tukán con `TUKAN_SOLO_CENTRAL=1` no entra por cookie ni por huella (solo desde el Panel Tukán Central).
+- El personal de Tukán también entra por el login normal (y en la app de iPhone) con su correo, su clave y su código de 2 pasos del Panel Tukán: el programa los manda firmados a `/super_api.php` del Panel (Anexo C del protocolo v2) y no los guarda.
 
 ## Avisos nativos en la app de Android (Firebase) — 14 nov 2026
 La app **Tukán Mensajes** de Google Play recibe los avisos ella misma con Firebase Cloud Messaging, aunque esté cerrada (como WhatsApp). Ver `src/Fcm.php`.

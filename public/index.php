@@ -342,6 +342,7 @@ try {
             redirigir('inicio');
         }
         $error = null;
+        $pedirCodigo = false;
         $hayUsuarios = (int) db()->query('SELECT count(*) FROM usuarios')->fetchColumn() > 0;
         if ($post) {
             $ip = ip_cliente();
@@ -351,13 +352,14 @@ try {
             if ((int) $st->fetchColumn() >= 10) {
                 $error = 'Demasiados intentos. Espera 15 minutos.';
             } else {
+                $correoEscrito = trim((string) ($_POST['correo'] ?? ''));
+                $claveEscrita = (string) ($_POST['clave'] ?? '');
                 $st = db()->prepare('SELECT id, clave, super FROM usuarios WHERE lower(correo) = lower(?) AND activo');
-                $st->execute([trim((string) ($_POST['correo'] ?? ''))]);
+                $st->execute([$correoEscrito]);
                 $f = $st->fetch();
-                if ($f && $f['super'] && \TuWhatsApp\TukanCentral::soloCentral()) {
-                    vista('login', 'Entrar', ['error' => 'El personal de Tukán entra solo desde el Panel Tukán Central.', 'hayUsuarios' => true]);
-                }
-                if ($f && password_verify((string) ($_POST['clave'] ?? ''), $f['clave'])) {
+                // El personal de Tukán (con TUKAN_SOLO_CENTRAL=1) no entra con la clave guardada aquí: entra con la del Panel Tukán (más abajo)
+                $personalTukan = $f && $f['super'] && \TuWhatsApp\TukanCentral::soloCentral();
+                if ($f && !$personalTukan && password_verify($claveEscrita, $f['clave'])) {
                     session_regenerate_id(true);
                     // (14 nov 2026) «Recordar este celular» (marcado por defecto): no vuelve a pedir la contraseña, como WhatsApp
                     if (!empty($_POST['recordar'])) {
@@ -367,11 +369,37 @@ try {
                     $_SESSION['ofrecer_huella'] = true;   // en el Inicio: «¿Entrar con tu huella la próxima vez?» (si el celular puede)
                     redirigir('inicio');
                 }
-                db()->prepare('INSERT INTO intentos_login (ip) VALUES (?)')->execute([$ip]);
-                $error = 'Correo o contraseña incorrectos.';
+                $error = $personalTukan ? 'El personal de Tukán entra con la clave y el código de 2 pasos del Panel Tukán Central.' : 'Correo o contraseña incorrectos.';
+                $cuentaFallo = true;
+                // Súper usuario: mismo correo, clave y código de 2 pasos del Panel Tukán (lo revisa el panel; también sirve en la app de iPhone).
+                // Solo se llama al panel cuando el ingreso normal falló.
+                if (\TuWhatsApp\TukanCentral::config() !== null && filter_var($correoEscrito, FILTER_VALIDATE_EMAIL) && $claveEscrita !== '') {
+                    $r = \TuWhatsApp\TukanCentral::verificarSuper(strtolower($correoEscrito), $claveEscrita, trim((string) ($_POST['codigo'] ?? '')), $ip);
+                    if ($r['ok']) {
+                        try {
+                            $idSuper = (new \TuWhatsApp\TukanCentral(db()))->superUsuario(['email' => $r['email'], 'nombre' => $r['nombre']]);
+                            session_regenerate_id(true);
+                            $_SESSION = ['desde_central' => true];
+                            sellar_sesion($idSuper, null, true);
+                            aviso('Entraste con tu clave y código de 2 pasos del Panel Tukán.', 'info');
+                            redirigir('clientes');
+                        } catch (\TuWhatsApp\TukanCentralError $e) {
+                            $error = $e->getMessage();
+                        }
+                    } elseif ($r['codigo'] === 'codigo') {
+                        $pedirCodigo = true;
+                        $cuentaFallo = false;   // clave bien, solo falta el código: no cuenta como intento fallido
+                        $error = $r['error'];
+                    } elseif (in_array($r['codigo'], ['bloqueado', 'sin_2fa'], true)) {
+                        $error = $r['error'];
+                    }
+                }
+                if ($cuentaFallo) {
+                    db()->prepare('INSERT INTO intentos_login (ip) VALUES (?)')->execute([$ip]);
+                }
             }
         }
-        vista('login', 'Entrar', ['error' => $error, 'hayUsuarios' => $hayUsuarios]);
+        vista('login', 'Entrar', ['error' => $error, 'hayUsuarios' => $hayUsuarios, 'pedirCodigo' => $pedirCodigo]);
 
     case 'salir':
         \TuWhatsApp\Fcm::alSalir(db(), (int) usuario()['id']);   // (14 nov 2026) este celular deja de recibir sus avisos nativos
