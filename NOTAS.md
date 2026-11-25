@@ -550,7 +550,7 @@ Pedido de Dimitry: «asegúrate que el chatbot tenga uno para la tienda, no hab�
 (y desde Mis compras «Hola, compré en la Tienda Tukán (pedido N° …) y tengo una duda: …»). Antes esos mensajes caían en el menú general.
 - `src/ChatbotsTukan.php`: 5.º chatbot **Tienda gráficos vMix**, en 5 idiomas, sin IA. Arranca con vmix, gráficos (para) vmix, marcador(es) vmix,
   títulos vmix, tienda tukan, tienda de gráficos, utc (edición) qf, diseñador qf, «compré en la tienda» (y en en/pt/fr/it). «tienda» suelta no lo arranca.
-  Menú: Qué trae y precio (8 estilos × 7 deportes, USD 12 + IVA, 6 meses de soporte, tarjeta de socio) · Cómo comprar · Ya compré: ayuda
+  Menú: Qué trae y precio (8 estilos × 7 deportes; cada ESTILO vale USD 12 + IVA y es para UN deporte; los 8 estilos de un deporte = paga 7, $84 + IVA; 1 estilo para los 7 deportes = paga 6, $72 + IVA; 6 meses de soporte, tarjeta de socio) · Cómo comprar · Ya compré: ayuda
   (pide pedido o correo y qué pasa → persona) · Cómo se instala (enlace /instalar y resumen) · Hablar con asesor.
 - «Precios y planes»: opción nueva **Gráficos vMix** (p24) con el mismo resumen (10 opciones en la lista).
 - Sin la palabra «gratis» (regla de la prueba): el panel UTC va «incluido» y el de socio «de regalo».
