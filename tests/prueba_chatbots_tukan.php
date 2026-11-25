@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * (23 nov 2026) Los 4 chatbots de ventas de Tukán (src/ChatbotsTukan.php): se instalan, se reinstalan sin duplicar,
+ * (23 nov 2026) Los chatbots de ventas de Tukán (desde el 24 nov también «Tienda gráficos vMix») (src/ChatbotsTukan.php): se instalan, se reinstalan sin duplicar,
  * arrancan con las palabras correctas en cada idioma, contestan en el idioma del cliente y llegan a cada enlace.
  * Uso: bash tests/correr.sh (necesita la base de prueba)   → termina en "CHATBOTS TUKAN: TODO BIEN"
  */
@@ -35,14 +35,14 @@ $otro = (int) $db->query("INSERT INTO flujos (linea_id, nombre, activo, palabras
 
 echo "== Instalar y reinstalar\n";
 $r = ChatbotsTukan::instalar($db, $l);
-ok($r['creados'] === ChatbotsTukan::NOMBRES && $r['actualizados'] === [], 'crea los 4 chatbots');
+ok($r['creados'] === ChatbotsTukan::NOMBRES && $r['actualizados'] === [], 'crea los 5 chatbots');
 ok($r['faltan'] === [] && $r['pdf'] >= 25, 'pone los PDF de planes en los pasos (' . $r['pdf'] . ')');
 $rutas1 = $db->query("SELECT pasos FROM flujos WHERE linea_id = $l AND nombre = 'Precios y planes'")->fetchColumn();
 $db->exec("UPDATE flujos SET activo = false, palabras = 'cambiada' WHERE linea_id = $l AND nombre = 'Soporte'");
 $r = ChatbotsTukan::instalar($db, $l);
 ok($r['creados'] === [] && $r['actualizados'] === ChatbotsTukan::NOMBRES, 'la segunda vez los actualiza (no duplica)');
 ok($db->query("SELECT pasos FROM flujos WHERE linea_id = $l AND nombre = 'Precios y planes'")->fetchColumn() === $rutas1, 'reinstalar reutiliza los mismos PDF (no copia otra vez)');
-ok((int) $db->query("SELECT count(*) FROM flujos WHERE linea_id = $l")->fetchColumn() === 5, 'quedan 4 + el chatbot propio del negocio');
+ok((int) $db->query("SELECT count(*) FROM flujos WHERE linea_id = $l")->fetchColumn() === 6, 'quedan 5 + el chatbot propio del negocio');
 ok((bool) $db->query("SELECT activo AND palabras LIKE 'soporte%' FROM flujos WHERE linea_id = $l AND nombre = 'Soporte'")->fetchColumn(), 'vuelve a poner textos de fábrica y lo enciende');
 ok($db->query("SELECT palabras FROM flujos WHERE id = $otro")->fetchColumn() === 'hola', 'no toca otros chatbots');
 try {
@@ -127,6 +127,13 @@ foreach ([
     ['Buenos días, info', 'es', ''],
     ['Hello', 'en', ''],
     ['how much is it?', 'es', ''],                  // las palabras en inglés solo para clientes en inglés
+    // (24 nov 2026) el botón «¿Dudas? Escríbenos» de tienda.tukansoftware.com y Mis compras
+    ['Hola, tengo una duda sobre los gráficos para vMix de la Tienda Tukán: ', 'es', 'Tienda gráficos vMix'],
+    ['Hola, compré en la Tienda Tukán (pedido N° 12) y tengo una duda: ', 'es', 'Tienda gráficos vMix'],
+    ['¿Tienen marcadores para vMix de ecuavóley?', 'es', 'Tienda gráficos vMix'],
+    ['Hi, do you sell vMix graphics?', 'en', 'Tienda gráficos vMix'],
+    ['Olá, vocês têm placar para vMix?', 'pt', 'Tienda gráficos vMix'],
+    ['Quiero una tienda en línea para mi negocio', 'es', ''],   // «tienda» suelta no es la de vMix
 ] as [$texto, $idioma, $esperado]) {
     $sale = cual($flujos, $texto, $idioma);
     ok($sale === $esperado, "«{$texto}» ($idioma) → esperaba «{$esperado}», salió «{$sale}»");
@@ -158,6 +165,18 @@ $caminos = [
     ['Precios y planes', 'pt', ['Eventos e hotéis', 'TuHospedaje'], 'US$ 33,99'],
     ['Precios y planes', 'es', ['TuBroadcast'], 'https://tuner.tukanec.com/?r=comprar'],
     ['Soporte', 'es', ['3'], 'https://t.me/+dQfU0W9yvo85MzRh'],
+    ['Precios y planes', 'es', ['Gráficos vMix'], 'USD 12 + IVA'],                       // (24 nov 2026)
+    ['Precios y planes', 'en', ['vMix graphics'], 'https://tienda.tukansoftware.com'],
+    ['Tienda gráficos vMix', 'es', ['1'], 'https://tienda.tukansoftware.com'],
+    ['Tienda gráficos vMix', 'es', ['Qué trae y precio'], '*USD 12 + IVA* por cada estilo + deporte'],
+    ['Tienda gráficos vMix', 'es', ['2'], 'Crea tu cuenta'],
+    ['Tienda gráficos vMix', 'es', ['4'], 'https://tienda.tukansoftware.com/instalar'],
+    ['Tienda gráficos vMix', 'es', ['3', 'Pedido 12, no me baja el zip'], 'Ya lo pasamos al equipo'],
+    ['Tienda gráficos vMix', 'es', ['5'], 'te atiende una persona'],
+    ['Tienda gráficos vMix', 'en', ['How to buy'], 'Create your account'],
+    ['Tienda gráficos vMix', 'pt', ['O que inclui e preço'], 'US$ 12 + impostos'],
+    ['Tienda gráficos vMix', 'fr', ['Comment installer'], 'C:\\UTC QF'],
+    ['Tienda gráficos vMix', 'it', ['Contenuto e prezzo'], '12 $ + IVA'],
     ['Soporte', 'en', ['Help group'], 'https://t.me/+dQfU0W9yvo85MzRh'],
 ];
 foreach ($caminos as [$nombre, $idioma, $toques, $debe]) {
