@@ -543,3 +543,16 @@ Regla SIEMPRE de Dimitry (12 nov 2026, regla 3.1.1 de la App Store): dentro de l
 ## 16 nov 2026 — Arreglo: "No se pudo crear la carpeta de archivos" al adjuntar
 - Causa: el instalador hace `chown -R qf:www-data` de todo el programa; las carpetas de cada cuenta en `archivos/` las crea www-data con 0750, y después de actualizar www-data ya no podía escribir (no se podía adjuntar ni guardar fotos/audios que llegan).
 - Arreglo: `Archivos::guardarBytes` crea carpetas 2770 y archivos 660 (umask 0007); `deploy/instalar.sh` repara los permisos de `archivos/` en cada actualización. Prueba nueva en prueba_logica.
+
+## 24 nov 2026 — Chatbot «Tienda gráficos vMix» en el número de Tukán
+Pedido de Dimitry: «asegúrate que el chatbot tenga uno para la tienda, no había». La Tienda Tukán (tienda.tukansoftware.com) estrenó el botón
+«¿Dudas? Escríbenos», que abre WhatsApp al 098 366 2181 con «Hola, tengo una duda sobre los gráficos para vMix de la Tienda Tukán: …»
+(y desde Mis compras «Hola, compré en la Tienda Tukán (pedido N° …) y tengo una duda: …»). Antes esos mensajes caían en el menú general.
+- `src/ChatbotsTukan.php`: 5.º chatbot **Tienda gráficos vMix**, en 5 idiomas, sin IA. Arranca con vmix, gráficos (para) vmix, marcador(es) vmix,
+  títulos vmix, tienda tukan, tienda de gráficos, utc (edición) qf, diseñador qf, «compré en la tienda» (y en en/pt/fr/it). «tienda» suelta no lo arranca.
+  Menú: Qué trae y precio (8 estilos × 7 deportes, USD 12 + IVA, 6 meses de soporte, tarjeta de socio) · Cómo comprar · Ya compré: ayuda
+  (pide pedido o correo y qué pasa → persona) · Cómo se instala (enlace /instalar y resumen) · Hablar con asesor.
+- «Precios y planes»: opción nueva **Gráficos vMix** (p24) con el mismo resumen (10 opciones en la lista).
+- Sin la palabra «gratis» (regla de la prueba): el panel UTC va «incluido» y el de socio «de regalo».
+- Instalar en el VPS-1: actualizar tuwhatsapp y correr `sudo php /var/www/tuwhatsapp/deploy/chatbots_tukan.php` (crea el nuevo y vuelve a poner los textos de fábrica de los otros 4).
+- Pruebas: chatbots Tukán 1042 (antes 902), suite completa TODO BIEN.

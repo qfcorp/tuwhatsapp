@@ -13,6 +13,8 @@ use RuntimeException;
  *   - Precios y planes (precio, cuánto cuesta…)   → precios de cada programa (sin IVA) y promociones
  *   - Soporte          (soporte, problema, error…) → toma el problema y lo pasa al equipo, o el grupo de Telegram
  *   - Hablar con un asesor (asesor, humano…)      → pasa directo a una persona
+ *   - Tienda gráficos vMix (vmix, tienda tukan…)  → (24 nov 2026) qué trae y precio, cómo comprar, ayuda con una compra,
+ *                                                  cómo se instala; arranca con el botón «¿Dudas? Escríbenos» de tienda.tukansoftware.com
  * Se arrancan solo con sus palabras (no con el primer mensaje), así no tapan el menú de respuestas automáticas.
  * WhatsApp Tukán, TuDron y TuBroadcast no ofrecen demo; TuFactura no sale (todavía no se vende).
  * (23 nov 2026) Al elegir un programa se manda su PDF de planes y precios (deploy/pdf_planes, hecho con su generador).
@@ -21,10 +23,10 @@ use RuntimeException;
 final class ChatbotsTukan
 {
     /** Nombre de cada chatbot (con esto se reconocen al volver a instalarlos). */
-    public const NOMBRES = ['Pedir demo', 'Precios y planes', 'Soporte', 'Hablar con un asesor'];
+    public const NOMBRES = ['Pedir demo', 'Precios y planes', 'Soporte', 'Hablar con un asesor', 'Tienda gráficos vMix'];
 
     /**
-     * Crea los 4 chatbots en el número o, si ya existen con ese nombre, les vuelve a poner los textos de fábrica. Quedan encendidos.
+     * Crea los chatbots en el número o, si ya existen con ese nombre, les vuelve a poner los textos de fábrica. Quedan encendidos.
      * @return array{creados:list<string>, actualizados:list<string>, pdf:int, faltan:list<string>}
      */
     public static function instalar(PDO $db, int $lineaId): array
@@ -147,6 +149,19 @@ final class ChatbotsTukan
             "Ótimo! 🎉 Peça sua demonstração do *$programa* aqui:\n$enlace\n\n• Dura 3 dias e traz todos os módulos.\n• Use seus dados reais: precisamos deles para ativar sua demonstração.\n• Fica pronta em 5 a 10 minutos e a senha chega no seu e-mail.\n• Acima deixei o PDF com os planos e preços (em espanhol).{$x[2]}\n\nSe algo não funcionar, escreva *atendente*.",
             "Parfait ! 🎉 Demandez votre démo de *$programa* ici :\n$enlace\n\n• Elle dure 3 jours et inclut tous les modules.\n• Utilisez vos vraies coordonnées : nous en avons besoin pour activer votre démo.\n• Elle est prête en 5 à 10 minutes et le mot de passe arrive par e-mail.\n• Le PDF ci-dessus contient les forfaits et les prix (en espagnol).{$x[3]}\n\nEn cas de souci, écrivez *conseiller*.",
             "Ottimo! 🎉 Richiedi la demo di *$programa* qui:\n$enlace\n\n• Dura 3 giorni e include tutti i moduli.\n• Usa i tuoi dati reali: ci servono per attivare la demo.\n• È pronta in 5-10 minuti e la password arriva alla tua email.\n• Qui sopra trovi il PDF con piani e prezzi (in spagnolo).{$x[4]}\n\nSe qualcosa non funziona, scrivi *operatore*.",
+        ];
+    }
+
+    /** (24 nov 2026) Qué trae la Tienda de gráficos para vMix y cuánto cuesta, en los 5 idiomas: [es, en, pt, fr, it]. */
+    private static function tiendaVmix(): array
+    {
+        $u = 'https://tienda.tukansoftware.com';
+        return [
+            "🎬 *Gráficos para vMix* de la Tienda Tukán\n\n• 8 estilos y 7 deportes: fútbol, futsal, vóley, ecuavóley, básquet, tenis y pádel.\n• Marcador, reloj, alineaciones, cambios, avisos y más títulos de cada deporte.\n• Diseñador fácil para poner tus equipos, colores y escudos, sin saber diseño.\n• Panel listo (*UTC Edición QF*) incluido, transiciones de 3 segundos y manual en PDF.\n• Teclas para Ulanzi D200H o Elgato Stream Deck (una incluida).\n\n💳 *USD 12 + IVA* por cada estilo + deporte, pago único, con 6 meses de soporte. Con la tarjeta de socio, por cada 5 que compras el siguiente va de regalo.\nNecesitas vMix en Windows.\n\nMira el video de cada estilo y compra aquí:\n$u\n\nSi tienes otra duda, escribe *asesor*.",
+            "🎬 *vMix graphics* from the Tukán Store\n\n• 8 styles and 7 sports: football, futsal, volleyball, ecuavolley, basketball, tennis and padel.\n• Scoreboard, clock, line-ups, substitutions, alerts and more titles for each sport.\n• An easy Designer to add your teams, colors and crests, no design skills needed.\n• Ready-made control panel (*UTC Edición QF*) included, 3-second transitions and a PDF manual.\n• Keys for Ulanzi D200H or Elgato Stream Deck (one included).\n\n💳 *USD 12 + VAT* per style + sport, one-time payment, with 6 months of support. With the member card, for every 5 you buy the next one is on us.\nYou need vMix on Windows. The store is in Spanish.\n\nWatch the video of each style and buy here:\n$u\n\nAny other question? Type *agent*.",
+            "🎬 *Gráficos para vMix* da Loja Tukán\n\n• 8 estilos e 7 esportes: futebol, futsal, vôlei, ecuavôlei, basquete, tênis e padel.\n• Placar, cronômetro, escalações, substituições, avisos e mais títulos de cada esporte.\n• Um Designer fácil para colocar seus times, cores e escudos, sem saber design.\n• Painel pronto (*UTC Edición QF*) incluído, transições de 3 segundos e manual em PDF.\n• Teclas para Ulanzi D200H ou Elgato Stream Deck (uma incluída).\n\n💳 *US\$ 12 + impostos* por estilo + esporte, pagamento único, com 6 meses de suporte. Com o cartão de sócio, a cada 5 que você compra o próximo é por nossa conta.\nVocê precisa do vMix no Windows. A loja está em espanhol.\n\nVeja o vídeo de cada estilo e compre aqui:\n$u\n\nOutra dúvida? Escreva *atendente*.",
+            "🎬 *Habillages pour vMix* de la Boutique Tukán\n\n• 8 styles et 7 sports : football, futsal, volley, ecuavolley, basket, tennis et padel.\n• Tableau de score, chrono, compositions, changements, alertes et d'autres titres pour chaque sport.\n• Un Designer simple pour mettre vos équipes, couleurs et écussons, sans savoir dessiner.\n• Panneau de contrôle prêt (*UTC Edición QF*) inclus, transitions de 3 secondes et manuel en PDF.\n• Touches pour Ulanzi D200H ou Elgato Stream Deck (une incluse).\n\n💳 *12 \$ + TVA* par style + sport, paiement unique, avec 6 mois d'assistance. Avec la carte de membre, tous les 5 achats le suivant est offert.\nIl faut vMix sous Windows. La boutique est en espagnol.\n\nRegardez la vidéo de chaque style et achetez ici :\n$u\n\nUne autre question ? Écrivez *conseiller*.",
+            "🎬 *Grafiche per vMix* del Negozio Tukán\n\n• 8 stili e 7 sport: calcio, calcio a 5, pallavolo, ecuavolley, basket, tennis e padel.\n• Tabellone, cronometro, formazioni, sostituzioni, avvisi e altri titoli per ogni sport.\n• Un Designer facile per inserire squadre, colori e stemmi, senza saper disegnare.\n• Pannello di controllo pronto (*UTC Edición QF*) incluso, transizioni di 3 secondi e manuale in PDF.\n• Tasti per Ulanzi D200H o Elgato Stream Deck (uno incluso).\n\n💳 *12 \$ + IVA* per stile + sport, pagamento unico, con 6 mesi di assistenza. Con la tessera socio, ogni 5 acquisti il successivo è in regalo.\nServe vMix su Windows. Il negozio è in spagnolo.\n\nGuarda il video di ogni stile e acquista qui:\n$u\n\nAltre domande? Scrivi *operatore*.",
         ];
     }
 
@@ -357,7 +372,7 @@ final class ChatbotsTukan
         ];
         $pasos = [['id' => 'p1', 'tipo' => 'botones', 'texto' => "💰 Con gusto te cuento los precios y te mando el PDF con todos los detalles.\n\n¿De qué tipo de negocio es?",
                    'opciones' => [['Belleza y spa', 'p2'], ['Mascotas', 'p3'], ['Autos y flotas', 'p4'], ['Eventos y hoteles', 'p5'], ['Deportes y academias', 'p6'],
-                                  ['WhatsApp Tukán', 'p20'], ['TuDron', 'p21'], ['TuBroadcast', 'p22'], ['Hablar con asesor', 'p23']]]];
+                                  ['WhatsApp Tukán', 'p20'], ['TuDron', 'p21'], ['TuBroadcast', 'p22'], ['Gráficos vMix', 'p24'], ['Hablar con asesor', 'p23']]]];
         foreach ($grupos as $id => [$ops, $txt]) {
             $pasos[] = ['id' => $id, 'tipo' => 'botones', 'texto' => $txt[0] . "\n\n" . $de[0], 'opciones' => $ops];
         }
@@ -365,12 +380,14 @@ final class ChatbotsTukan
             $pasos[] = ['id' => $id, 'tipo' => 'fin', 'pdf' => 'Tukan_' . $archivo . '_Planes_y_Precios.pdf', 'texto' => $t[0], 'etiqueta' => 'precios', 'etapa' => 'interesado'];
         }
         $pasos[] = ['id' => 'p23', 'tipo' => 'persona', 'texto' => '¡Claro! 🙌 En un momento te atiende una persona del equipo.'];
+        $vmix = self::tiendaVmix();
+        $pasos[] = ['id' => 'p24', 'tipo' => 'fin', 'texto' => $vmix[0], 'etiqueta' => 'tienda vmix', 'etapa' => 'interesado'];   // (24 nov 2026) sin PDF: la tienda tiene videos
         $L = ['en' => 1, 'pt' => 2, 'fr' => 3, 'it' => 4];
         $p1 = [
-            'en' => ["💰 Happy to tell you our prices and send you the PDF with all the details.\n\nWhat kind of business is it?", ['Beauty and spa', 'Pets', 'Cars and fleets', 'Events and hotels', 'Sports and academies', 'WhatsApp Tukán', 'TuDron', 'TuBroadcast', 'Talk to an agent']],
-            'pt' => ["💰 Com prazer te conto os preços e envio o PDF com todos os detalhes.\n\nDe que tipo de negócio é?", ['Beleza e spa', 'Pets', 'Carros e frotas', 'Eventos e hotéis', 'Esportes e academias', 'WhatsApp Tukán', 'TuDron', 'TuBroadcast', 'Falar com atendente']],
-            'fr' => ["💰 Avec plaisir, voici nos prix et le PDF avec tous les détails.\n\nQuel type d'entreprise est-ce ?", ['Beauté et spa', 'Animaux', 'Voitures et flottes', 'Événements et hôtels', 'Sports et académies', 'WhatsApp Tukán', 'TuDron', 'TuBroadcast', 'Parler à un conseiller']],
-            'it' => ["💰 Volentieri ti dico i prezzi e ti mando il PDF con tutti i dettagli.\n\nChe tipo di attività è?", ['Bellezza e spa', 'Animali', 'Auto e flotte', 'Eventi e hotel', 'Sport e accademie', 'WhatsApp Tukán', 'TuDron', 'TuBroadcast', 'Parla con operatore']],
+            'en' => ["💰 Happy to tell you our prices and send you the PDF with all the details.\n\nWhat kind of business is it?", ['Beauty and spa', 'Pets', 'Cars and fleets', 'Events and hotels', 'Sports and academies', 'WhatsApp Tukán', 'TuDron', 'TuBroadcast', 'vMix graphics', 'Talk to an agent']],
+            'pt' => ["💰 Com prazer te conto os preços e envio o PDF com todos os detalhes.\n\nDe que tipo de negócio é?", ['Beleza e spa', 'Pets', 'Carros e frotas', 'Eventos e hotéis', 'Esportes e academias', 'WhatsApp Tukán', 'TuDron', 'TuBroadcast', 'Gráficos vMix', 'Falar com atendente']],
+            'fr' => ["💰 Avec plaisir, voici nos prix et le PDF avec tous les détails.\n\nQuel type d'entreprise est-ce ?", ['Beauté et spa', 'Animaux', 'Voitures et flottes', 'Événements et hôtels', 'Sports et académies', 'WhatsApp Tukán', 'TuDron', 'TuBroadcast', 'Habillages vMix', 'Parler à un conseiller']],
+            'it' => ["💰 Volentieri ti dico i prezzi e ti mando il PDF con tutti i dettagli.\n\nChe tipo di attività è?", ['Bellezza e spa', 'Animali', 'Auto e flotte', 'Eventi e hotel', 'Sport e accademie', 'WhatsApp Tukán', 'TuDron', 'TuBroadcast', 'Grafiche vMix', 'Parla con operatore']],
         ];
         $p23 = ['en' => 'Of course! 🙌 Someone from our team will be with you shortly.', 'pt' => 'Claro! 🙌 Em instantes uma pessoa da equipe vai te atender.',
                 'fr' => "Bien sûr ! 🙌 Un membre de l'équipe va vous répondre dans un instant.", 'it' => 'Certo! 🙌 Tra un momento una persona del team ti risponde.'];
@@ -378,7 +395,7 @@ final class ChatbotsTukan
                      'fr' => 'prix, tarif, tarifs, combien, combien ca coute, forfaits, abonnement', 'it' => 'prezzo, prezzi, quanto costa, costo, piani, tariffe, abbonamento'];
         $tr = [];
         foreach ($L as $l => $n) {
-            $ps = ['p1' => ['texto' => $p1[$l][0], 'opciones' => $p1[$l][1]], 'p23' => ['texto' => $p23[$l]]];
+            $ps = ['p1' => ['texto' => $p1[$l][0], 'opciones' => $p1[$l][1]], 'p23' => ['texto' => $p23[$l]], 'p24' => ['texto' => $vmix[$n]]];
             foreach ($grupos as $id => [$ops, $txt]) {
                 $ps[$id] = ['texto' => $txt[$n] . "\n\n" . $de[$n], 'opciones' => array_column($ops, 0)];
             }
@@ -448,6 +465,67 @@ final class ChatbotsTukan
                 'p1' => ['texto' => "Certo! 🙌 Tra un momento una persona del team ti risponde. Se è fuori orario d'ufficio (Ecuador), ti rispondiamo appena apriamo."]]],
         ];
         $D[] = ['nombre' => 'Hablar con un asesor', 'palabras' => 'asesor, asesora, humano, hablar con alguien, hablar con una persona, hablar con un asesor, llamenme, llamame', 'pasos' => $pasos, 'tr' => $tr];
+
+        // ============================================================ 5. TIENDA GRÁFICOS vMIX (24 nov 2026, pedido de Dimitry)
+        // Lo arranca el botón «¿Dudas? Escríbenos» de tienda.tukansoftware.com («…los gráficos para vMix de la Tienda Tukán…»
+        // y, desde Mis compras, «compré en la Tienda Tukán (pedido N° …)»), o quien escriba vmix, marcador vmix…
+        $u = 'https://tienda.tukansoftware.com';
+        $pasos = [
+            ['id' => 'p1', 'tipo' => 'botones', 'texto' => "¡Hola! 👋 Gracias por escribir a la *Tienda Tukán* (gráficos para vMix). ¿En qué te ayudamos?",
+             'opciones' => [['Qué trae y precio', 'p2'], ['Cómo comprar', 'p3'], ['Ya compré: ayuda', 'p4'], ['Cómo se instala', 'p5'], ['Hablar con asesor', 'p7']]],
+            ['id' => 'p2', 'tipo' => 'fin', 'texto' => $vmix[0], 'etiqueta' => 'tienda vmix', 'etapa' => 'interesado'],
+            ['id' => 'p3', 'tipo' => 'fin', 'etiqueta' => 'tienda vmix', 'etapa' => 'interesado',
+             'texto' => "🛒 Así compras:\n1. Entra a $u y elige el estilo y el deporte.\n2. Crea tu cuenta con tu correo y una contraseña.\n3. Paga con tarjeta (en dólares).\n4. Al instante te llega un correo y bajas todo en *Mis compras*: un solo zip con UTC Edición QF, tu Diseñador, los paneles y el manual.\n\nPor ser un producto digital que se entrega al instante, no hay reembolsos. Si tienes otra duda, escribe *asesor*."],
+            ['id' => 'p4', 'tipo' => 'pregunta', 'guardar' => 'notas', 'siguiente' => 'p6', 'etiqueta' => 'soporte tienda',
+             'texto' => "Con gusto te ayudamos 🙌 Cuéntanos en un solo mensaje tu *número de pedido* (o el correo de tu cuenta) y *qué pasa*. Si puedes, después envía una foto de la pantalla."],
+            ['id' => 'p5', 'tipo' => 'fin', 'etiqueta' => 'tienda vmix',
+             'texto' => "🛠️ La guía paso a paso está aquí:\n$u/instalar\n\nEn resumen: descomprime el zip en una carpeta fija (por ejemplo C:\\UTC QF) y abre primero «LEEME - Empieza aqui.txt». Después abre vMix y luego vMixController.exe. Todo viene explicado en el *Manual de operaciones QF.pdf*.\n\nSi te trabas, escribe *asesor*."],
+            ['id' => 'p6', 'tipo' => 'persona', 'texto' => "¡Gracias! 🙏 Ya lo pasamos al equipo. Te contestamos lo antes posible en horario de oficina (Ecuador)."],
+            ['id' => 'p7', 'tipo' => 'persona', 'etiqueta' => 'pidio asesor', 'texto' => "¡Claro! 🙌 En un momento te atiende una persona del equipo."],
+        ];
+        $tr = [
+            'en' => ['palabras' => 'vmix, vmix graphics, vmix scoreboard, tukan store, graphics store', 'pasos' => [
+                'p1' => ['texto' => "Hi! 👋 Thanks for writing to the *Tukán Store* (vMix graphics). How can we help?",
+                         'opciones' => ["What's in it and price", 'How to buy', 'I bought: need help', 'How to install', 'Talk to an agent']],
+                'p2' => ['texto' => $vmix[1]],
+                'p3' => ['texto' => "🛒 How to buy:\n1. Go to $u and choose the style and the sport.\n2. Create your account with your email and a password.\n3. Pay by card (in US dollars).\n4. You instantly get an email and download everything in *Mis compras* (My purchases): one zip with UTC Edición QF, your Designer, the panels and the manual.\n\nAs a digital product delivered instantly, there are no refunds. Any other question? Type *agent*."],
+                'p4' => ['texto' => "Happy to help 🙌 Tell us in one message your *order number* (or your account email) and *what is happening*. If you can, then send a screenshot."],
+                'p5' => ['texto' => "🛠️ The step-by-step guide is here (in Spanish):\n$u/instalar\n\nIn short: unzip the file into a fixed folder (for example C:\\UTC QF) and open «LEEME - Empieza aqui.txt» first. Then open vMix and after that vMixController.exe. Everything is explained in the *Manual de operaciones QF.pdf*.\n\nIf you get stuck, type *agent*."],
+                'p6' => ['texto' => 'Thank you! 🙏 We have passed it to our team. We will reply as soon as possible during office hours (Ecuador time).'],
+                'p7' => ['texto' => 'Of course! 🙌 Someone from our team will be with you shortly.'],
+            ]],
+            'pt' => ['palabras' => 'vmix, graficos vmix, placar vmix, loja tukan', 'pasos' => [
+                'p1' => ['texto' => "Olá! 👋 Obrigado por escrever para a *Loja Tukán* (gráficos para vMix). Como podemos ajudar?",
+                         'opciones' => ['O que inclui e preço', 'Como comprar', 'Já comprei: ajuda', 'Como instalar', 'Falar com atendente']],
+                'p2' => ['texto' => $vmix[2]],
+                'p3' => ['texto' => "🛒 Como comprar:\n1. Entre em $u e escolha o estilo e o esporte.\n2. Crie sua conta com seu e-mail e uma senha.\n3. Pague com cartão (em dólares).\n4. Na hora chega um e-mail e você baixa tudo em *Mis compras* (Minhas compras): um só zip com o UTC Edición QF, seu Designer, os painéis e o manual.\n\nPor ser um produto digital entregue na hora, não há reembolso. Outra dúvida? Escreva *atendente*."],
+                'p4' => ['texto' => "Com prazer te ajudamos 🙌 Conte em uma só mensagem o *número do pedido* (ou o e-mail da sua conta) e *o que está acontecendo*. Se puder, depois envie uma foto da tela."],
+                'p5' => ['texto' => "🛠️ O guia passo a passo está aqui (em espanhol):\n$u/instalar\n\nResumindo: descompacte o zip numa pasta fixa (por exemplo C:\\UTC QF) e abra primeiro «LEEME - Empieza aqui.txt». Depois abra o vMix e em seguida o vMixController.exe. Tudo está explicado no *Manual de operaciones QF.pdf*.\n\nSe travar, escreva *atendente*."],
+                'p6' => ['texto' => 'Obrigado! 🙏 Já passamos para a equipe. Respondemos o quanto antes em horário comercial (Equador).'],
+                'p7' => ['texto' => 'Claro! 🙌 Em instantes uma pessoa da equipe vai te atender.'],
+            ]],
+            'fr' => ['palabras' => 'vmix, habillage vmix, habillages vmix, tableau de score vmix, boutique tukan', 'pasos' => [
+                'p1' => ['texto' => "Bonjour ! 👋 Merci d'écrire à la *Boutique Tukán* (habillages pour vMix). Comment pouvons-nous vous aider ?",
+                         'opciones' => ['Contenu et prix', 'Comment acheter', "J'ai acheté : aide", 'Comment installer', 'Parler à un conseiller']],
+                'p2' => ['texto' => $vmix[3]],
+                'p3' => ['texto' => "🛒 Comment acheter :\n1. Allez sur $u et choisissez le style et le sport.\n2. Créez votre compte avec votre e-mail et un mot de passe.\n3. Payez par carte (en dollars).\n4. Vous recevez aussitôt un e-mail et vous téléchargez tout dans *Mis compras* (Mes achats) : un seul zip avec UTC Edición QF, votre Designer, les panneaux et le manuel.\n\nProduit numérique livré immédiatement : pas de remboursement. Une autre question ? Écrivez *conseiller*."],
+                'p4' => ['texto' => "Avec plaisir 🙌 Indiquez-nous en un seul message votre *numéro de commande* (ou l'e-mail de votre compte) et *ce qui se passe*. Si possible, envoyez ensuite une capture d'écran."],
+                'p5' => ['texto' => "🛠️ Le guide pas à pas est ici (en espagnol) :\n$u/instalar\n\nEn bref : décompressez le zip dans un dossier fixe (par exemple C:\\UTC QF) et ouvrez d'abord «LEEME - Empieza aqui.txt». Ouvrez ensuite vMix, puis vMixController.exe. Tout est expliqué dans le *Manual de operaciones QF.pdf*.\n\nEn cas de blocage, écrivez *conseiller*."],
+                'p6' => ['texto' => "Merci ! 🙏 Nous l'avons transmis à l'équipe. Nous répondons au plus vite pendant les heures de bureau (heure de l'Équateur)."],
+                'p7' => ['texto' => "Bien sûr ! 🙌 Un membre de l'équipe va vous répondre dans un instant."],
+            ]],
+            'it' => ['palabras' => 'vmix, grafiche vmix, tabellone vmix, negozio tukan', 'pasos' => [
+                'p1' => ['texto' => "Ciao! 👋 Grazie per aver scritto al *Negozio Tukán* (grafiche per vMix). Come possiamo aiutarti?",
+                         'opciones' => ['Contenuto e prezzo', 'Come acquistare', 'Ho acquistato: aiuto', 'Come installare', 'Parla con operatore']],
+                'p2' => ['texto' => $vmix[4]],
+                'p3' => ['texto' => "🛒 Come acquistare:\n1. Vai su $u e scegli lo stile e lo sport.\n2. Crea il tuo account con la tua email e una password.\n3. Paga con carta (in dollari).\n4. Subito ti arriva un'email e scarichi tutto in *Mis compras* (I miei acquisti): un solo zip con UTC Edición QF, il tuo Designer, i pannelli e il manuale.\n\nEssendo un prodotto digitale consegnato subito, non ci sono rimborsi. Altre domande? Scrivi *operatore*."],
+                'p4' => ['texto' => "Ti aiutiamo volentieri 🙌 Scrivici in un solo messaggio il *numero d'ordine* (o l'email del tuo account) e *cosa succede*. Se puoi, poi invia una foto dello schermo."],
+                'p5' => ['texto' => "🛠️ La guida passo passo è qui (in spagnolo):\n$u/instalar\n\nIn breve: estrai lo zip in una cartella fissa (per esempio C:\\UTC QF) e apri prima «LEEME - Empieza aqui.txt». Poi apri vMix e dopo vMixController.exe. È tutto spiegato nel *Manual de operaciones QF.pdf*.\n\nSe ti blocchi, scrivi *operatore*."],
+                'p6' => ['texto' => "Grazie! 🙏 L'abbiamo passato al team. Ti rispondiamo il prima possibile in orario d'ufficio (Ecuador)."],
+                'p7' => ['texto' => 'Certo! 🙌 Tra un momento una persona del team ti risponde.'],
+            ]],
+        ];
+        $D[] = ['nombre' => 'Tienda gráficos vMix', 'palabras' => 'vmix, graficos vmix, graficos para vmix, graficos de vmix, marcador vmix, marcadores vmix, titulos vmix, tienda tukan, tienda de graficos, utc edicion qf, utc qf, disenador qf, compre en la tienda', 'pasos' => $pasos, 'tr' => $tr];
 
         return $D;
     }

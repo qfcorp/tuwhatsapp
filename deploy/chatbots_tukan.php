@@ -2,7 +2,8 @@
 declare(strict_types=1);
 
 /**
- * (23 nov 2026) Pone los 4 chatbots de ventas de Tukan Software (Pedir demo, Precios y planes, Soporte, Hablar con un asesor)
+ * (23 nov 2026) Pone los chatbots de ventas de Tukan Software (Pedir demo, Precios y planes, Soporte, Hablar con un asesor y,
+ * desde el 24 nov, Tienda graficos vMix)
  * en 5 idiomas, encendidos, en el numero de Tukan. Ver src/ChatbotsTukan.php.
  *
  *   En el numero de Tukan (+593 98 366 2181):  sudo php /var/www/tuwhatsapp/deploy/chatbots_tukan.php
