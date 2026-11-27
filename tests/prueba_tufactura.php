@@ -108,6 +108,30 @@ Pedidos::cambiarEstado($db, $linea, $p5, 'pagado');
 igual($tf->deOrigen($lid, 'pedido', (string) $p5), null, 'Apagado: ya no factura solo');
 igual(count($tf->lista($lid)), 3, 'Apagado: las facturas hechas se quedan');
 
+echo "== Venta al exterior: sin IVA (27 nov 2026)\n";
+$tfx = FacturaTukan::enlace($db);
+igual(TukanFactura::esExterior(['pais' => 'Ecuador']), false, 'esExterior: país Ecuador');
+igual(TukanFactura::esExterior(['pais' => 'Paraguay']), true, 'esExterior: país Paraguay');
+igual(TukanFactura::esExterior(['pais' => 'Ecuador', 'direccion' => 'Asunción, Paraguay']), false, 'esExterior: el país Ecuador manda sobre la dirección');
+igual(TukanFactura::esExterior(['ciudad' => 'Asunción', 'direccion' => 'Av. Mariscal López 123, Paraguay']), true, 'esExterior: dirección que nombra Paraguay');
+igual(TukanFactura::esExterior(['direccion' => 'Madrid, España']), true, 'esExterior: España con tilde y ñ');
+igual(TukanFactura::esExterior(['direccion' => 'Av. Amazonas y Colón, Quito']), false, 'esExterior: dirección ecuatoriana sin escribir Ecuador');
+igual(TukanFactura::esExterior(['direccion' => 'Av. Colombia y Peru, Quito, Ecuador']), false, 'esExterior: calle con nombre de país pero dice Ecuador');
+igual(TukanFactura::esExterior(['direccion' => 'Calle Paraguaná, Quito']), false, 'esExterior: palabra parecida no es el país');
+igual(TukanFactura::esExterior([]), false, 'esExterior: cliente vacío: con IVA');
+$conX = ['precios_con_iva' => 1, 'iva' => 15]; $itemsX = [['descripcion' => 'A', 'cantidad' => 1, 'precio' => 115], ['descripcion' => 'B', 'cantidad' => 2, 'precio' => 10, 'iva' => 15]];
+$locX = $tfx->armar($conX, 'venta', '1', ['identificacion' => '1710034065', 'nombre' => 'Ana', 'direccion' => 'Quito'], $itemsX);
+igual([$locX['items'][0]['iva'], $locX['items'][0]['precio'] < 115], [15, true], 'cliente de Ecuador: con IVA y precio sin IVA separado');
+$extX = $tfx->armar($conX, 'venta', '2', ['identificacion' => 'PY1234567', 'nombre' => 'Federación Paraguaya', 'pais' => 'Paraguay', 'ciudad' => 'Asunción'], $itemsX);
+igual([$extX['items'][0]['iva'], $extX['items'][1]['iva'], $extX['items'][0]['precio'], $extX['items'][1]['precio']], [0, 0, 115.0, 10.0], 'exterior: todas las líneas a 0 % y el total es lo que pagó el cliente');
+igual([$extX['cliente']['pais'] ?? '', $extX['cliente']['ciudad'] ?? ''], ['Paraguay', 'Asunción'], 'el país y la ciudad viajan a TuFactura');
+$ext2X = $tfx->armar(['precios_con_iva' => 0, 'iva' => 15], 'venta', '3', ['identificacion' => 'AB123456', 'nombre' => 'Cliente', 'direccion' => 'Madrid, España'], [['descripcion' => 'X', 'precio' => 50, 'iva' => 15]]);
+igual($ext2X['items'][0]['iva'], 0, 'una línea con 15 % sale a 0 % si la dirección es de España');
+
+[$iId, $iCo, $iDir, $iCiu, $iPais] = FacturaTukan::identidad(['cedula' => 'PY123', 'ciudad' => 'Asunción', 'pais' => 'Paraguay', 'direccion' => 'Av. 1']);
+igual([$iCiu, $iPais, $iDir], ['Asunción', 'Paraguay', 'Av. 1'], 'identidad: ciudad y país de los campos del contacto');
+igual(\TukanFactura::esExterior(['pais' => $iPais, 'ciudad' => $iCiu, 'direccion' => $iDir]), true, 'el contacto de Paraguay se factura como exterior');
+
 proc_terminate($proc);
 array_map('unlink', glob("$simDir/*") ?: []);
 @rmdir($simDir);

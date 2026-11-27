@@ -241,8 +241,9 @@ final class TukanFactura
      */
     public function armar(array $con, string $origen, string $origenId, array $cliente, array $items, array $extra = []): array
     {
-        $conIva = (int) $con['precios_con_iva'] === 1;
-        $ivaDef = (int) $con['iva'];
+        $exterior = self::esExterior($cliente);   // venta al exterior: todo a 0 % y el total es lo que pagó el cliente
+        $conIva = !$exterior && (int) $con['precios_con_iva'] === 1;
+        $ivaDef = $exterior ? 0 : (int) $con['iva'];
         $lineas = [];
         foreach ($items as $it) {
             $cant = round((float) ($it['cantidad'] ?? 1), 4);
@@ -250,7 +251,7 @@ final class TukanFactura
             $fijo = isset($it['precio_sin_iva']);
             $precio = (float) ($fijo ? $it['precio_sin_iva'] : ($it['precio'] ?? 0));
             if ($cant <= 0 || $precio < 0) continue;
-            $iva = isset($it['iva']) ? (int) $it['iva'] : $ivaDef;
+            $iva = $exterior ? 0 : (isset($it['iva']) ? (int) $it['iva'] : $ivaDef);
             $lineas[] = array_filter(['codigo' => mb_substr((string) ($it['codigo'] ?? ''), 0, 25), 'descripcion' => mb_substr(trim((string) ($it['descripcion'] ?? 'Servicio')) ?: 'Servicio', 0, 300),
                 'detalle' => mb_substr((string) ($it['detalle'] ?? ''), 0, 120), 'cantidad' => $cant, 'precio' => round($precio, 6), 'iva' => $iva, '_fijo' => $fijo ?: ''], fn($v) => $v !== '');
         }
@@ -266,12 +267,34 @@ final class TukanFactura
         $correo = trim((string) ($cliente['correo'] ?? ''));
         $cli = $valida ? array_filter(['identificacion' => $ident, 'razon_social' => mb_substr($nombre, 0, 300),
             'correos' => filter_var($correo, FILTER_VALIDATE_EMAIL) ? $correo : '', 'telefono' => mb_substr((string) ($cliente['telefono'] ?? ''), 0, 30),
-            'direccion' => mb_substr((string) ($cliente['direccion'] ?? ''), 0, 300)], fn($v) => $v !== '') : ['identificacion' => '9999999999999', 'razon_social' => 'CONSUMIDOR FINAL'];
+            'direccion' => mb_substr((string) ($cliente['direccion'] ?? ''), 0, 300),
+            'ciudad' => mb_substr((string) ($cliente['ciudad'] ?? ''), 0, 80), 'pais' => mb_substr((string) ($cliente['pais'] ?? ''), 0, 60)], fn($v) => $v !== '') : ['identificacion' => '9999999999999', 'razon_social' => 'CONSUMIDOR FINAL'];
         $info = [];
         foreach ((array) ($extra['info'] ?? []) as $k => $v) if ((string) $v !== '' && count($info) < 5) $info[mb_substr((string) $k, 0, 30)] = mb_substr((string) $v, 0, 280);
         $forma = self::FORMAS[(string) ($extra['forma'] ?? 'otro')] ?? '20';
         return ['referencia' => self::referencia($origen, $origenId), 'cliente' => $cli, 'items' => $lineas, 'forma_pago' => $forma,
                 'observacion' => mb_substr((string) ($extra['observacion'] ?? ''), 0, 280), 'info' => $info ?: new stdClass(), 'emitir' => true];
+    }
+
+    /** Países que, escritos en la dirección o la ciudad, indican un cliente del exterior (sin tildes, en minúsculas). */
+    public const PAISES_EXTERIOR = ['afganistan', 'alemania', 'andorra', 'angola', 'arabia saudita', 'argelia', 'argentina', 'armenia', 'aruba', 'australia', 'austria', 'azerbaiyan', 'bahamas', 'banglades', 'barbados', 'belgica', 'belice', 'bolivia', 'bosnia', 'brasil', 'bulgaria', 'canada', 'chile', 'china', 'chipre', 'colombia', 'corea', 'costa rica', 'croacia', 'cuba', 'curazao', 'dinamarca', 'egipto', 'el salvador', 'emiratos arabes', 'escocia', 'eslovaquia', 'eslovenia', 'espana', 'estados unidos', 'estonia', 'filipinas', 'finlandia', 'francia', 'grecia', 'guatemala', 'guyana', 'haiti', 'holanda', 'paises bajos', 'honduras', 'hungria', 'india', 'indonesia', 'inglaterra', 'irlanda', 'islandia', 'israel', 'italia', 'jamaica', 'japon', 'jordania', 'kenia', 'letonia', 'libano', 'lituania', 'luxemburgo', 'marruecos', 'mexico', 'nicaragua', 'nigeria', 'noruega', 'nueva zelanda', 'panama', 'paraguay', 'peru', 'polonia', 'portugal', 'puerto rico', 'reino unido', 'republica checa', 'republica dominicana', 'rumania', 'rusia', 'senegal', 'serbia', 'singapur', 'sudafrica', 'suecia', 'suiza', 'tailandia', 'trinidad', 'turquia', 'ucrania', 'uruguay', 'venezuela', 'vietnam', 'eeuu', 'ee uu', 'usa', 'uk'];
+
+    /**
+     * ¿Es una venta al exterior? (27 nov 2026, pedido de Dimitry: «cuando en el campo dirección, ciudad o país no es Ecuador no se debe cargar IVA en ningún producto»).
+     *  1) Si viene el PAÍS: es del exterior todo lo que no sea Ecuador (EC, ECU, Ecuador).
+     *  2) Si no, la CIUDAD y la DIRECCIÓN: es del exterior si nombran un país extranjero y no nombran Ecuador.
+     *  3) Si no, el tipo de identificación «08» (identificación del exterior), salvo que la dirección diga Ecuador.
+     * Una venta común (sin país, sin país extranjero escrito) sigue con IVA.
+     */
+    public static function esExterior(array $cliente): bool
+    {
+        $n = fn(string $t): string => trim((string) preg_replace('/\s+/', ' ', preg_replace('/[^a-z0-9]+/', ' ', strtr(mb_strtolower($t), ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']))));
+        $pais = $n((string) ($cliente['pais'] ?? ''));
+        if ($pais !== '') return !in_array($pais, ['ec', 'ecu', 'ecuador', 'republica del ecuador'], true);
+        $texto = ' ' . $n(((string) ($cliente['ciudad'] ?? '')) . ' ' . ((string) ($cliente['direccion'] ?? ''))) . ' ';
+        if (str_contains($texto, ' ecuador ')) return false;
+        foreach (self::PAISES_EXTERIOR as $p) if (str_contains($texto, ' ' . $p . ' ')) return true;
+        return (string) ($cliente['tipo_id'] ?? '') === '08';
     }
 
     /**
