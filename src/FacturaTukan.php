@@ -18,6 +18,8 @@ require_once __DIR__ . '/TukanFactura.php';
  *    es el id de la línea (cada número puede ser un local o una empresa distinta).
  *  - Cliente: la cédula o el RUC de sus campos personalizados (cedula, ruc, cedula_o_ruc, identificacion…) y su correo; si no
  *    tiene, consumidor final.
+ *  - Clientes del exterior (país, ciudad o dirección que no es Ecuador): la factura sale sin IVA (regla en TukanFactura::esExterior;
+ *    el país y la ciudad salen de los campos personalizados «pais»/«ciudad» del contacto).
  *  - IVA: si el número suma el IVA (lineas.iva_pct > 0) los precios van sin IVA con esa tarifa; si los precios son finales (0),
  *    van con el IVA incluido (la factura suma exactamente lo cobrado).
  *  - La clave tf_ se guarda cifrada con TUKAN_FACTURA_LLAVE (o, si no está, con la clave de la base de datos).
@@ -46,7 +48,7 @@ final class FacturaTukan
     /** Cédula/RUC y correo de los campos personalizados del contacto. */
     public static function identidad(array $datos): array
     {
-        $id = ''; $correo = ''; $dir = '';
+        $id = ''; $correo = ''; $dir = ''; $ciudad = ''; $pais = '';
         foreach ($datos as $k => $v) {
             if (!is_scalar($v)) continue;
             $k = strtolower((string) $k);
@@ -54,8 +56,10 @@ final class FacturaTukan
             if ($id === '' && preg_match('/c[eé]dula|ruc|identificaci|documento/u', $k)) $id = $v;
             if ($correo === '' && preg_match('/correo|e_?mail/', $k) && filter_var($v, FILTER_VALIDATE_EMAIL)) $correo = $v;
             if ($dir === '' && preg_match('/direcci/u', $k)) $dir = $v;
+            if ($ciudad === '' && preg_match('/ciudad|city/u', $k)) $ciudad = $v;
+            if ($pais === '' && preg_match('/^pa[ií]s$|country/u', $k)) $pais = $v;
         }
-        return [$id, $correo, $dir];
+        return [$id, $correo, $dir, $ciudad, $pais];
     }
 
     /** Lo que se manda a TuFactura de un pedido pagado: [cliente, items, extra], o null. */
@@ -68,9 +72,9 @@ final class FacturaTukan
         $st->execute([(int) $id, $lineaId]);
         $p = $st->fetch();
         if (!$p) return null;
-        [$ident, $correo, $dir] = self::identidad(json_decode((string) ($p['c_datos'] ?? '{}'), true) ?: []);
+        [$ident, $correo, $dir, $ciudad, $pais] = self::identidad(json_decode((string) ($p['c_datos'] ?? '{}'), true) ?: []);
         $nombre = trim((string) ($p['cliente_nombre'] ?: ($p['c_nombre'] ?: $p['c_nwa'])));
-        $cliente = ['identificacion' => $ident, 'nombre' => $nombre, 'correo' => $correo, 'telefono' => (string) ($p['c_tel'] ?? ''), 'direccion' => $dir];
+        $cliente = ['identificacion' => $ident, 'nombre' => $nombre, 'correo' => $correo, 'telefono' => (string) ($p['c_tel'] ?? ''), 'direccion' => $dir, 'ciudad' => $ciudad, 'pais' => $pais];
         $ivaPct = (float) $p['iva_pct'];
         $items = [];
         foreach (Pedidos::items($db, (int) $p['id']) as $i) {

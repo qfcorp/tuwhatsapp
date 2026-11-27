@@ -347,3 +347,5 @@ Meta, Telegram, la IA y el programa que recibe avisos están simulados (`tests/m
 TuFactura (facturación electrónica del SRI): **Próximamente**. El módulo existe en el programa pero está apagado, no tiene precio y no viene en ningún plan ni en la demo. La pantalla **🧾 Factura electrónica** solo dice «Próximamente».
 
 Cuando se active, cada pedido pagado saldrá como factura electrónica autorizada por el SRI y le llegará al cliente por correo. Los detalles técnicos (clave `tf_`, facturar a mano o sola, reintentos) están en `src/TukanFactura.php` y `tests/prueba_tufactura.php`.
+
+Clientes del exterior (país, ciudad o dirección que no es Ecuador): la factura sale sin IVA.
